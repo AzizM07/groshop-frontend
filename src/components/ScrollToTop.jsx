@@ -1,0 +1,15 @@
+// src/components/ScrollToTop.jsx — GROSHOP.tn
+// Remonte la page en haut à chaque changement de route
+
+import { useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
+
+export default function ScrollToTop() {
+  const { pathname } = useLocation()
+
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [pathname])
+
+  return null
+}

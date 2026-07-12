@@ -1,124 +1,69 @@
-// components/supplier/SupplierSidebar.jsx — GROSHOP.tn
+// components/supplier/SupplierSidebar.jsx — GROSHOP.tn (clair, orange unique #FF4500)
 
-import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import * as Icons from 'lucide-react'
+
+import logoGroshop from '../../assets/logo2.png'
 
 // ── Inject styles ──────────────────────────────────────────────────
 if (typeof document !== 'undefined' && !document.getElementById('gs-supplier-sidebar-styles')) {
   const s = document.createElement('style')
   s.id = 'gs-supplier-sidebar-styles'
   s.textContent = `
-    .gs-side {
-      transition: width 0.22s ease;
-    }
-
-    .gs-side-toggle {
-      width: 44px;
-      height: 44px;
-      border-radius: 11px;
-      background: transparent;
-      border: none;
-      color: #FF4500;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0;
-      transition: background 0.15s;
-      flex-shrink: 0;
-    }
-    .gs-side-toggle:hover {
-      background: #FFE5D6;
-    }
-
-    .gs-side-edge {
-      position: absolute;
-      right: -12px;
-      top: 80px;
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      background: #fff;
-      border: 1px solid #E5E7EB;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #FF4500;
-      z-index: 11;
-      padding: 0;
-      transition: background 0.15s, transform 0.15s;
-    }
-    .gs-side-edge:hover {
-      background: #FFE5D6;
-      transform: scale(1.08);
-    }
-
     .gs-side-item {
-      height: 44px;
-      border-radius: 12px;
+      height: 42px;
       display: flex;
       align-items: center;
-      color: #B0B3B8;
+      gap: 13px;
+      padding: 0 4px;
+      color: #9CA3AF;
       text-decoration: none;
-      transition: background 0.15s, color 0.15s, padding 0.22s, justify-content 0.22s;
+      font-size: 14px;
+      font-weight: 500;
       position: relative;
-      cursor: pointer;
-      gap: 12px;
+      transition: color 0.15s;
     }
     .gs-side-item:hover:not(.active) {
-      background: #FFF3EC;
-      color: #6B7280;
+      color: #0F1419;
     }
     .gs-side-item.active {
-      background: linear-gradient(135deg, #FFB088 0%, #FF4500 100%);
-      color: #fff;
-      box-shadow: 0 8px 16px -4px rgba(255, 69, 0, 0.35);
+      color: #ff5e00;
     }
     .gs-side-item.active::before {
       content: '';
       position: absolute;
-      left: -14px;
-      top: 50%;
-      transform: translateY(-50%);
+      left: -20px;
+      top: 7px;
+      bottom: 7px;
       width: 3px;
-      height: 24px;
-      background: linear-gradient(180deg, #FFB088, #FF4500);
-      border-radius: 0 3px 3px 0;
+      background: #ff5e00;
     }
 
-    .gs-side-badge-dot {
-      position: absolute;
-      top: 5px;
-      right: 5px;
-      background: #EF4444;
-      color: #fff;
-      font-size: 9px;
-      min-width: 14px;
-      height: 14px;
-      padding: 0 3px;
-      border-radius: 7px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 600;
-      line-height: 1;
-      border: 2px solid #fff;
-    }
-    .gs-side-badge-pill {
-      background: #EF4444;
-      color: #fff;
-      font-size: 10px;
-      padding: 2px 8px;
-      border-radius: 10px;
-      font-weight: 600;
+    .gs-side-badge {
       margin-left: auto;
+      background: #FFEEE6;
+      color: #ff5e00;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 1px 7px;
+      border-radius: 9px;
     }
-    .gs-side-item.active .gs-side-badge-pill {
-      background: #fff;
-      color: #FF4500;
+
+    .gs-side-upgrade-btn {
+      background: rgba(255, 255, 255, 0.2);
+      color: #fff;
+      border: none;
+      padding: 8px 0;
+      border-radius: 8px;
+      font-size: 11.5px;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+      font-family: inherit;
+      transition: background 0.15s;
+    }
+    .gs-side-upgrade-btn:hover {
+      background: rgba(255, 255, 255, 0.28);
     }
   `
   document.head.appendChild(s)
@@ -134,91 +79,118 @@ const MENU_ITEMS = [
   { icon: 'Star',            label: 'Avis',            to: '/supplier/reviews' },
   { icon: 'Tag',             label: 'Promotions',      to: '/supplier/promotions' },
   { icon: 'Store',           label: 'Ma boutique',     to: '/supplier/shop' },
-  { icon: 'Settings',        label: 'Paramètres',      to: '/supplier/settings' },
 ]
 
-const COLLAPSED_W = 72
-const EXPANDED_W  = 240
+/* ============================================================
+   DIMENSIONS
+   SIDEBAR_W       : largeur totale de la sidebar
+   SIDEBAR_PAD_X   : padding latéral
+   LOGO_W / LOGO_H : boîte du logo, verrouillée.
+
+   Largeur utile = SIDEBAR_W - (2 × SIDEBAR_PAD_X) = 200px ici.
+   LOGO_W ne doit JAMAIS dépasser cette valeur, sinon le logo
+   est rogné par le bord de la sidebar.
+   Pour un logo plus grand : augmente SIDEBAR_W puis LOGO_W.
+   ============================================================ */
+const SIDEBAR_W     = 240
+const SIDEBAR_PAD_X = 20
+const LOGO_W        = 200
+const LOGO_H        = 52
 
 export default function SupplierSidebar() {
-  const [isExpanded, setIsExpanded] = useState(false)
-  const toggle = () => setIsExpanded(prev => !prev)
-
   return (
     <aside
-      className="gs-side"
       style={{
-        width: isExpanded ? EXPANDED_W : COLLAPSED_W,
+        width: SIDEBAR_W,
         height: '100vh',
         background: '#fff',
         borderRight: '1px solid #EFEDE6',
-        padding: '20px 14px 18px',
+        padding: `24px ${SIDEBAR_PAD_X}px 20px`,
         display: 'flex',
         flexDirection: 'column',
-        gap: 5,
         flexShrink: 0,
-        position: 'relative',
         fontFamily: '"DM Sans", -apple-system, sans-serif',
       }}
     >
-      {/* Bouton flèche sur le bord droit (toggle) */}
-      <button
-        onClick={toggle}
-        className="gs-side-edge"
-        title={isExpanded ? 'Réduire' : 'Étendre'}
+      {/* ── Logo (boîte verrouillée) ── */}
+      <div
+        style={{
+          width: LOGO_W,
+          height: LOGO_H,
+          minWidth: LOGO_W,
+          minHeight: LOGO_H,
+          maxWidth: LOGO_W,
+          maxHeight: LOGO_H,
+          flexShrink: 0,
+          overflow: 'hidden',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'flex-start',
+          marginBottom: 26,
+        }}
       >
-        {isExpanded
-          ? <Icons.ChevronLeft size={14} strokeWidth={2.5} />
-          : <Icons.ChevronRight size={14} strokeWidth={2.5} />
-        }
-      </button>
+        <img
+          src={logoGroshop}
+          alt="GROSHOP"
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'contain',
+            objectPosition: 'left center',
+            display: 'block',
+          }}
+        />
+      </div>
 
-      {/* Hamburger en haut (toggle) */}
-      <button
-        onClick={toggle}
-        className="gs-side-toggle"
-        title="Menu"
-      >
-        <Icons.Menu size={22} strokeWidth={2.2} />
-      </button>
-
-      <div style={{ height: 8 }} />
-
-      {/* Menu items */}
-      {MENU_ITEMS.map(item => {
-        const Icon = Icons[item.icon] || Icons.Circle
-        return (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.to === '/supplier'}
-            title={!isExpanded ? item.label : undefined}
-            className={({ isActive }) => `gs-side-item ${isActive ? 'active' : ''}`}
-            style={{
-              justifyContent: isExpanded ? 'flex-start' : 'center',
-              padding: isExpanded ? '0 14px' : 0,
-            }}
-          >
-            <Icon size={20} strokeWidth={1.8} style={{ flexShrink: 0 }} />
-
-            {isExpanded && (
-              <span style={{
-                fontSize: 13.5,
-                fontWeight: 500,
-                whiteSpace: 'nowrap',
-              }}>
+      {/* ── Menu items ── */}
+      <nav style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {MENU_ITEMS.map(item => {
+          const Icon = Icons[item.icon] || Icons.Circle
+          return (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.to === '/supplier'}
+              className={({ isActive }) => `gs-side-item ${isActive ? 'active' : ''}`}
+            >
+              <Icon size={18} strokeWidth={1.8} style={{ flexShrink: 0 }} />
+              <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {item.label}
               </span>
-            )}
+              {item.badge != null && (
+                <span className="gs-side-badge">{item.badge}</span>
+              )}
+            </NavLink>
+          )
+        })}
+      </nav>
 
-            {item.badge != null && (
-              isExpanded
-                ? <span className="gs-side-badge-pill">{item.badge}</span>
-                : <span className="gs-side-badge-dot">{item.badge}</span>
-            )}
-          </NavLink>
-        )
-      })}
+      <div style={{ flex: 1 }} />
+
+      {/* ── Paramètres ── */}
+      <NavLink
+        to="/supplier/settings"
+        className={({ isActive }) => `gs-side-item ${isActive ? 'active' : ''}`}
+        style={{ marginBottom: 14 }}
+      >
+        <Icons.Settings size={18} strokeWidth={1.8} />
+        <span>Paramètres</span>
+      </NavLink>
+
+      {/* ── Carte "Passer à Pro" ── */}
+      <div style={{
+        background: '#ff5e00',
+        borderRadius: 14,
+        padding: '14px',
+      }}>
+        <div style={{ fontSize: 12.5, fontWeight: 600, color: '#fff', marginBottom: 4 }}>
+          Passer à Pro
+        </div>
+        <div style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.85)', lineHeight: 1.4, marginBottom: 11 }}>
+          Débloque des statistiques avancées et des insights IA
+        </div>
+        <button className="gs-side-upgrade-btn">Mettre à niveau</button>
+      </div>
     </aside>
   )
 }

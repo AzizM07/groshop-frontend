@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../lib/supabase'
+import { products } from '../lib/api'
 import { DotLottieReact } from '@lottiefiles/dotlottie-react'
 import * as Icons from 'lucide-react'
 import LOGO_SRC from '../assets/logo2.png'
@@ -470,20 +470,33 @@ function MegaMenu({ onMouseEnter, onMouseLeave }) {
   }
 
   useEffect(() => {
-    if (_cache.categories) return
-    Promise.all([
-      supabase.from('categories').select('*').is('parent_id', null).order('sort_order'),
-      supabase.from('categories').select('*').not('parent_id', 'is', null).order('sort_order'),
-    ]).then(([{ data: cats }, { data: allSubs }]) => {
-      const c = cats || [], s = allSubs || []
-      _cache.categories = c
-      _cache.allSubs = s
-      c.forEach(cat => { _cache.subs[cat.id] = s.filter(sub => sub.parent_id === cat.id) })
-      setCategories(c)
-      setLoading(false)
-      forceUpdate(n => n + 1)
+  if (_cache.categories) return
+  products.categories().then(data => {
+    const cats = data || []
+    // L'API Django renvoie les catégories racines AVEC leurs children imbriqués
+    // On sépare en 2 structures : racines (sans children) + map des sous-cats
+    const c = cats.map(({ children, ...rest }) => rest)
+    const s = []
+
+    cats.forEach(cat => {
+      const subs = (cat.children || []).map(sub => ({
+        ...sub,
+        parent_id: cat.id,   // ← compatibilité avec l'ancien code
+      }))
+      _cache.subs[cat.id] = subs
+      s.push(...subs)
     })
-  }, [])
+
+    _cache.categories = c
+    _cache.allSubs = s
+    setCategories(c)
+    setLoading(false)
+    forceUpdate(n => n + 1)
+  }).catch(err => {
+    console.error('Categories error:', err)
+    setLoading(false)
+  })
+}, [])
 
   const activeCat  = activeId === POUR_VOUS_ID
     ? { id: POUR_VOUS_ID, name: 'Catégories pour vous', emoji: '⭐' }

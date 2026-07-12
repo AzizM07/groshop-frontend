@@ -2,7 +2,7 @@
 // Point central pour tous les appels API Django
 // Auth via cookies httpOnly (access_token / refresh_token) + CSRF
 
-const BASE_URL = 'http://localhost:8000/api'
+const BASE_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api`
 
 // ── Helpers ───────────────────────────────────────────────────────
 

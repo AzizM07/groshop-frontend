@@ -1,5 +1,5 @@
 // pages/SupplierProductsPage.jsx — GROSHOP.tn
-// Layout: header + collapsible stat panel (mini-cards colorées) + products card (tools + table + pagination)
+// Style Donezo/Recent Activity : header géant Fraunces, SectionTitle icon-only, pills outline
 
 import { useState, useMemo } from 'react'
 import * as Icons from 'lucide-react'
@@ -10,12 +10,35 @@ if (typeof document !== 'undefined' && !document.getElementById('gs-products-sty
   s.id = 'gs-products-styles'
   s.textContent = `
     @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,500;0,700;1,400&family=DM+Sans:wght@400;500;600;700&display=swap');
-    .gs-products { font-family: 'DM Sans', -apple-system, sans-serif; color: #0F1419; }
+    .gs-products {
+      font-family: 'DM Sans', -apple-system, sans-serif;
+      color: #0F1419;
+      background: transparent;
+      min-height: 100vh;
+      padding: 24px;
+    }
     .gs-h1 { font-family: 'Fraunces', Georgia, serif; font-weight: 700; letter-spacing: -0.02em; }
     .gs-num { font-family: 'DM Sans', sans-serif; font-weight: 700; letter-spacing: -0.02em; }
-    .gs-card { background: #fff; border-radius: 18px; border: none; box-shadow: 0 1px 3px rgba(15, 20, 25, 0.04); }
+    .gs-card {
+      background: #fff;
+      border-radius: 20px;
+      border: 1px solid #EAE7DF;
+      box-shadow: 0 1px 3px rgba(15, 20, 25, 0.03);
+    }
 
     .gs-input-clean { border: none; outline: none; background: transparent; font-family: inherit; }
+
+    /* Section title avec icon orange (sans bg) */
+    .gs-section-title {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 16px; font-weight: 600; color: #0F1419;
+      letter-spacing: -0.01em;
+    }
+    .gs-section-icon {
+      color: #FF4500;
+      display: inline-flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
 
     /* Icon button (Edit, View, More) */
     .gs-icon-btn {
@@ -23,9 +46,9 @@ if (typeof document !== 'undefined' && !document.getElementById('gs-products-sty
       border-radius: 8px; display: inline-flex; align-items: center;
       justify-content: center; color: #9AA3AE; transition: all 0.15s;
     }
-    .gs-icon-btn:hover { background: #F5F6F8; color: #0F1419; }
+    .gs-icon-btn:hover { background: #FAFAF7; color: #0F1419; }
 
-    /* Table row — hover background + left orange accent */
+    /* Table row hover + accent orange à gauche */
     .gs-row {
       position: relative;
       transition: background 0.18s ease;
@@ -39,48 +62,40 @@ if (typeof document !== 'undefined' && !document.getElementById('gs-products-sty
       transition: background 0.18s ease;
       border-radius: 0 2px 2px 0;
     }
-    .gs-row:hover { background: #FAFBFC; }
+    .gs-row:hover { background: #FAFAF7; }
     .gs-row:hover::before { background: #FF4500; }
 
-    /* Pill button (Trier, Filtres) */
-    .gs-pill-btn {
+    /* Pill outline (Trier, Filtres, Pagination) */
+    .gs-pill-outline {
+      display: inline-flex; align-items: center; gap: 6px;
       background: #fff;
-      border: 1px solid #F1F2F4;
-      border-radius: 10px;
+      border: 1px solid #EAE7DF;
       padding: 8px 14px;
-      font-size: 12.5px;
-      font-weight: 500;
-      color: #0F1419;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
+      border-radius: 999px;
+      font-size: 12.5px; font-weight: 500;
+      color: #0F1419; cursor: pointer;
       font-family: inherit;
       transition: all 0.15s;
     }
-    .gs-pill-btn:hover { border-color: #D9DDE3; background: #FAFAFA; }
+    .gs-pill-outline:hover { border-color: #0F1419; }
+    .gs-pill-outline:disabled { opacity: 0.4; cursor: not-allowed; }
+    .gs-pill-outline:disabled:hover { border-color: #EAE7DF; }
 
-    /* Orange CTA — gradient + lift on hover */
-    .gs-cta-orange {
-      background: linear-gradient(135deg, #FF6B3D 0%, #FF4500 100%);
-      color: #fff;
-      border: none;
-      padding: 10px 18px;
-      border-radius: 12px;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
+    /* Orange primary CTA (matches dashboard style) */
+    .gs-btn-primary {
+      background: #FF4500; color: #fff; border: none;
+      padding: 11px 20px; border-radius: 999px;
+      font-size: 13px; font-weight: 600; cursor: pointer;
       font-family: inherit;
-      box-shadow: 0 6px 14px -4px rgba(255, 69, 0, 0.45);
-      transition: transform 0.18s ease, box-shadow 0.18s ease;
+      display: inline-flex; align-items: center; gap: 7px;
+      transition: background 0.15s, transform 0.1s, box-shadow 0.2s;
+      box-shadow: 0 6px 18px -6px rgba(255, 69, 0, 0.5);
     }
-    .gs-cta-orange:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 10px 20px -4px rgba(255, 69, 0, 0.55);
+    .gs-btn-primary:hover {
+      background: #E03D00;
+      box-shadow: 0 10px 22px -8px rgba(255, 69, 0, 0.6);
     }
+    .gs-btn-primary:active { transform: scale(0.97); }
 
     /* Mini stat card hover lift */
     .gs-mini-stat {
@@ -99,27 +114,27 @@ if (typeof document !== 'undefined' && !document.getElementById('gs-products-sty
 
 // ── Data ───────────────────────────────────────────────────────────
 const PERF_STYLES = {
-  excellent: { label: 'Excellent', color: '#22C55E', fill: 9 },
-  good:      { label: 'Bon',       color: '#22C55E', fill: 6 },
-  bad:       { label: 'Faible',    color: '#F59E0B', fill: 3 },
+  excellent: { label: 'Excellent', color: '#059669', fill: 9 },
+  good:      { label: 'Bon',       color: '#059669', fill: 6 },
+  bad:       { label: 'Faible',    color: '#D97706', fill: 3 },
 }
 
 const STAT_COLORS = {
   orange: '#FF4500',
   pink:   '#EC4899',
-  green:  '#22C55E',
+  green:  '#059669',
   purple: '#8B5CF6',
   red:    '#EF4444',
 }
 
 const PRODUCTS = [
-  { id: 1, name: 'Étagère 4 niveaux',          rating: 4.5, perf: 'excellent', perfNum: 994, perfMax: '12,4k', stock: 92,  price: 'custom',  visible: true,  icon: 'Library',     bg: '#FFE5D6', spark: [3,5,4,6,5,7,8,7,9] },
-  { id: 2, name: 'Porte-encens artisanal',     rating: 4.5, perf: 'good',      perfNum: 123, perfMax: '12,4k', stock: 594, price: 66.00,     visible: true,  icon: 'Flame',       bg: '#FFE0E8', spark: [2,3,4,3,5,4,6,5,7] },
-  { id: 3, name: 'Cendrier minimaliste',       rating: 4.5, perf: 'good',      perfNum: 637, perfMax: '12,4k', stock: 362, price: 81.00,     visible: false, icon: 'CircleDot',   bg: '#F1F2F4', spark: [4,3,5,4,6,5,7,6,8] },
-  { id: 4, name: 'Table basse en bois',        rating: 4.5, perf: 'excellent', perfNum: 148, perfMax: '12,4k', stock: 746, price: 'custom',  visible: false, icon: 'Table2',      bg: '#E8DCC9', spark: [5,4,6,5,7,8,7,9,10] },
-  { id: 5, name: 'Canapé 3 places',            rating: 4.5, perf: 'bad',       perfNum: 817, perfMax: '12,4k', stock: 909, price: 'custom',  visible: true,  icon: 'Sofa',        bg: '#FFE5D6', spark: [3,4,5,4,3,4,5,4,3] },
-  { id: 6, name: 'Photophore design',          rating: 4.5, perf: 'bad',       perfNum: 926, perfMax: '12,4k', stock: 333, price: 50.00,     visible: true,  icon: 'Lightbulb',   bg: '#FFF3CD', spark: [4,5,4,3,4,3,4,3,4] },
-  { id: 7, name: 'Lampe de table',             rating: 4.5, perf: 'good',      perfNum: 71,  perfMax: '12,4k', stock: 530, price: 318.00,    visible: true,  icon: 'Lamp',        bg: '#EDE9FE', spark: [3,4,5,4,6,5,6,7,6] },
+  { id: 1, name: 'Étagère 4 niveaux',          rating: 4.5, perf: 'excellent', perfNum: 994, perfMax: '12,4k', stock: 92,  price: 'custom',  visible: true,  icon: 'Library',     iconBg: '#FFF3EE', iconColor: '#FF4500', spark: [3,5,4,6,5,7,8,7,9] },
+  { id: 2, name: 'Porte-encens artisanal',     rating: 4.5, perf: 'good',      perfNum: 123, perfMax: '12,4k', stock: 594, price: 66.00,     visible: true,  icon: 'Flame',       iconBg: '#FCE7F3', iconColor: '#EC4899', spark: [2,3,4,3,5,4,6,5,7] },
+  { id: 3, name: 'Cendrier minimaliste',       rating: 4.5, perf: 'good',      perfNum: 637, perfMax: '12,4k', stock: 362, price: 81.00,     visible: false, icon: 'CircleDot',   iconBg: '#F5F3EE', iconColor: '#6B7280', spark: [4,3,5,4,6,5,7,6,8] },
+  { id: 4, name: 'Table basse en bois',        rating: 4.5, perf: 'excellent', perfNum: 148, perfMax: '12,4k', stock: 746, price: 'custom',  visible: false, icon: 'Table2',      iconBg: '#FEF3C7', iconColor: '#D97706', spark: [5,4,6,5,7,8,7,9,10] },
+  { id: 5, name: 'Canapé 3 places',            rating: 4.5, perf: 'bad',       perfNum: 817, perfMax: '12,4k', stock: 909, price: 'custom',  visible: true,  icon: 'Sofa',        iconBg: '#FFF3EE', iconColor: '#FF4500', spark: [3,4,5,4,3,4,5,4,3] },
+  { id: 6, name: 'Photophore design',          rating: 4.5, perf: 'bad',       perfNum: 926, perfMax: '12,4k', stock: 333, price: 50.00,     visible: true,  icon: 'Lightbulb',   iconBg: '#FEF9C3', iconColor: '#CA8A04', spark: [4,5,4,3,4,3,4,3,4] },
+  { id: 7, name: 'Lampe de table',             rating: 4.5, perf: 'good',      perfNum: 71,  perfMax: '12,4k', stock: 530, price: 318.00,    visible: true,  icon: 'Lamp',        iconBg: '#EDE9FE', iconColor: '#8B5CF6', spark: [3,4,5,4,6,5,6,7,6] },
 ]
 
 // ═══════════════════════════════════════════════════════════════════
@@ -155,29 +170,54 @@ export default function SupplierProductsPage() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// PAGE HEADER — title + count + CTA
+// SECTION TITLE (helper — icon orange sans fond)
+// ═══════════════════════════════════════════════════════════════════
+function SectionTitle({ icon: Icon, title }) {
+  return (
+    <div className="gs-section-title">
+      <span className="gs-section-icon">
+        <Icon size={20} strokeWidth={2.2} />
+      </span>
+      {title}
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// PAGE HEADER — style dashboard (Fraunces 42px + subtitle + CTA)
 // ═══════════════════════════════════════════════════════════════════
 function PageHeader({ productsCount }) {
   return (
     <div style={{
       display: 'flex',
       justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: 18,
-      gap: 16,
+      alignItems: 'flex-start',
+      marginBottom: 24,
+      gap: 20,
       flexWrap: 'wrap',
     }}>
       <div>
-        <h1 className="gs-h1" style={{ fontSize: 24, margin: 0, color: '#0F1419' }}>
-          Liste des produits
+        <h1 className="gs-h1" style={{
+          fontSize: 42,
+          margin: 0,
+          color: '#0F1419',
+          lineHeight: 1.05,
+          letterSpacing: '-0.03em',
+        }}>
+          Produits
         </h1>
-        <p style={{ fontSize: 12.5, color: '#6B7280', margin: '4px 0 0 0' }}>
-          {productsCount} produits dans ton catalogue
+        <p style={{
+          margin: '6px 0 0',
+          fontSize: 13.5,
+          color: '#6B7280',
+          fontWeight: 400,
+        }}>
+          {productsCount} produits dans votre catalogue · gérez, éditez, publiez.
         </p>
       </div>
 
-      <button className="gs-cta-orange">
-        <Icons.Plus size={15} strokeWidth={2.4} />
+      <button className="gs-btn-primary">
+        <Icons.Plus size={15} strokeWidth={2.5} />
         Nouveau produit
       </button>
     </div>
@@ -185,15 +225,15 @@ function PageHeader({ productsCount }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// STATS PANEL — collapsible avec 5 mini-cartes colorées
+// STATS PANEL — collapsible avec 5 mini-cartes
 // ═══════════════════════════════════════════════════════════════════
 function StatsPanel({ open, setOpen }) {
   const stats = [
-    { label: 'Produits actifs',     value: '352',     sub: 'produits',      color: STAT_COLORS.orange, icon: 'Package' },
-    { label: 'Produit phare',       value: 'Canapé',  sub: '3 places',      color: STAT_COLORS.pink,   icon: 'Sofa' },
-    { label: 'Performance moy.',    value: 'Bon !',   sub: '74 / 100',      color: STAT_COLORS.green,  icon: 'TrendingUp' },
-    { label: 'Produits vendus',     value: '12 340',  sub: 'unités',        color: STAT_COLORS.purple, icon: 'ShoppingCart' },
-    { label: 'Produits retournés',  value: '420',     sub: 'unités',        color: STAT_COLORS.red,    icon: 'CornerUpLeft' },
+    { label: 'Produits actifs',    value: '352',    sub: 'produits',  color: STAT_COLORS.orange, icon: 'Package' },
+    { label: 'Produit phare',      value: 'Canapé', sub: '3 places',  color: STAT_COLORS.pink,   icon: 'Sofa' },
+    { label: 'Performance moy.',   value: 'Bon !',  sub: '74 / 100',  color: STAT_COLORS.green,  icon: 'TrendingUp' },
+    { label: 'Produits vendus',    value: '12 340', sub: 'unités',    color: STAT_COLORS.purple, icon: 'ShoppingCart' },
+    { label: 'Produits retournés', value: '420',    sub: 'unités',    color: STAT_COLORS.red,    icon: 'CornerUpLeft' },
   ]
 
   return (
@@ -205,18 +245,13 @@ function StatsPanel({ open, setOpen }) {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '14px 20px',
+          padding: '16px 22px',
           cursor: 'pointer',
-          borderBottom: open ? '1px solid #F1F2F4' : 'none',
+          borderBottom: open ? '1px solid #F0EDE5' : 'none',
           transition: 'background 0.15s',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Icons.BarChart3 size={15} color="#6B7280" strokeWidth={2} />
-          <span style={{ fontSize: 13.5, fontWeight: 600, color: '#0F1419' }}>
-            Statistiques produits
-          </span>
-        </div>
+        <SectionTitle icon={Icons.BarChart3} title="Statistiques produits" />
         <Icons.ChevronUp
           size={16}
           color="#9AA3AE"
@@ -227,7 +262,7 @@ function StatsPanel({ open, setOpen }) {
         />
       </div>
 
-      {/* Mini-cartes colorées */}
+      {/* Mini-cartes */}
       {open && (
         <div className="gs-collapse" style={{
           display: 'grid',
@@ -247,32 +282,30 @@ function MiniStat({ label, value, sub, color, icon }) {
 
   return (
     <div className="gs-mini-stat" style={{
-      background: `linear-gradient(135deg, #ffffff 0%, ${color}08 100%)`,
-      border: `1px solid ${color}18`,
-      borderRadius: 14,
-      padding: 14,
+      background: '#fff',
+      border: '1px solid #EAE7DF',
+      borderRadius: 16,
+      padding: 16,
       display: 'flex',
       flexDirection: 'column',
-      gap: 12,
+      gap: 14,
       cursor: 'default',
     }}>
-      {/* Icon carré */}
+      {/* Icon dans un cercle coloré léger */}
       <div style={{
-        width: 36, height: 36, borderRadius: 10,
-        background: `linear-gradient(135deg, ${color}26 0%, ${color}12 100%)`,
-        border: `1px solid ${color}24`,
+        width: 38, height: 38, borderRadius: '50%',
+        background: `${color}14`,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        boxShadow: `0 4px 10px -4px ${color}40`,
       }}>
-        <Icon size={16} color={color} strokeWidth={2.2} />
+        <Icon size={17} color={color} strokeWidth={2.2} />
       </div>
 
       {/* Value + sub */}
       <div>
         <div className="gs-num" style={{
-          fontSize: 19,
+          fontSize: 20,
           color: '#0F1419',
           lineHeight: 1,
         }}>
@@ -288,13 +321,13 @@ function MiniStat({ label, value, sub, color, icon }) {
         </div>
       </div>
 
-      {/* Label */}
+      {/* Label uppercase */}
       <div style={{
         fontSize: 10.5,
         color: '#6B7280',
         fontWeight: 600,
         textTransform: 'uppercase',
-        letterSpacing: 0.3,
+        letterSpacing: 0.4,
         marginTop: 'auto',
       }}>
         {label}
@@ -304,10 +337,9 @@ function MiniStat({ label, value, sub, color, icon }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// PRODUCTS CARD — tools + table + pagination dans UNE carte
+// PRODUCTS CARD — tools + table + pagination
 // ═══════════════════════════════════════════════════════════════════
 function ProductsCard({ products, search, setSearch, page, setPage, totalPages }) {
-  // 6 columns clean (sans les borderLeft visuellement bruyants)
   const cols = '2.4fr 1.8fr 0.8fr 1.1fr 0.8fr 0.9fr'
 
   return (
@@ -317,21 +349,25 @@ function ProductsCard({ products, search, setSearch, page, setPage, totalPages }
         display: 'flex',
         alignItems: 'center',
         gap: 10,
-        padding: '14px 20px',
-        borderBottom: '1px solid #F1F2F4',
+        padding: '16px 22px',
+        borderBottom: '1px solid #F0EDE5',
         flexWrap: 'wrap',
       }}>
+        <SectionTitle icon={Icons.Package} title="Catalogue" />
+
+        <div style={{ flex: 1, minWidth: 20 }} />
+
         {/* Search */}
         <div style={{
-          background: '#F5F6F8',
-          borderRadius: 10,
-          padding: '8px 12px',
+          background: '#fff',
+          border: '1px solid #EAE7DF',
+          borderRadius: 999,
+          padding: '8px 14px',
           display: 'flex',
           alignItems: 'center',
           gap: 7,
-          flex: 1,
-          minWidth: 220,
-          maxWidth: 320,
+          width: 260,
+          transition: 'border-color 0.15s',
         }}>
           <Icons.Search size={13} color="#9AA3AE" strokeWidth={2} />
           <input
@@ -344,35 +380,28 @@ function ProductsCard({ products, search, setSearch, page, setPage, totalPages }
           />
         </div>
 
-        <button className="gs-pill-btn">
-          <Icons.ArrowUpDown size={13} strokeWidth={2} />
+        <button className="gs-pill-outline">
+          <Icons.ArrowUpDown size={12} strokeWidth={2.2} />
           Trier
         </button>
 
-        <button className="gs-pill-btn">
-          <Icons.SlidersHorizontal size={13} strokeWidth={2} />
+        <button className="gs-pill-outline">
+          <Icons.SlidersHorizontal size={12} strokeWidth={2.2} />
           Filtres
         </button>
-
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontSize: 11.5, color: '#9AA3AE' }}>
-            {products.length} résultat{products.length > 1 ? 's' : ''}
-          </span>
-        </div>
       </div>
 
-      {/* ── Table header ── */}
+      {/* ── Table header UPPERCASE ── */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: cols,
-        padding: '12px 20px',
-        background: '#FAFAFB',
-        borderBottom: '1px solid #F1F2F4',
+        padding: '14px 22px',
+        borderBottom: '1px solid #F0EDE5',
         fontSize: 10.5,
         color: '#9AA3AE',
         fontWeight: 600,
         textTransform: 'uppercase',
-        letterSpacing: 0.4,
+        letterSpacing: '0.06em',
         gap: 16,
       }}>
         <div>Produit</div>
@@ -413,27 +442,27 @@ function ProductRow({ product, cols, isLast }) {
     <div className="gs-row" style={{
       display: 'grid',
       gridTemplateColumns: cols,
-      padding: '14px 20px',
+      padding: '14px 22px',
       alignItems: 'center',
-      borderBottom: isLast ? 'none' : '1px solid #F5F6F8',
+      borderBottom: isLast ? 'none' : '1px solid #F5F3EE',
       gap: 16,
     }}>
-      {/* Product thumb + name + rating */}
+      {/* Produit : icône ronde colorée + nom + rating */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <div style={{
-          width: 46, height: 46, borderRadius: 11,
-          background: product.bg,
+          width: 40, height: 40, borderRadius: '50%',
+          background: product.iconBg,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           flexShrink: 0,
         }}>
-          <Icon size={22} strokeWidth={1.6} color="#0F1419" style={{ opacity: 0.8 }} />
+          <Icon size={18} strokeWidth={2} color={product.iconColor} />
         </div>
         <div style={{ minWidth: 0 }}>
           <div style={{
             fontSize: 13.5,
             fontWeight: 600,
             color: '#0F1419',
-            marginBottom: 4,
+            marginBottom: 3,
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
@@ -454,17 +483,16 @@ function ProductRow({ product, cols, isLast }) {
         </div>
       </div>
 
-      {/* Performance: chip + sparkline + numbers */}
+      {/* Performance : chip + gauge + sparkline */}
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
           <span style={{
-            background: `${perf.color}18`,
+            background: `${perf.color}14`,
             color: perf.color,
-            padding: '2px 8px',
-            borderRadius: 8,
+            padding: '3px 9px',
+            borderRadius: 999,
             fontSize: 10.5,
             fontWeight: 700,
-            border: `1px solid ${perf.color}33`,
           }}>
             {perf.label}
           </span>
@@ -487,7 +515,7 @@ function ProductRow({ product, cols, isLast }) {
         <div style={{ fontSize: 10, color: '#9AA3AE', marginTop: 2 }}>en stock</div>
       </div>
 
-      {/* Price */}
+      {/* Prix */}
       <div>
         {product.price === 'custom' ? (
           <>
@@ -505,7 +533,7 @@ function ProductRow({ product, cols, isLast }) {
         )}
       </div>
 
-      {/* Visibility toggle */}
+      {/* Visibilité */}
       <div>
         <Toggle initial={product.visible} />
       </div>
@@ -556,7 +584,7 @@ function MiniGauge({ level, size = 56 }) {
           <line
             key={i}
             x1={x1} y1={y1} x2={x2} y2={y2}
-            stroke={isFilled ? color : '#E5E7EB'}
+            stroke={isFilled ? color : '#EAE7DF'}
             strokeWidth={size * 0.06}
             strokeLinecap="round"
           />
@@ -569,7 +597,7 @@ function MiniGauge({ level, size = 56 }) {
 // ═══════════════════════════════════════════════════════════════════
 // SPARKLINE
 // ═══════════════════════════════════════════════════════════════════
-function Sparkline({ values, color = '#22C55E', width = 50, height = 18 }) {
+function Sparkline({ values, color = '#059669', width = 50, height = 18 }) {
   const max = Math.max(...values)
   const min = Math.min(...values)
   const range = max - min || 1
@@ -603,7 +631,7 @@ function Toggle({ initial = false }) {
       onClick={() => setOn(!on)}
       style={{
         width: 36, height: 20,
-        background: on ? '#FF4500' : '#E5E7EB',
+        background: on ? '#FF4500' : '#EAE7DF',
         border: 'none',
         borderRadius: 999,
         position: 'relative',
@@ -629,7 +657,7 @@ function Toggle({ initial = false }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// PAGINATION (inside the card)
+// PAGINATION
 // ═══════════════════════════════════════════════════════════════════
 function Pagination({ page, totalPages, onChange }) {
   return (
@@ -637,19 +665,15 @@ function Pagination({ page, totalPages, onChange }) {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
-      padding: '14px 20px',
-      borderTop: '1px solid #F1F2F4',
+      padding: '16px 22px',
+      borderTop: '1px solid #F0EDE5',
     }}>
       <button
         onClick={() => page > 1 && onChange(page - 1)}
         disabled={page === 1}
-        className="gs-pill-btn"
-        style={{
-          color: page === 1 ? '#C5CBD3' : '#0F1419',
-          cursor: page === 1 ? 'not-allowed' : 'pointer',
-        }}
+        className="gs-pill-outline"
       >
-        <Icons.ArrowLeft size={13} />
+        <Icons.ArrowLeft size={13} strokeWidth={2.2} />
         Précédent
       </button>
 
@@ -661,14 +685,10 @@ function Pagination({ page, totalPages, onChange }) {
       <button
         onClick={() => page < totalPages && onChange(page + 1)}
         disabled={page === totalPages}
-        className="gs-pill-btn"
-        style={{
-          color: page === totalPages ? '#C5CBD3' : '#0F1419',
-          cursor: page === totalPages ? 'not-allowed' : 'pointer',
-        }}
+        className="gs-pill-outline"
       >
         Suivant
-        <Icons.ArrowRight size={13} />
+        <Icons.ArrowRight size={13} strokeWidth={2.2} />
       </button>
     </div>
   )
@@ -684,20 +704,20 @@ function EmptyRow() {
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
-      gap: 12,
+      gap: 14,
       color: '#9AA3AE',
     }}>
       <div style={{
-        width: 64, height: 64, borderRadius: '50%',
-        background: 'linear-gradient(135deg, #FFE5D6, #FFB088)',
+        width: 60, height: 60, borderRadius: '50%',
+        background: '#FFF3EE',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
-        <Icons.PackageSearch size={28} color="#FF4500" strokeWidth={1.8} />
+        <Icons.PackageSearch size={26} color="#FF4500" strokeWidth={1.8} />
       </div>
       <div className="gs-h1" style={{ fontSize: 18, color: '#0F1419' }}>
         Aucun produit trouvé
       </div>
-      <div style={{ fontSize: 13 }}>Essaye une autre recherche.</div>
+      <div style={{ fontSize: 13 }}>Essayez une autre recherche.</div>
     </div>
   )
 }

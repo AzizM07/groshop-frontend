@@ -1,51 +1,166 @@
-// components/supplier/SupplierTopbar.jsx — GROSHOP.tn (allégé)
-// Les actions (Plan Pro, Help, Bell, Avatar) sont passées dans SupplierBrandBar.
-// Cette bar garde juste le titre route-aware au-dessus du contenu.
+// components/supplier/SupplierTopbar.jsx — GROSHOP.tn
+// Header : titre de page à gauche · cloche + profil user + menu à droite.
+// Background TRANSPARENT → hérite du background du layout parent.
 
-import { useLocation } from 'react-router-dom'
+import * as Icons from 'lucide-react'
 
-const ROUTE_INFO = {
-  '/supplier':            { title: 'Vue d\'ensemble' },
-  '/supplier/products':   { title: 'Mes produits' },
-  '/supplier/orders':     { title: 'Commandes' },
-  '/supplier/messages':   { title: 'Messages' },
-  '/supplier/stats':      { title: 'Statistiques' },
-  '/supplier/reviews':    { title: 'Avis clients' },
-  '/supplier/promotions': { title: 'Promotions' },
-  '/supplier/shop':       { title: 'Ma boutique' },
-  '/supplier/settings':   { title: 'Paramètres' },
-}
-
-if (typeof document !== 'undefined' && !document.getElementById('gs-topbar-title-styles')) {
+// ── Inject styles ──────────────────────────────────────────────────
+if (typeof document !== 'undefined' && !document.getElementById('gs-topbar-styles-v4')) {
+  document.querySelectorAll('style[id^="gs-topbar"]').forEach(el => el.remove())
   const s = document.createElement('style')
-  s.id = 'gs-topbar-title-styles'
+  s.id = 'gs-topbar-styles-v4'
   s.textContent = `
-    @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,500;0,700;1,400&display=swap');
-    .gs-topbar-title { font-family: 'Fraunces', Georgia, serif; font-weight: 700; letter-spacing: -0.02em; }
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
+
+    .gs-tb-iconbtn { transition: background 0.15s, transform 0.1s; }
+    .gs-tb-iconbtn:hover { background: #F4F4F2 !important; }
+    .gs-tb-iconbtn:active { transform: scale(0.95); }
+
+    .gs-tb-user { transition: background 0.15s; }
+    .gs-tb-user:hover { background: #F4F4F2 !important; }
   `
   document.head.appendChild(s)
 }
 
-export default function SupplierTopbar() {
-  const location = useLocation()
-  const routeInfo = ROUTE_INFO[location.pathname] || { title: 'GROSHOP' }
-
+// ═══════════════════════════════════════════════════════════════════
+// COMPONENT
+// ═══════════════════════════════════════════════════════════════════
+export default function SupplierTopbar({
+  pageTitle = 'Messages',
+  userName = 'Aziz Mehri',
+  userHandle = '@aziz.groshop',
+  // 🔗 Lien de l'image de profil — remplace par l'URL réelle de l'utilisateur.
+  avatarUrl = 'https://i.pravatar.cc/100?img=12',
+  notifCount = 3,
+  onNotifClick = () => {},
+  onUserClick = () => {},
+  onMenuClick = () => {},
+}) {
   return (
     <header style={{
-      padding: '20px 28px 16px',
+      background: 'transparent', // ⭐ hérite du bg du layout parent
+      padding: '18px 28px',
       display: 'flex',
       alignItems: 'center',
-      background: 'transparent',
+      justifyContent: 'space-between',
+      gap: 24,
       flexShrink: 0,
       fontFamily: '"DM Sans", -apple-system, sans-serif',
     }}>
-      <h1 className="gs-topbar-title" style={{
-        fontSize: 24,
-        color: '#0F1419',
+
+      {/* ═══════════ LEFT : Titre de page ═══════════ */}
+      <h1 style={{
         margin: 0,
+        fontSize: 22,
+        fontWeight: 700,
+        color: '#0F1419',
+        letterSpacing: '-0.01em',
+        whiteSpace: 'nowrap',
       }}>
-        {routeInfo.title}
+        {pageTitle}
       </h1>
+
+      {/* ═══════════ RIGHT : Cloche + Profil + Menu ═══════════ */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        flexShrink: 0,
+      }}>
+        {/* Cloche + pastille */}
+        <button
+          onClick={onNotifClick}
+          className="gs-tb-iconbtn"
+          title="Notifications"
+          style={{
+            background: 'transparent',
+            border: 'none',
+            borderRadius: '50%',
+            width: 40,
+            height: 40,
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            position: 'relative',
+            padding: 0,
+          }}
+        >
+          <Icons.Bell size={19} color="#0F1419" strokeWidth={1.8} />
+          {notifCount > 0 && (
+            <span style={{
+              position: 'absolute',
+              top: 9, right: 10,
+              width: 8, height: 8,
+              borderRadius: '50%',
+              background: '#FF4500',
+              boxShadow: '0 0 0 2px #fff',
+              pointerEvents: 'none',
+            }} />
+          )}
+        </button>
+
+        {/* Profil user : avatar photo + nom + handle */}
+        <button
+          onClick={onUserClick}
+          className="gs-tb-user"
+          title={userName}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            background: 'transparent',
+            border: 'none',
+            padding: '4px 6px',
+            borderRadius: 12,
+            cursor: 'pointer',
+            fontFamily: 'inherit',
+          }}
+        >
+          <img
+            src={avatarUrl}
+            alt={userName}
+            style={{
+              width: 40, height: 40,
+              borderRadius: '50%',
+              objectFit: 'cover',
+              flexShrink: 0,
+              display: 'block',
+              background: '#EAE7DF',
+            }}
+          />
+          <div style={{ textAlign: 'left', lineHeight: 1.2 }}>
+            <div style={{ fontSize: 13.5, fontWeight: 700, color: '#0F1419', whiteSpace: 'nowrap' }}>
+              {userName}
+            </div>
+            <div style={{ fontSize: 11.5, color: '#9AA3AE', fontWeight: 500, whiteSpace: 'nowrap', marginTop: 1 }}>
+              {userHandle}
+            </div>
+          </div>
+        </button>
+
+        {/* Menu 3 points */}
+        <button
+          onClick={onMenuClick}
+          className="gs-tb-iconbtn"
+          title="Options"
+          style={{
+            background: 'transparent',
+            border: 'none',
+            borderRadius: '50%',
+            width: 36,
+            height: 36,
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 0,
+            color: '#6B7280',
+          }}
+        >
+          <Icons.MoreVertical size={18} strokeWidth={1.8} />
+        </button>
+      </div>
     </header>
   )
 }

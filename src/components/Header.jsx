@@ -25,15 +25,29 @@ if (typeof document !== 'undefined' && !document.getElementById('header-anim')) 
     @keyframes dropdownIn { from { opacity: 0; transform: translateY(-10px) } to { opacity: 1; transform: translateY(0) } }
     .gh-dd { animation: dropdownIn 0.2s cubic-bezier(0.16, 1, 0.3, 1); transform-origin: top center; }
 
+    /* ── Anti-scroll horizontal (clip, pas hidden : ne casse pas le fixed/sticky) ── */
+    html, body { overflow-x: clip; max-width: 100%; }
+
+    /* ── Spacer : compense la hauteur du header fixed (ligne1 + ligne2) ── */
+    .gh-spacer { height: clamp(106px, 11vw, 126px); flex-shrink: 0; }
+
     /* Responsive header */
     @media (max-width: 1100px) { .gh-delivery { display: none !important; } }
     @media (max-width: 920px)  { .gh-lang-text, .gh-account-text { display: none !important; } }
     @media (max-width: 720px)  {
       .gh-cta    { padding: 9px 14px !important; font-size: 13px !important; }
-      .gh-search { flex-basis: clamp(130px, 32vw, 560px) !important; padding-left: 14px !important; }
+      .gh-search { flex-basis: clamp(120px, 40vw, 560px) !important; padding-left: 12px !important; }
       .gh-searchbtn-text { display: none !important; }
+      .gh-searchcam      { display: none !important; }
     }
-    @media (max-width: 560px)  { .gh-line2 { display: none !important; } }
+    @media (max-width: 600px)  {
+      .gh-lang { display: none !important; }
+      .gh-logo { max-width: clamp(110px, 34vw, 150px) !important; }
+    }
+    @media (max-width: 560px)  {
+      .gh-line2   { display: none !important; }
+      .gh-spacer  { height: clamp(68px, 7vw, 88px); }
+    }
   `
   document.head.appendChild(s)
 }
@@ -67,169 +81,176 @@ export default function Header() {
   }
 
   return (
-    <header style={{
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif',
-      background: '#fff', position: 'sticky', top: 0, zIndex: 1000,
-      boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
-    }}>
-
-      {/* ══ LIGNE 1 ══ */}
-      <div style={{
-        display: 'flex', alignItems: 'center',
-        padding: '0 clamp(16px, 3.5vw, 40px)',
-        height: 'clamp(68px, 7vw, 88px)',
+    <>
+      <header style={{
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif',
         background: '#fff',
-        gap: 'clamp(6px, 1vw, 16px)',
-        minWidth: 0, overflow: 'visible',
+        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 1000,
+        boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+        maxWidth: '100%', boxSizing: 'border-box',
       }}>
-        <Link to="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none', flexShrink: 0 }}>
-          <img src={LOGO_SRC} alt="GROSHOP.tn"
-            style={{
-              height: 'auto', width: 'auto',
-              maxHeight: 'clamp(48px, 5.5vw, 72px)',
-              maxWidth: 'clamp(140px, 18vw, 200px)',
-              display: 'block', objectFit: 'contain',
-            }}
-            onError={e => { e.currentTarget.style.display = 'none' }} />
-        </Link>
 
-        <div style={{ flex: 1 }} />
-
-        {showSearch && (
-          <form className="gh-search"
-            onSubmit={e => { e.preventDefault(); goToSearch(searchQuery) }}
-            style={{
-              display: 'flex', alignItems: 'center',
-              border: '2px solid #FF4500',
-              borderRadius: showDropdown ? '24px 24px 0 0' : '50px',
-              height: 'clamp(42px, 4.5vw, 50px)',
-              flex: '0 0 clamp(260px, 42vw, 760px)',
-              marginRight: 'clamp(8px, 1.5vw, 20px)',
-              paddingLeft: '20px', paddingRight: '4px',
-              background: '#fff', animation: 'fadeIn 0.2s ease', minWidth: 0,
-              position: 'relative',
-            }}>
-
-            <input type="text" value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              onFocus={() => { if (suggestions.length > 0) setShowDropdown(true) }}
-              onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
-              onKeyDown={e => handleKeyDown(e, goToSearch)}
-              placeholder="Rechercher..."
-              style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', fontSize: '14px', color: '#0F1419', background: 'transparent' }} />
-
-            <button type="button" title="Recherche par image"
-              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 12px', display: 'flex', alignItems: 'center', color: '#6B7785', flexShrink: 0 }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/>
-                <circle cx="12" cy="13" r="3"/>
-              </svg>
-            </button>
-
-            <div style={{ width: '1px', height: '22px', background: '#E8EAED', marginRight: '4px', flexShrink: 0 }} />
-
-            <button type="submit"
+        {/* ══ LIGNE 1 ══ */}
+        <div style={{
+          display: 'flex', alignItems: 'center',
+          padding: '0 clamp(16px, 3.5vw, 40px)',
+          height: 'clamp(68px, 7vw, 88px)',
+          background: '#fff',
+          gap: 'clamp(6px, 1vw, 16px)',
+          minWidth: 0, maxWidth: '100%', overflow: 'visible', boxSizing: 'border-box',
+        }}>
+          <Link to="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none', flexShrink: 0 }}>
+            <img src={LOGO_SRC} alt="GROSHOP.tn" className="gh-logo"
               style={{
-                background: 'linear-gradient(135deg, #FF8A3D, #FF4500)',
-                border: 'none', borderRadius: '50px',
-                padding: '0 clamp(14px, 1.6vw, 24px)', height: 'clamp(34px, 3.6vw, 40px)',
-                display: 'flex', alignItems: 'center', gap: '6px',
-                color: '#fff', fontSize: '14px', fontWeight: 700, cursor: 'pointer',
-                transition: 'filter 0.15s', flexShrink: 0, whiteSpace: 'nowrap',
+                height: 'auto', width: 'auto',
+                maxHeight: 'clamp(48px, 5.5vw, 72px)',
+                maxWidth: 'clamp(140px, 18vw, 200px)',
+                display: 'block', objectFit: 'contain',
               }}
-              onMouseEnter={e => { e.currentTarget.style.filter = 'brightness(0.95)' }}
-              onMouseLeave={e => { e.currentTarget.style.filter = 'none' }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-              </svg>
-              <span className="gh-searchbtn-text">Rechercher</span>
-            </button>
+              onError={e => { e.currentTarget.style.display = 'none' }} />
+          </Link>
 
-            {showDropdown && suggestions.length > 0 && (
-              <SuggestionsDropdown
-                suggestions={suggestions}
-                activeIndex={activeIndex}
-                setActiveIndex={setActiveIndex}
-                onSelect={goToSearch}
-              />
-            )}
-          </form>
-        )}
+          <div style={{ flex: 1, minWidth: 0 }} />
 
-        <div className="gh-delivery" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', marginRight: '6px', cursor: 'pointer', lineHeight: 1.05, flexShrink: 0 }}>
-          <span style={{ fontSize: 'clamp(11px, 0.95vw, 13.5px)', color: '#6B7785', marginBottom: '3px' }}>Adresse de livraison :</span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: 'clamp(14px, 1.25vw, 17px)', fontWeight: 700, color: '#0F1419' }}>
-            <span style={{ fontSize: 'clamp(16px, 1.4vw, 20px)' }}>🇹🇳</span>TN
-          </span>
+          {showSearch && (
+            <form className="gh-search"
+              onSubmit={e => { e.preventDefault(); goToSearch(searchQuery) }}
+              style={{
+                display: 'flex', alignItems: 'center',
+                border: '2px solid #FF4500',
+                borderRadius: showDropdown ? '24px 24px 0 0' : '50px',
+                height: 'clamp(42px, 4.5vw, 50px)',
+                flex: '0 1 clamp(200px, 42vw, 760px)',
+                marginRight: 'clamp(8px, 1.5vw, 20px)',
+                paddingLeft: '20px', paddingRight: '4px',
+                background: '#fff', animation: 'fadeIn 0.2s ease', minWidth: 0,
+                position: 'relative', boxSizing: 'border-box',
+              }}>
+
+              <input type="text" value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                onFocus={() => { if (suggestions.length > 0) setShowDropdown(true) }}
+                onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
+                onKeyDown={e => handleKeyDown(e, goToSearch)}
+                placeholder="Rechercher..."
+                style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', fontSize: '14px', color: '#0F1419', background: 'transparent' }} />
+
+              <button type="button" title="Recherche par image" className="gh-searchcam"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 12px', display: 'flex', alignItems: 'center', color: '#6B7785', flexShrink: 0 }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/>
+                  <circle cx="12" cy="13" r="3"/>
+                </svg>
+              </button>
+
+              <div style={{ width: '1px', height: '22px', background: '#E8EAED', marginRight: '4px', flexShrink: 0 }} />
+
+              <button type="submit"
+                style={{
+                  background: 'linear-gradient(135deg, #FF8A3D, #FF4500)',
+                  border: 'none', borderRadius: '50px',
+                  padding: '0 clamp(14px, 1.6vw, 24px)', height: 'clamp(34px, 3.6vw, 40px)',
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  color: '#fff', fontSize: '14px', fontWeight: 700, cursor: 'pointer',
+                  transition: 'filter 0.15s', flexShrink: 0, whiteSpace: 'nowrap',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.filter = 'brightness(0.95)' }}
+                onMouseLeave={e => { e.currentTarget.style.filter = 'none' }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+                <span className="gh-searchbtn-text">Rechercher</span>
+              </button>
+
+              {showDropdown && suggestions.length > 0 && (
+                <SuggestionsDropdown
+                  suggestions={suggestions}
+                  activeIndex={activeIndex}
+                  setActiveIndex={setActiveIndex}
+                  onSelect={goToSearch}
+                />
+              )}
+            </form>
+          )}
+
+          <div className="gh-delivery" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', marginRight: '6px', cursor: 'pointer', lineHeight: 1.05, flexShrink: 0 }}>
+            <span style={{ fontSize: 'clamp(11px, 0.95vw, 13.5px)', color: '#6B7785', marginBottom: '3px' }}>Adresse de livraison :</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: 'clamp(14px, 1.25vw, 17px)', fontWeight: 700, color: '#0F1419' }}>
+              <span style={{ fontSize: 'clamp(16px, 1.4vw, 20px)' }}>🇹🇳</span>TN
+            </span>
+          </div>
+
+          <Divider />
+
+          <button className="gh-lang" style={{ display: 'flex', alignItems: 'center', gap: '7px', background: 'none', border: 'none', cursor: 'pointer', padding: '0 14px', fontSize: 'clamp(13.5px, 1.15vw, 16.5px)', color: '#0F1419', flexShrink: 0 }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="#3D4853" strokeWidth="1.8" style={{ width: 'clamp(17px, 1.5vw, 21px)', height: 'clamp(17px, 1.5vw, 21px)', flexShrink: 0 }}><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"/></svg>
+            <span className="gh-lang-text">Français-TND</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="#6B7785" strokeWidth="2.5" style={{ width: 'clamp(11px, 1vw, 14px)', height: 'clamp(11px, 1vw, 14px)', flexShrink: 0 }}><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+
+          {user ? (
+            /* ══ CONNECTÉ : rangée d'icônes ══ */
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(12px, 1.7vw, 24px)', marginLeft: 'clamp(12px, 1.8vw, 26px)', flexShrink: 0 }}>
+              <HeaderIcon to="/messages" title="Messages">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+                </svg>
+              </HeaderIcon>
+              <HeaderIcon to="/dashboard/commandes" title="Mes commandes">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+                  <rect x="8" y="2" width="8" height="4" rx="1"/>
+                  <line x1="8" y1="11" x2="16" y2="11"/><line x1="8" y1="15" x2="13" y2="15"/>
+                </svg>
+              </HeaderIcon>
+              <HeaderIcon to="/panier" title="Panier">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
+                  <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+                </svg>
+              </HeaderIcon>
+              <AccountMenu signOut={signOut} />
+            </div>
+          ) : (
+            /* ══ DÉCONNECTÉ ══ */
+            <>
+              <Divider />
+
+              <button style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', cursor: 'pointer', color: '#0F1419', padding: '0 14px', flexShrink: 0 }}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/>
+                </svg>
+              </button>
+
+              <Divider />
+
+              <Link to="/login" style={{ ...topLinkStyle, padding: '0 14px', flexShrink: 0 }}>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" style={{ marginRight: '5px' }}><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                <span className="gh-account-text">Se connecter</span>
+              </Link>
+
+              <Link to="/signup/buyer" className="gh-cta"
+                style={{ background: '#FF4500', color: '#fff', textDecoration: 'none', fontSize: '14px', fontWeight: 700, padding: '10px 24px', borderRadius: '6px', marginLeft: '10px', whiteSpace: 'nowrap', flexShrink: 0 }}
+                onMouseEnter={e => { e.currentTarget.style.background = '#D63A00' }}
+                onMouseLeave={e => { e.currentTarget.style.background = '#FF4500' }}>
+                Créer un compte
+              </Link>
+            </>
+          )}
         </div>
 
-        <Divider />
+        {/* ══ LIGNE 2 ══ */}
+        <nav className="gh-line2" style={{ display: 'flex', alignItems: 'center', padding: '0 clamp(16px, 3.5vw, 40px)', height: '38px', background: '#fff', position: 'relative', overflow: 'visible', maxWidth: '100%', boxSizing: 'border-box' }}>
+          <CategoriesButton />
+          <div style={{ flex: 1, minWidth: 0 }} />
+          <AppNavLink />
+          <VendreNavLink />
+        </nav>
+      </header>
 
-        <button style={{ display: 'flex', alignItems: 'center', gap: '7px', background: 'none', border: 'none', cursor: 'pointer', padding: '0 14px', fontSize: 'clamp(13.5px, 1.15vw, 16.5px)', color: '#0F1419', flexShrink: 0 }}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="#3D4853" strokeWidth="1.8" style={{ width: 'clamp(17px, 1.5vw, 21px)', height: 'clamp(17px, 1.5vw, 21px)', flexShrink: 0 }}><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"/></svg>
-          <span className="gh-lang-text">Français-TND</span>
-          <svg viewBox="0 0 24 24" fill="none" stroke="#6B7785" strokeWidth="2.5" style={{ width: 'clamp(11px, 1vw, 14px)', height: 'clamp(11px, 1vw, 14px)', flexShrink: 0 }}><polyline points="6 9 12 15 18 9"/></svg>
-        </button>
-
-        {user ? (
-          /* ══ CONNECTÉ : rangée d'icônes ══ */
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(12px, 1.7vw, 24px)', marginLeft: 'clamp(12px, 1.8vw, 26px)', flexShrink: 0 }}>
-            <HeaderIcon to="/messages" title="Messages">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
-              </svg>
-            </HeaderIcon>
-            <HeaderIcon to="/dashboard/commandes" title="Mes commandes">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
-                <rect x="8" y="2" width="8" height="4" rx="1"/>
-                <line x1="8" y1="11" x2="16" y2="11"/><line x1="8" y1="15" x2="13" y2="15"/>
-              </svg>
-            </HeaderIcon>
-            <HeaderIcon to="/panier" title="Panier">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
-                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
-              </svg>
-            </HeaderIcon>
-            <AccountMenu signOut={signOut} />
-          </div>
-        ) : (
-          /* ══ DÉCONNECTÉ ══ */
-          <>
-            <Divider />
-
-            <button style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', cursor: 'pointer', color: '#0F1419', padding: '0 14px', flexShrink: 0 }}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/>
-              </svg>
-            </button>
-
-            <Divider />
-
-            <Link to="/login" style={{ ...topLinkStyle, padding: '0 14px', flexShrink: 0 }}>
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" style={{ marginRight: '5px' }}><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-              <span className="gh-account-text">Se connecter</span>
-            </Link>
-
-            <Link to="/signup/buyer" className="gh-cta"
-              style={{ background: '#FF4500', color: '#fff', textDecoration: 'none', fontSize: '14px', fontWeight: 700, padding: '10px 24px', borderRadius: '6px', marginLeft: '10px', whiteSpace: 'nowrap', flexShrink: 0 }}
-              onMouseEnter={e => { e.currentTarget.style.background = '#D63A00' }}
-              onMouseLeave={e => { e.currentTarget.style.background = '#FF4500' }}>
-              Créer un compte
-            </Link>
-          </>
-        )}
-      </div>
-
-      {/* ══ LIGNE 2 ══ */}
-      <nav className="gh-line2" style={{ display: 'flex', alignItems: 'center', padding: '0 clamp(16px, 3.5vw, 40px)', height: '38px', background: '#fff', position: 'relative', overflow: 'visible' }}>
-        <CategoriesButton />
-        <div style={{ flex: 1 }} />
-        <AppNavLink />
-        <VendreNavLink />
-      </nav>
-    </header>
+      {/* ══ SPACER : réserve la place du header fixed ══ */}
+      <div className="gh-spacer" aria-hidden="true" />
+    </>
   )
 }
 
@@ -516,9 +537,9 @@ function MegaMenu({ onMouseEnter, onMouseLeave }) {
         position: 'fixed',
         top: 'clamp(106px, 11vw, 126px)',
         left: 0,
-        width: '100vw',
+        right: 0,
+        /* Le fond prend toute la largeur (pas de scroll horizontal via 100vw) */
         height: '540px',
-        /* Le fond prend toute la largeur (pas de bandes blanches à gauche/droite) */
         background: '#fff',
         borderTop: '1px solid #E8EAED',
         boxShadow: '0 8px 32px rgba(0,0,0,0.10)',
@@ -716,7 +737,7 @@ function ProtectionMenu({ onMouseEnter, onMouseLeave }) {
   ]
   return (
     <div onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}
-      style={{ position: 'fixed', top: 'clamp(106px, 11vw, 126px)', left: 0, width: '100vw', background: '#fff', borderTop: '1px solid #E8EAED', boxShadow: '0 8px 32px rgba(0,0,0,0.10)', zIndex: 2000, padding: '40px 0' }}>
+      style={{ position: 'fixed', top: 'clamp(106px, 11vw, 126px)', left: 0, right: 0, background: '#fff', borderTop: '1px solid #E8EAED', boxShadow: '0 8px 32px rgba(0,0,0,0.10)', zIndex: 2000, padding: '40px 0' }}>
       <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 40px', display: 'flex', gap: '80px', alignItems: 'center' }}>
         <div style={{ flexShrink: 0, width: '300px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '18px' }}>
@@ -782,7 +803,7 @@ function CentreAcheteursNavLink() {
       <a href="/acheteurs" style={{ display: 'inline-flex', alignItems: 'center', padding: '0 12px', height: '38px', textDecoration: 'none', whiteSpace: 'nowrap', fontSize: '13px', fontWeight: open ? 600 : 400, color: open ? '#FF4500' : '#3D4853', borderBottom: open ? '2px solid #FF4500' : '2px solid transparent', transition: 'color 0.15s, border-color 0.15s' }}>Centre des acheteurs</a>
       {open && (
         <div onMouseEnter={handleEnter} onMouseLeave={handleLeave}
-          style={{ position: 'fixed', top: 'clamp(106px, 11vw, 126px)', left: 0, width: '100vw', background: '#fff', borderTop: '1px solid #E8EAED', boxShadow: '0 8px 32px rgba(0,0,0,0.10)', zIndex: 2000, padding: '36px 0' }}>
+          style={{ position: 'fixed', top: 'clamp(106px, 11vw, 126px)', left: 0, right: 0, background: '#fff', borderTop: '1px solid #E8EAED', boxShadow: '0 8px 32px rgba(0,0,0,0.10)', zIndex: 2000, padding: '36px 0' }}>
           <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 40px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1px 1fr', gap: '0 40px' }}>
             <div>
               <div style={{ fontSize: '13px', fontWeight: 700, color: '#0F1419', marginBottom: '14px' }}>Pourquoi GROSHOP ?</div>
@@ -825,7 +846,7 @@ function AppNavLink() {
       <a href="/app" style={{ display: 'inline-flex', alignItems: 'center', padding: '0 12px', height: '38px', textDecoration: 'none', whiteSpace: 'nowrap', fontSize: 'clamp(14px, 1.1vw, 16px)', fontWeight: open ? 600 : 400, color: open ? '#FF4500' : '#3D4853', borderBottom: open ? '2px solid #FF4500' : '2px solid transparent', transition: 'color 0.15s, border-color 0.15s' }}>Application et extension</a>
       {open && (
         <div onMouseEnter={handleEnter} onMouseLeave={handleLeave} className="gh-dd"
-          style={{ position: 'fixed', top: 'clamp(106px, 11vw, 126px)', left: 0, width: '100vw', background: '#fff', borderTop: '1px solid #E8EAED', boxShadow: '0 8px 32px rgba(0,0,0,0.10)', zIndex: 2000, padding: '40px 0' }}>
+          style={{ position: 'fixed', top: 'clamp(106px, 11vw, 126px)', left: 0, right: 0, background: '#fff', borderTop: '1px solid #E8EAED', boxShadow: '0 8px 32px rgba(0,0,0,0.10)', zIndex: 2000, padding: '40px 0' }}>
           <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 40px', display: 'grid', gridTemplateColumns: '1fr 1px 1fr', gap: '0 60px', alignItems: 'start' }}>
             <div>
               <div style={{ fontSize: '16px', fontWeight: 800, color: '#0F1419', marginBottom: '10px' }}>Téléchargez l'application GROSHOP</div>
@@ -867,7 +888,7 @@ function VendreNavLink() {
       <a href="/vendre" style={{ display: 'inline-flex', alignItems: 'center', padding: '0 12px', height: '38px', textDecoration: 'none', whiteSpace: 'nowrap', fontSize: 'clamp(14px, 1.1vw, 16px)', fontWeight: open ? 600 : 400, color: open ? '#FF4500' : '#3D4853', borderBottom: open ? '2px solid #FF4500' : '2px solid transparent', transition: 'color 0.15s, border-color 0.15s' }}>Vendre sur GROSHOP</a>
       {open && (
         <div onMouseEnter={handleEnter} onMouseLeave={handleLeave} className="gh-dd"
-          style={{ position: 'fixed', top: 'clamp(106px, 11vw, 126px)', left: 0, width: '100vw', background: '#fff', borderTop: '1px solid #E8EAED', boxShadow: '0 8px 32px rgba(0,0,0,0.10)', zIndex: 2000, padding: '40px 0' }}>
+          style={{ position: 'fixed', top: 'clamp(106px, 11vw, 126px)', left: 0, right: 0, background: '#fff', borderTop: '1px solid #E8EAED', boxShadow: '0 8px 32px rgba(0,0,0,0.10)', zIndex: 2000, padding: '40px 0' }}>
           <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 40px' }}>
             <div style={{ fontSize: '13px', color: '#9AA3AE', marginBottom: '20px', fontWeight: 500 }}>Choisissez votre profil fournisseur</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>

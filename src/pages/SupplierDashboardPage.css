@@ -1,0 +1,104 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,500;0,700;0,900;1,400&family=DM+Sans:wght@400;500;600;700;800&display=swap');
+
+.gs-dash {
+  font-family: 'DM Sans', -apple-system, sans-serif;
+  color: #0F1419;
+  background: transparent;
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.gs-h1 { font-family: 'Fraunces', Georgia, serif; font-weight: 700; letter-spacing: -0.02em; }
+.gs-num { font-family: 'DM Sans', sans-serif; font-weight: 700; letter-spacing: -0.02em; }
+
+/* Card générique */
+.gs-card {
+  background: #fff;
+  border-radius: 20px;
+  padding: 24px 26px;
+  border: 1px solid #EAE7DF;
+  box-shadow: 0 1px 3px rgba(15, 20, 25, 0.03);
+}
+
+/* KPI Card style Donezo */
+.gs-kpi-card {
+  border-radius: 20px;
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 160px;
+  position: relative;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  cursor: pointer;
+}
+.gs-kpi-card:hover { transform: translateY(-3px); }
+.gs-kpi-arrow-btn { transition: transform 0.25s ease; }
+.gs-kpi-card:hover .gs-kpi-arrow-btn { transform: rotate(-45deg); }
+.gs-kpi-card--filled {
+  background: #ff5e00;
+  color: #fff;
+  box-shadow: 0 12px 28px -12px rgba(255, 69, 0, 0.5);
+}
+.gs-kpi-card--filled:hover { box-shadow: 0 20px 36px -12px rgba(255, 69, 0, 0.6); }
+.gs-kpi-card--white {
+  background: #fff;
+  border: 1px solid #EAE7DF;
+  color: #0F1419;
+}
+.gs-kpi-card--white:hover {
+  box-shadow: 0 12px 28px -12px rgba(15, 20, 25, 0.15);
+  border-color: #DBD5C8;
+}
+
+/* Buttons header */
+.gs-btn-primary {
+  background: #FF4500; color: #fff; border: none;
+  padding: 11px 20px; border-radius: 999px;
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  font-family: inherit;
+  display: inline-flex; align-items: center; gap: 7px;
+  transition: background 0.15s, transform 0.1s, box-shadow 0.2s;
+  box-shadow: 0 6px 18px -6px rgba(255, 69, 0, 0.5);
+}
+.gs-btn-primary:hover { background: #E03D00; box-shadow: 0 10px 22px -8px rgba(255, 69, 0, 0.6); }
+.gs-btn-primary:active { transform: scale(0.97); }
+.gs-btn-outline {
+  background: transparent; color: #0F1419;
+  border: 1.5px solid #DBD5C8;
+  padding: 10px 20px; border-radius: 999px;
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  font-family: inherit;
+  display: inline-flex; align-items: center; gap: 7px;
+  transition: all 0.15s;
+}
+.gs-btn-outline:hover { border-color: #0F1419; background: #fff; }
+
+/* Section title avec icon */
+.gs-section-title {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 16px; font-weight: 600; color: #0F1419;
+  letter-spacing: -0.01em;
+}
+.gs-section-icon {
+  color: #FF4500;
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Pill outline (Filter, Sort) */
+.gs-pill-outline {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: #fff;
+  border: 1px solid #EAE7DF;
+  padding: 7px 14px;
+  border-radius: 999px;
+  font-size: 12.5px; font-weight: 500;
+  color: #0F1419; cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.gs-pill-outline:hover { border-color: #0F1419; }
+
+/* Table row hover */
+.gs-tr:hover { background: #FAFAF7; }

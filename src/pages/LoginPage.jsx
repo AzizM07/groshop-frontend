@@ -1,13 +1,15 @@
+// src/pages/LoginPage.jsx
+
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { Spinner, Modal } from './_shared'
 
 import { C } from './../pages/auth/_shared/constants'
-import AuthLeftPanel from './../pages/auth/_shared/AuthLeftPanel'
-import AuthStyles from './../pages/auth/_shared/AuthStyles'
-import SimpleInput from './../pages/auth/_shared/SimpleInput'
-import SocialButtons from './../pages/auth/_shared/SocialButtons'
+import AuthLeftPanel  from './../pages/auth/_shared/AuthLeftPanel'
+import AuthStyles     from './../pages/auth/_shared/AuthStyles'
+import SimpleInput    from './../pages/auth/_shared/SimpleInput'
+import SocialButtons  from './../pages/auth/_shared/SocialButtons'
 
 function mapAuthError(msg) {
   if (msg.includes('incorrect'))    return 'Email ou mot de passe incorrect.'
@@ -19,8 +21,9 @@ function mapAuthError(msg) {
 }
 
 export default function LoginPage() {
-  const { signIn } = useAuth()
-  const navigate   = useNavigate()
+  const { signIn }   = useAuth()
+  const navigate     = useNavigate()
+  const location     = useLocation()
 
   const [error,    setError]    = useState('')
   const [loading,  setLoading]  = useState(false)
@@ -32,13 +35,22 @@ export default function LoginPage() {
   const [forgotEmail,   setForgotEmail]   = useState('')
   const [forgotLoading, setForgotLoading] = useState(false)
   const [forgotSuccess, setForgotSuccess] = useState('')
+  const [forgotError,   setForgotError]   = useState('')
 
   async function handleLogin(e) {
-    e.preventDefault(); setLoading(true); setError('')
+    e.preventDefault()
+    setLoading(true)
+    setError('')
     try {
       const { data, error: err } = await signIn(email, password)
       if (err) { setError(mapAuthError(err.message || '')); return }
-      navigate(data.user.role === 'supplier' ? '/supplier' : '/')
+
+      // Redirection vers la page d'origine si elle existe (ex: panier)
+      const from = location.state?.from
+      const dest = from || (data.user.role === 'supplier' ? '/supplier' : '/')
+
+      // replace: true efface /login de l'historique
+      navigate(dest, { replace: true })
     } catch (err) {
       setError(mapAuthError(err.message || ''))
     } finally {
@@ -47,8 +59,11 @@ export default function LoginPage() {
   }
 
   async function handleForgot(e) {
-    e.preventDefault(); setForgotLoading(true); setForgotSuccess('')
+    e.preventDefault()
+    setForgotError('')
+    setForgotLoading(true)
     try {
+      // TODO: brancher auth.requestPasswordReset()
       setForgotSuccess('Cette fonctionnalité sera bientôt disponible. Contactez le support si besoin.')
     } finally {
       setForgotLoading(false)
@@ -67,7 +82,7 @@ export default function LoginPage() {
 
         <AuthLeftPanel />
 
-        {/* ── PANNEAU DROIT — Login ── */}
+        {/* ── PANNEAU DROIT ── */}
         <div style={{
           flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
           background: '#fff', position: 'relative',
@@ -93,10 +108,15 @@ export default function LoginPage() {
             )}
 
             <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <SimpleInput type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" height={52} />
+              <SimpleInput
+                type="email" value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="Email" height={52}
+              />
               <SimpleInput
                 type={showPass ? 'text' : 'password'} value={password}
-                onChange={e => setPassword(e.target.value)} placeholder="Mot de passe" height={52}
+                onChange={e => setPassword(e.target.value)}
+                placeholder="Mot de passe" height={52}
                 rightSlot={
                   <button type="button" onClick={() => setShowPass(v => !v)}
                     style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 17, padding: 8, color: '#9ca3af' }}>
@@ -153,17 +173,40 @@ export default function LoginPage() {
 
         {/* ── MODAL Mot de passe oublié ── */}
         {showForgot && (
-          <Modal onClose={() => { setShowForgot(false); setForgotSuccess('') }}>
+          <Modal onClose={() => { setShowForgot(false); setForgotSuccess(''); setForgotError('') }}>
             <div style={{ fontSize: 34, marginBottom: 12, textAlign: 'center' }}>🔐</div>
-            <h3 style={{ fontSize: 19, fontWeight: 900, color: '#111827', margin: '0 0 4px', textAlign: 'center' }}>Mot de passe oublié ?</h3>
-            <p style={{ color: '#9ca3af', fontSize: 13, marginBottom: 18, textAlign: 'center' }}>Entrez votre email — nous vous enverrons un lien de réinitialisation.</p>
+            <h3 style={{ fontSize: 19, fontWeight: 900, color: '#111827', margin: '0 0 4px', textAlign: 'center' }}>
+              Mot de passe oublié ?
+            </h3>
+            <p style={{ color: '#9ca3af', fontSize: 13, marginBottom: 18, textAlign: 'center' }}>
+              Entrez votre email — nous vous enverrons un lien de réinitialisation.
+            </p>
             {forgotSuccess ? (
-              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#15803d', borderRadius: 10, padding: '10px 14px', fontSize: 13, marginBottom: 14 }}>{forgotSuccess}</div>
+              <>
+                <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#15803d', borderRadius: 10, padding: '10px 14px', fontSize: 13, marginBottom: 14 }}>
+                  {forgotSuccess}
+                </div>
+                <button
+                  onClick={() => { setShowForgot(false); setForgotSuccess('') }}
+                  className="btn-primary"
+                  style={{ width: '100%', color: '#fff', fontWeight: 700, fontSize: 14, padding: '12px 0', borderRadius: 999, border: 'none', cursor: 'pointer', background: C.primary }}>
+                  Fermer
+                </button>
+              </>
             ) : (
               <form onSubmit={handleForgot} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <SimpleInput type="email" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} placeholder="email@example.com" height={52} />
+                <SimpleInput
+                  type="email" value={forgotEmail}
+                  onChange={e => setForgotEmail(e.target.value)}
+                  placeholder="email@example.com" height={52}
+                />
+                {forgotError && (
+                  <div style={{ background: C.primaryLight, border: `1px solid ${C.primaryBorder}`, color: C.primaryText, borderRadius: 9, padding: '8px 12px', fontSize: 12 }}>
+                    ⚠️ {forgotError}
+                  </div>
+                )}
                 <button type="submit" disabled={forgotLoading} className="btn-primary"
-                  style={{ width: '100%', color: '#fff', fontWeight: 700, fontSize: 15, padding: '14px 0', borderRadius: 999, border: 'none', cursor: forgotLoading ? 'not-allowed' : 'pointer', background: C.primary, boxShadow: C.glow, opacity: forgotLoading ? 0.6 : 1 }}>
+                  style={{ width: '100%', color: '#fff', fontWeight: 700, fontSize: 15, padding: '14px 0', borderRadius: 999, border: 'none', cursor: forgotLoading ? 'not-allowed' : 'pointer', background: forgotLoading ? '#d1d5db' : C.primary, boxShadow: forgotLoading ? 'none' : C.glow }}>
                   {forgotLoading ? <Spinner /> : 'Envoyer le lien'}
                 </button>
               </form>

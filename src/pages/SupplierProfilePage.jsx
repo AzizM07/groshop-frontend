@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-
+import { usePageTracking } from '../hooks/usePageTracking'
 import SupplierBanner   from '../components/supplier/SupplierBanner'
 import SectionTitle     from '../components/supplier/SectionTitle'
 import SupplierStats    from '../components/supplier/SupplierStats'
@@ -104,7 +104,7 @@ export default function SupplierProfilePage() {
     }
     loadSupplier()
   }, [slug])
-
+  usePageTracking({ pageType: 'supplier_shop', supplierId: supplier?.id })
   /* ── Scroll spy ── */
   useEffect(() => {
     if (loading) return

@@ -1,60 +1,63 @@
 // SearchSuggestions.jsx — GROSHOP.tn
 // Hook + composant dropdown réutilisable pour les barres de recherche
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { products as productsApi, store as storeApi } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 
 // ── Hook : gère le fetch + debounce + navigation clavier ──────────
 export function useSearchSuggestions(query) {
   const { user } = useAuth()
-  const [suggestions, setSuggestions]   = useState([])
+  const [suggestions, setSuggestions]       = useState([])
   const [recentSearches, setRecentSearches] = useState([])
-  const [showDropdown, setShowDropdown] = useState(false)
-  const [activeIndex, setActiveIndex]   = useState(-1)
+  const [showDropdown, setShowDropdown]     = useState(false)
+  const [activeIndex, setActiveIndex]       = useState(-1)
   const debounceRef = useRef(null)
 
-  // ── Charge l'historique récent une fois (si connecté) ──
-  useEffect(() => {
-    if (!user) {
-      setRecentSearches([])
-      return
-    }
+  // ── Historique récent (si connecté) ──
+  const loadRecent = useCallback(() => {
+    if (!user) { setRecentSearches([]); return }
     storeApi.recentSearches()
       .then(data => setRecentSearches(data?.searches || []))
-      .catch(err => console.error(err))
+      .catch(() => setRecentSearches([]))   // endpoint absent → on ignore, pas de spam console
   }, [user])
 
-  // ── Fetch suggestions produits/catégories avec debounce ──
+  useEffect(() => { loadRecent() }, [loadRecent])
+
+  // ── Suggestions produits/catégories avec debounce ──
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
 
     const q = query.trim()
     if (q.length < 2) {
       setSuggestions([])
-      // Si vide, affiche les récentes (si dispo)
-      setShowDropdown(recentSearches.length > 0)
       return
     }
 
-    debounceRef.current = setTimeout(async () => {
-      try {
-        const data = await productsApi.suggestions(q)
-        setSuggestions(data?.suggestions || [])
-        setShowDropdown((data?.suggestions || []).length > 0)
-        setActiveIndex(-1)
-      } catch (err) {
-        console.error(err)
-      }
+    debounceRef.current = setTimeout(() => {
+      productsApi.suggestions(q)
+        .then(data => {
+          const list = data?.suggestions || []
+          setSuggestions(list)
+          setShowDropdown(list.length > 0)
+          setActiveIndex(-1)
+        })
+        .catch(() => setSuggestions([]))
     }, 250)
 
     return () => clearTimeout(debounceRef.current)
-  }, [query, recentSearches])
+  }, [query])   // ⚡ recentSearches retiré des deps : relançait le debounce pour rien
 
-  // ── Items affichés : suggestions si query saisie, sinon récentes ──
-  const items = query.trim().length >= 2
-    ? suggestions
-    : recentSearches.map(text => ({ text, type: 'recent' }))
+  // ── Items affichés : suggestions si saisie, sinon récentes ──
+  const isRecent = query.trim().length < 2
+  const items = isRecent
+    ? recentSearches.map(text => ({ text, type: 'recent' }))
+    : suggestions
+
+  // Ouvre le dropdown sur les récentes quand le champ est vide
+  useEffect(() => {
+    if (isRecent) setShowDropdown(recentSearches.length > 0)
+  }, [isRecent, recentSearches.length])
 
   const handleKeyDown = (e, onSelect) => {
     if (!showDropdown || items.length === 0) return
@@ -75,34 +78,28 @@ export function useSearchSuggestions(query) {
     }
   }
 
-  const refreshRecent = () => {
-    if (!user) return
-    storeApi.recentSearches()
-      .then(data => setRecentSearches(data?.searches || []))
-      .catch(err => console.error(err))
-  }
-
   const clearRecent = async () => {
     try {
       await storeApi.clearRecentSearches()
-      setRecentSearches([])
-    } catch (err) {
-      console.error(err)
-    }
+    } catch (_) { /* silencieux */ }
+    setRecentSearches([])
+    setShowDropdown(false)
   }
 
   return {
     suggestions: items,
     showDropdown, setShowDropdown,
     activeIndex, setActiveIndex, handleKeyDown,
-    isRecent: query.trim().length < 2,
-    refreshRecent, clearRecent,
+    isRecent,
+    refreshRecent: loadRecent, clearRecent,
     hasRecent: recentSearches.length > 0,
   }
 }
 
 // ── Composant dropdown — flotte par-dessus, ne pousse pas le layout ──
 export function SuggestionsDropdown({ suggestions, activeIndex, setActiveIndex, onSelect, isRecent, onClearRecent }) {
+  if (!suggestions.length) return null
+
   return (
     <div style={{
       position: 'absolute',

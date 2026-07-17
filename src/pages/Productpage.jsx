@@ -6,8 +6,9 @@ import {
   ZoomIn, Check, Truck, Minus, Plus, Clock, Award, ThumbsUp, X, Camera,
   ShieldCheck, PackageCheck, Search
 } from "lucide-react";
+import { useCart } from "../context/CartContext";
 import { products as productsApi } from "../lib/api";
-
+import { usePageTracking } from "../hooks/usePageTracking";
 /* ── Police GROSHOP : Fraunces (display) + DM Sans (corps) ── */
 if (typeof document !== "undefined" && !document.getElementById("groshop-fonts")) {
   const l = document.createElement("link");
@@ -297,7 +298,7 @@ const ShippingBlock = ({ product }) => {
 // ════════════════════════════════════════════════════════════════
 //  COLONNE DROITE — Buy box
 // ════════════════════════════════════════════════════════════════
-const BuyBox = ({ product, qty, setQty, onOrder }) => {
+const BuyBox = ({ product, qty, setQty, onOrder, busy, added }) => {
   const moq = product.moq || 1;
   const parsedQty = parseInt(qty) || 0;
   const tiers = product.price_tiers || [];
@@ -366,10 +367,10 @@ const BuyBox = ({ product, qty, setQty, onOrder }) => {
           <span className="text-base font-bold" style={{ color: ORANGE, fontFamily: DISPLAY }}>{fmtDT(total)}</span>
         </div>
 
-        <button disabled={!qtyValid} onClick={() => onOrder?.({ product, qty: parsedQty, unitPrice })}
+        <button disabled={!qtyValid || busy} onClick={() => onOrder?.({ product, qty: parsedQty, unitPrice })}
           className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-white font-semibold text-sm transition-all hover:brightness-95 disabled:opacity-40"
-          style={{ background: "linear-gradient(135deg,#FF6B35,#FF4500)", boxShadow: qtyValid ? "0 6px 16px rgba(255,69,0,0.3)" : "none" }}>
-          <ShoppingCart size={16} /> Ajouter au panier
+          style={{ background: added ? "#0F9D58" : "linear-gradient(135deg,#FF6B35,#FF4500)", boxShadow: qtyValid ? "0 6px 16px rgba(255,69,0,0.3)" : "none" }}>
+          <ShoppingCart size={16} /> {busy ? "Ajout…" : added ? "✓ Ajouté au panier" : "Ajouter au panier"}
         </button>
 
         <button className="w-full py-2.5 rounded-xl border-2 font-semibold text-sm transition-colors hover:bg-[#FFF4F0]" style={{ borderColor: ORANGE, color: ORANGE }}>
@@ -628,7 +629,8 @@ export default function ProductPage() {
   const [color, setColor] = useState(null);
   const [wishlisted, setWishlisted] = useState(false);
   const [copied, setCopied] = useState(false);
-
+  const { add, adding } = useCart();
+  const [added, setAdded] = useState(false);
   useEffect(() => {
     let cancelled = false;
 
@@ -666,10 +668,24 @@ export default function ProductPage() {
   }, [id]);
 
   const handleShare = () => { navigator.clipboard?.writeText(window.location.href); setCopied(true); setTimeout(() => setCopied(false), 2000); };
-
+  // ⭐ Tracking — attend que le produit soit chargé (le backend déduit le fournisseur)
+  usePageTracking({ pageType: 'product_detail', productId: product?.id });
   // Placeholder — le vrai panier (lié au compte) sera connecté séparément
-  const handleOrder = (payload) => {
-    console.log("Ajouter au panier:", payload);
+  const handleOrder = async (payload) => {
+    // BuyBox → { product, qty, unitPrice } · carrousels → produit mappé (toCard)
+    const isMain  = !!payload?.product;
+    const pid     = isMain ? payload.product.id : payload?.id;
+    const q       = isMain ? payload.qty : (payload?.moq || 1);
+    const variant = isMain ? (color || null) : null;
+    if (!pid) return;
+
+    const res = await add(pid, q, variant);
+    if (res?.ok && isMain) {
+      setAdded(true);
+      setTimeout(() => setAdded(false), 2000);
+    } else if (res?.reason === 'error') {
+      alert(res.message || "Impossible d'ajouter au panier.");
+    }
   };
 
   if (loading) {
@@ -740,7 +756,8 @@ export default function ProductPage() {
           </div>
 
           <div className="w-full lg:sticky lg:top-[140px] lg:self-start">
-            <BuyBox product={product} qty={qty} setQty={setQty} onOrder={handleOrder} />
+            <BuyBox product={product} qty={qty} setQty={setQty} onOrder={handleOrder}
+                    busy={adding === product.id} added={added} />
           </div>
         </div>
       </div>

@@ -10,7 +10,7 @@ import CategorySection from '../components/CategorySection'  // contient le comp
 import Footer from '../components/Footer'
 import AdSlot from '../components/AdSlot'
 import { Fragment } from 'react'
-
+import { usePageTracking } from '../hooks/usePageTracking'
 
 // ── Paramètres globaux layout ───────────────────────────────────
 const LAYOUT = {
@@ -156,6 +156,7 @@ export default function HomePage() {
     }
     fetchProducts()
   }, [])
+  usePageTracking({ pageType: 'home' })
 
   return (
     <div>

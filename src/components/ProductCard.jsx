@@ -5,6 +5,7 @@
 
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useCart } from '../context/CartContext'
 
 const ORANGE = '#FF4500'
 const INK    = '#0F1419'
@@ -12,19 +13,20 @@ const MUTE   = '#6B7785'
 const FAINT  = '#9AA3AE'
 const LINE   = '#E8EAED'
 const BLUE   = '#1A6DD2'   // badge Verified (style Alibaba)
+const GREEN  = '#0F9D58'
 
 // Prix : accepte un nombre OU une fourchette [min, max]
-// (la fourchette n'est pas encore exploitée tant que les paliers
-// de prix par quantité n'existent pas en base — le format reste
-// supporté pour le jour où ils seront ajoutés)
 function fmtPrice(p) {
   const f = n => n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   return Array.isArray(p) ? `${f(p[0])}–${f(p[1])}` : f(p)
 }
 
 export default function ProductCard({ product, onOrder }) {
-  const [hov, setHov] = useState(false)
+  const [hov, setHov]   = useState(false)
+  const [done, setDone] = useState(false)   // ✓ éphémère après ajout
   const navigate = useNavigate()
+  const { add, adding } = useCart()
+
   const {
     id             = null,
     name           = 'Produit',
@@ -33,7 +35,7 @@ export default function ProductCard({ product, onOrder }) {
     discount       = null,
     rating         = null,
     soldCount      = null,
-    reviewCount    = null,      // nombre d'avis du PRODUIT
+    reviewCount    = null,
     image          = null,
     isFreeShipping = false,
     isBestSeller   = false,
@@ -41,10 +43,33 @@ export default function ProductCard({ product, onOrder }) {
     moqUnit        = 'pcs',
     supplier       = null,
     verified       = false,
-    medals         = 0,        // 0–4 losanges — notation de la BOUTIQUE
+    medals         = 0,
     years          = null,
-    flag           = '🇹🇳',     // drapeau du fournisseur (backend)
+    flag           = '🇹🇳',
   } = product || {}
+
+  const busy = adding === id
+
+  /* ── Ajout au panier — quantité = MOQ (vente en gros) ── */
+  async function handleClick(e) {
+    e.stopPropagation()
+
+    // onOrder custom prioritaire (permet de surcharger le comportement)
+    if (onOrder) return onOrder(product)
+    if (!id || busy) return
+
+    const res = await add(id, moq || 1)
+    if (res?.ok) {
+      setDone(true)
+      setTimeout(() => setDone(false), 1600)
+    } else if (res?.reason === 'error') {
+      alert(res.message || "Impossible d'ajouter au panier.")
+    }
+    // reason === 'auth' → redirection déjà déclenchée par le contexte
+  }
+
+  const btnLabel = busy ? 'Ajout…' : done ? '✓ Ajouté' : 'Commander'
+  const btnFilled = hov || done
 
   return (
     <div
@@ -69,6 +94,7 @@ export default function ProductCard({ product, onOrder }) {
         {image ? (
           <img
             src={image} alt={name}
+            loading="lazy"
             style={{
               width: '100%', height: '100%', objectFit: 'cover',
               transition: 'transform .35s', transform: hov ? 'scale(1.05)' : 'scale(1)',
@@ -196,23 +222,28 @@ export default function ProductCard({ product, onOrder }) {
         {/* Tags */}
         {(isFreeShipping || isBestSeller) && (
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-            {isFreeShipping && <span style={{ fontSize: '11.5px', color: '#0F9D58', fontWeight: 600 }}>✓ Livraison gratuite</span>}
+            {isFreeShipping && <span style={{ fontSize: '11.5px', color: GREEN, fontWeight: 600 }}>✓ Livraison gratuite</span>}
             {isBestSeller && <span style={{ fontSize: '11.5px', color: ORANGE, fontWeight: 600 }}>🔥 Top ventes</span>}
           </div>
         )}
 
-        {/* Bouton commander */}
+        {/* Bouton commander — branché sur le panier */}
         <button
-          onClick={e => { e.stopPropagation(); onOrder?.(product) }}
+          onClick={handleClick}
+          disabled={busy}
           style={{
             marginTop: '5px', width: '100%', padding: '9px',
-            background: hov ? ORANGE : '#fff', color: hov ? '#fff' : ORANGE,
-            border: `1.5px solid ${ORANGE}`, borderRadius: '999px',
+            background: done ? GREEN : (btnFilled ? ORANGE : '#fff'),
+            color: btnFilled ? '#fff' : ORANGE,
+            border: `1.5px solid ${done ? GREEN : ORANGE}`,
+            borderRadius: '999px',
             fontFamily: "'DM Sans', sans-serif", fontSize: '13px', fontWeight: 600,
-            cursor: 'pointer', transition: 'background .18s, color .18s',
+            cursor: busy ? 'default' : 'pointer',
+            opacity: busy ? 0.65 : 1,
+            transition: 'background .18s, color .18s, border-color .18s',
           }}
         >
-          Commander
+          {btnLabel}
         </button>
       </div>
     </div>

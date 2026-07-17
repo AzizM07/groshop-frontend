@@ -1,5 +1,4 @@
 // src/context/AuthContext.jsx — GROSHOP.tn
-// Auth via Django (cookies httpOnly) — remplace Supabase Auth
 
 import { createContext, useContext, useEffect, useState } from 'react'
 import { auth } from '../lib/api'
@@ -15,7 +14,26 @@ export function AuthProvider({ children }) {
     _loadSession()
   }, [])
 
-  // ── Vérifie si une session existe déjà (cookies httpOnly) ──
+  // ── Sync entre onglets ──
+  useEffect(() => {
+    if (typeof BroadcastChannel === 'undefined') return
+    const bc = new BroadcastChannel('gs_auth')
+    bc.onmessage = (e) => {
+      if (e.data === 'logout') { setUser(null); setSupplier(null) }
+      if (e.data === 'login')  { _loadSession() }
+    }
+    return () => bc.close()
+  }, [])
+
+  // ── Revalide quand l'onglet redevient actif ──
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') _loadSession()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [])
+
   async function _loadSession() {
     try {
       const data = await auth.me()
@@ -38,7 +56,6 @@ export function AuthProvider({ children }) {
     }
   }
 
-  // ── Charge le SupplierProfile complet (store, stats, slug...) ──
   async function _loadSupplierProfile() {
     try {
       const profile = await auth.supplierMe()
@@ -49,7 +66,6 @@ export function AuthProvider({ children }) {
     }
   }
 
-  // ── Connexion — garde la signature {data, error} comme avant ──
   async function signIn(email, password) {
     try {
       const data = await auth.login(email, password)
@@ -59,6 +75,8 @@ export function AuthProvider({ children }) {
       } else {
         setSupplier(null)
       }
+      // Notifie les autres onglets
+      try { new BroadcastChannel('gs_auth').postMessage('login') } catch {}
       return { data, error: null }
     } catch (err) {
       return { data: null, error: err }
@@ -68,11 +86,11 @@ export function AuthProvider({ children }) {
   async function signOut() {
     try {
       await auth.logout()
-    } catch {
-      // on déconnecte côté front même si la requête échoue
-    }
+    } catch {}
     setUser(null)
     setSupplier(null)
+    // Notifie les autres onglets
+    try { new BroadcastChannel('gs_auth').postMessage('logout') } catch {}
   }
 
   return (

@@ -65,6 +65,30 @@ async function refreshToken() {
   }
 }
 
+// ── Upload fichier (multipart) ────────────────────────────────────
+export async function uploadFile(endpoint, file, _retried = false) {
+  const csrfToken = getCookie('csrftoken')
+  const fd = new FormData()
+  fd.append('file', file)
+
+  const res = await fetch(`${BASE_URL}${endpoint}`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { ...(csrfToken ? { 'X-CSRFToken': csrfToken } : {}) },
+    body: fd,
+  })
+
+  if (res.status === 401 && !_retried) {
+    const ok = await refreshToken()
+    if (ok) return uploadFile(endpoint, file, true)
+  }
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}))
+    throw new Error(e.error || e.detail || 'Upload échoué')
+  }
+  return res.json()
+}
+
 // ── Auth ──────────────────────────────────────────────────────────
 
 export const auth = {
@@ -134,19 +158,72 @@ export const products = {
     const q = new URLSearchParams({ q: query, ...params }).toString()
     return request(`/products/search/?${q}`)
   },
-
   async similar(id) {
     return request(`/products/${id}/similar/`)
   },
-
   async reviews(id) {
     return request(`/products/${id}/reviews/`)
   },
-   async recommendations(id) {              // ← AJOUTE ÇA
+  async recommendations(id) {
     return request(`/products/${id}/recommendations/`)
   },
   async categories() {
     return request('/products/categories/')
+  },
+  async create(data) {
+    return request('/products/create/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  },
+  async mine(params = {}) {
+    const q = new URLSearchParams(params).toString()
+    return request(`/products/mine/${q ? '?' + q : ''}`)
+  },
+}
+
+// ── Cart ──────────────────────────────────────────────────────────
+
+export const cart = {
+
+  /** GET /api/cart/ → liste des CartItem (avec produit + fournisseur imbriqués) */
+  async list() {
+    return request('/cart/')
+  },
+
+  /** POST /api/cart/ → ajoute (ou met à jour la qty si le couple produit/variante existe déjà) */
+  async add(productId, quantity = 1, variantId = null) {
+    return request('/cart/', {
+      method: 'POST',
+      body: JSON.stringify({
+        product_id: productId,
+        quantity,
+        variant_id: variantId,
+      }),
+    })
+  },
+
+  /** PATCH /api/cart/<id>/ → change la quantité (qty < 1 supprime l'item côté serveur) */
+  async updateQty(itemId, quantity) {
+    return request(`/cart/${itemId}/`, {
+      method: 'PATCH',
+      body: JSON.stringify({ quantity }),
+    })
+  },
+
+  /** DELETE /api/cart/<id>/ */
+  async remove(itemId) {
+    return request(`/cart/${itemId}/`, { method: 'DELETE' })
+  },
+
+  /** DELETE /api/cart/clear/ */
+  async clear() {
+    return request('/cart/clear/', { method: 'DELETE' })
+  },
+
+  /** GET /api/cart/count/ → { count } pour le badge nav */
+  async count() {
+    return request('/cart/count/')
   },
 }
 
@@ -188,6 +265,27 @@ export const orders = {
       method: 'POST',
     })
   },
+
+  // ── Espace fournisseur ──
+  async supplier(params = {}) {
+    const q = new URLSearchParams(params).toString()
+    return request(`/orders/supplier/${q ? '?' + q : ''}`)
+  },
+
+  async updateSubOrderStatus(id, status) {
+    return request(`/orders/supplier/${id}/`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    })
+  },
+}
+
+// ── Analytics ─────────────────────────────────────────────────────
+
+export const analytics = {
+  async supplierStats() { return request('/analytics/supplier/stats/') },
+  async activeUsers()   { return request('/analytics/supplier/active-users/') },
+  async regions()       { return request('/analytics/supplier/regions/') },
 }
 
 // ── Messaging ─────────────────────────────────────────────────────

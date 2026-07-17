@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useCart } from '../context/CartContext'
 import { products } from '../lib/api'
 import { DotLottieReact } from '@lottiefiles/dotlottie-react'
 import * as Icons from 'lucide-react'
@@ -24,6 +25,10 @@ if (typeof document !== 'undefined' && !document.getElementById('header-anim')) 
     /* Animation d'ouverture des menus déroulants */
     @keyframes dropdownIn { from { opacity: 0; transform: translateY(-10px) } to { opacity: 1; transform: translateY(0) } }
     .gh-dd { animation: dropdownIn 0.2s cubic-bezier(0.16, 1, 0.3, 1); transform-origin: top center; }
+
+    /* Badge panier — pop à chaque changement */
+    @keyframes gh-badge-pop { 0% { transform: scale(0.6) } 60% { transform: scale(1.15) } 100% { transform: scale(1) } }
+    .gh-badge { animation: gh-badge-pop 0.25s ease; }
 
     /* ── Anti-scroll horizontal (clip, pas hidden : ne casse pas le fixed/sticky) ── */
     html, body { overflow-x: clip; max-width: 100%; }
@@ -54,6 +59,7 @@ if (typeof document !== 'undefined' && !document.getElementById('header-anim')) 
 
 export default function Header() {
   const { user, signOut }           = useAuth()
+  const { count: cartCount }        = useCart()
   const navigate                    = useNavigate()
   const location                    = useLocation()
   const isHome                      = location.pathname === '/'
@@ -203,7 +209,8 @@ export default function Header() {
                   <line x1="8" y1="11" x2="16" y2="11"/><line x1="8" y1="15" x2="13" y2="15"/>
                 </svg>
               </HeaderIcon>
-              <HeaderIcon to="/panier" title="Panier">
+              {/* ⭐ Panier — badge branché sur le CartContext */}
+              <HeaderIcon to="/panier" title="Panier" badge={cartCount}>
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
                   <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
@@ -254,14 +261,26 @@ export default function Header() {
   )
 }
 
-// ── HeaderIcon (icône cliquable avec hover orange) ────────────────
-function HeaderIcon({ to, title, children }) {
+// ── HeaderIcon (icône cliquable avec hover orange + badge optionnel) ──
+function HeaderIcon({ to, title, children, badge = 0 }) {
   const [hov, setHov] = useState(false)
   return (
     <Link to={to} title={title} className="gh-util"
       onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
-      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: hov ? '#FF4500' : '#0F1419', textDecoration: 'none', transition: 'color .15s', flexShrink: 0 }}>
+      style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', color: hov ? '#FF4500' : '#0F1419', textDecoration: 'none', transition: 'color .15s', flexShrink: 0 }}>
       {children}
+      {badge > 0 && (
+        <span key={badge} className="gh-badge" style={{
+          position: 'absolute', top: '-5px', right: '-7px',
+          minWidth: '18px', height: '18px', padding: '0 4px',
+          borderRadius: '9px', background: '#FF4500', color: '#fff',
+          fontSize: '10px', fontWeight: 700, lineHeight: 1,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          border: '2px solid #fff', boxSizing: 'border-box', pointerEvents: 'none',
+        }}>
+          {badge > 9 ? '9+' : badge}
+        </span>
+      )}
     </Link>
   )
 }
@@ -491,33 +510,33 @@ function MegaMenu({ onMouseEnter, onMouseLeave }) {
   }
 
   useEffect(() => {
-  if (_cache.categories) return
-  products.categories().then(data => {
-    const cats = data || []
-    // L'API Django renvoie les catégories racines AVEC leurs children imbriqués
-    // On sépare en 2 structures : racines (sans children) + map des sous-cats
-    const c = cats.map(({ children, ...rest }) => rest)
-    const s = []
+    if (_cache.categories) return
+    products.categories().then(data => {
+      const cats = data || []
+      // L'API Django renvoie les catégories racines AVEC leurs children imbriqués
+      // On sépare en 2 structures : racines (sans children) + map des sous-cats
+      const c = cats.map(({ children, ...rest }) => rest)
+      const s = []
 
-    cats.forEach(cat => {
-      const subs = (cat.children || []).map(sub => ({
-        ...sub,
-        parent_id: cat.id,   // ← compatibilité avec l'ancien code
-      }))
-      _cache.subs[cat.id] = subs
-      s.push(...subs)
+      cats.forEach(cat => {
+        const subs = (cat.children || []).map(sub => ({
+          ...sub,
+          parent_id: cat.id,   // ← compatibilité avec l'ancien code
+        }))
+        _cache.subs[cat.id] = subs
+        s.push(...subs)
+      })
+
+      _cache.categories = c
+      _cache.allSubs = s
+      setCategories(c)
+      setLoading(false)
+      forceUpdate(n => n + 1)
+    }).catch(err => {
+      console.error('Categories error:', err)
+      setLoading(false)
     })
-
-    _cache.categories = c
-    _cache.allSubs = s
-    setCategories(c)
-    setLoading(false)
-    forceUpdate(n => n + 1)
-  }).catch(err => {
-    console.error('Categories error:', err)
-    setLoading(false)
-  })
-}, [])
+  }, [])
 
   const activeCat  = activeId === POUR_VOUS_ID
     ? { id: POUR_VOUS_ID, name: 'Catégories pour vous', emoji: '⭐' }

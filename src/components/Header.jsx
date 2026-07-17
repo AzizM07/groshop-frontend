@@ -1,14 +1,14 @@
 // Header.jsx — GROSHOP.tn
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, forwardRef } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { useCart } from '../context/CartContext'
 import { products } from '../lib/api'
 import { DotLottieReact } from '@lottiefiles/dotlottie-react'
 import * as Icons from 'lucide-react'
 import LOGO_SRC from '../assets/logo2.png'
-import { useSearchSuggestions, SuggestionsDropdown } from './SearchSuggestions'
+import { useSearchSuggestions } from './SearchSuggestions'
+import { MessagesDropdown, OrdersDropdown, CartDropdown } from './HeaderDropdowns'
 
 if (typeof document !== 'undefined' && !document.getElementById('header-anim')) {
   const s = document.createElement('style')
@@ -22,9 +22,12 @@ if (typeof document !== 'undefined' && !document.getElementById('header-anim')) 
     /* Icônes utilitaires (messages, commandes, panier, compte) — taille relative */
     .gh-util svg { width: clamp(23px, 2.2vw, 30px); height: clamp(23px, 2.2vw, 30px); }
 
-    /* Animation d'ouverture des menus déroulants */
-    @keyframes dropdownIn { from { opacity: 0; transform: translateY(-10px) } to { opacity: 1; transform: translateY(0) } }
-    .gh-dd { animation: dropdownIn 0.2s cubic-bezier(0.16, 1, 0.3, 1); transform-origin: top center; }
+    /* Animation d'ouverture des menus déroulants.
+       Le wrapper fixed ne bouge pas, seul l'enfant glisse. */
+    @keyframes ghFade  { from { opacity: 0 } to { opacity: 1 } }
+    @keyframes ghSlide { from { transform: translateY(-10px) } to { transform: translateY(0) } }
+    .gh-dd     { animation: ghFade 0.18s ease; }
+    .gh-dd > * { animation: ghSlide 0.22s cubic-bezier(0.16, 1, 0.3, 1); }
 
     /* Badge panier — pop à chaque changement */
     @keyframes gh-badge-pop { 0% { transform: scale(0.6) } 60% { transform: scale(1.15) } 100% { transform: scale(1) } }
@@ -36,12 +39,16 @@ if (typeof document !== 'undefined' && !document.getElementById('header-anim')) 
     /* ── Spacer : compense la hauteur du header fixed (ligne1 + ligne2) ── */
     .gh-spacer { height: clamp(106px, 11vw, 126px); flex-shrink: 0; }
 
+    /* ── Barre de recherche : le wrapper garde la hauteur, le conteneur s'étale ── */
+    .gh-searchrow { padding-left: 20px; padding-right: 4px; }
+
     /* Responsive header */
     @media (max-width: 1100px) { .gh-delivery { display: none !important; } }
     @media (max-width: 920px)  { .gh-lang-text, .gh-account-text { display: none !important; } }
     @media (max-width: 720px)  {
-      .gh-cta    { padding: 9px 14px !important; font-size: 13px !important; }
-      .gh-search { flex-basis: clamp(120px, 40vw, 560px) !important; padding-left: 12px !important; }
+      .gh-cta       { padding: 9px 14px !important; font-size: 13px !important; }
+      .gh-search    { flex-basis: clamp(120px, 40vw, 560px) !important; }
+      .gh-searchrow { padding-left: 12px !important; }
       .gh-searchbtn-text { display: none !important; }
       .gh-searchcam      { display: none !important; }
     }
@@ -57,15 +64,63 @@ if (typeof document !== 'undefined' && !document.getElementById('header-anim')) 
   document.head.appendChild(s)
 }
 
+const SEARCH_H = 'clamp(42px, 4.5vw, 50px)'
+// La ligne fait SEARCH_H moins les 2×2px de bordure du conteneur :
+// total identique à l'ancien form en border-box.
+const SEARCH_ROW_H = 'calc(clamp(42px, 4.5vw, 50px) - 4px)'
+
+/* ═══════════════════════════════════════════════════════════════════
+   SUIVI DU CURSEUR
+   mouseleave peut se déclencher alors que la souris n'a pas bougé
+   (frontière sous-pixel entre le header et le menu, reflow…).
+   Comme aucun mouseenter ne suit, le timer de fermeture n'est jamais
+   annulé → le menu se ferme tout seul. On vérifie donc la position
+   réelle du curseur avant de fermer.
+   ═══════════════════════════════════════════════════════════════════ */
+const pointer = { x: -1, y: -1 }
+if (typeof window !== 'undefined') {
+  window.addEventListener('mousemove', e => { pointer.x = e.clientX; pointer.y = e.clientY }, { passive: true })
+}
+
+const isUnder = (el, pad = 4) => {
+  if (!el) return false
+  const r = el.getBoundingClientRect()
+  return pointer.x >= r.left - pad && pointer.x <= r.right + pad
+      && pointer.y >= r.top - pad  && pointer.y <= r.bottom + pad
+}
+
+/* Hook partagé par tous les menus au survol */
+function useHoverMenu(delay = 150) {
+  const [open, setOpen] = useState(false)
+  const timerRef = useRef(null)
+  const wrapRef  = useRef(null)
+  const menuRef  = useRef(null)
+
+  const handleEnter = () => { clearTimeout(timerRef.current); setOpen(true) }
+
+  const handleLeave = () => {
+    clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => {
+      // le curseur est-il VRAIMENT sorti, ou n'a-t-il simplement pas bougé ?
+      if (isUnder(wrapRef.current) || isUnder(menuRef.current)) return
+      setOpen(false)
+    }, delay)
+  }
+
+  useEffect(() => () => clearTimeout(timerRef.current), [])
+
+  return { open, wrapRef, menuRef, handleEnter, handleLeave }
+}
+
 export default function Header() {
   const { user, signOut }           = useAuth()
-  const { count: cartCount }        = useCart()
   const navigate                    = useNavigate()
   const location                    = useLocation()
   const isHome                      = location.pathname === '/'
 
   const [showSearch, setShowSearch] = useState(!isHome)
   const [searchQuery, setSearchQuery] = useState('')
+  const [focused, setFocused]       = useState(false)
 
   useEffect(() => { setShowSearch(!isHome) }, [isHome])
 
@@ -79,12 +134,15 @@ export default function Header() {
   const {
     suggestions, showDropdown, setShowDropdown,
     activeIndex, setActiveIndex, handleKeyDown,
+    isRecent, clearRecent, hasRecent,
   } = useSearchSuggestions(searchQuery)
 
   const goToSearch = (text) => {
     setShowDropdown(false)
     if (text.trim()) navigate(`/search?q=${encodeURIComponent(text)}`)
   }
+
+  const open = showDropdown && suggestions.length > 0
 
   return (
     <>
@@ -119,64 +177,144 @@ export default function Header() {
           <div style={{ flex: 1, minWidth: 0 }} />
 
           {showSearch && (
-            <form className="gh-search"
-              onSubmit={e => { e.preventDefault(); goToSearch(searchQuery) }}
-              style={{
-                display: 'flex', alignItems: 'center',
-                border: '2px solid #FF4500',
-                borderRadius: showDropdown ? '24px 24px 0 0' : '50px',
-                height: 'clamp(42px, 4.5vw, 50px)',
-                flex: '0 1 clamp(200px, 42vw, 760px)',
-                marginRight: 'clamp(8px, 1.5vw, 20px)',
-                paddingLeft: '20px', paddingRight: '4px',
-                background: '#fff', animation: 'fadeIn 0.2s ease', minWidth: 0,
-                position: 'relative', boxSizing: 'border-box',
-              }}>
+            /* Wrapper : garde la hauteur de la ligne, ne grandit jamais */
+            <div className="gh-search" style={{
+              position: 'relative',
+              height: SEARCH_H,
+              flex: '0 1 clamp(200px, 42vw, 760px)',
+              marginRight: 'clamp(8px, 1.5vw, 20px)',
+              minWidth: 0,
+            }}>
 
-              <input type="text" value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                onFocus={() => { if (suggestions.length > 0) setShowDropdown(true) }}
-                onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
-                onKeyDown={e => handleKeyDown(e, goToSearch)}
-                placeholder="Rechercher..."
-                style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', fontSize: '14px', color: '#0F1419', background: 'transparent' }} />
-
-              <button type="button" title="Recherche par image" className="gh-searchcam"
-                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 12px', display: 'flex', alignItems: 'center', color: '#6B7785', flexShrink: 0 }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/>
-                  <circle cx="12" cy="13" r="3"/>
-                </svg>
-              </button>
-
-              <div style={{ width: '1px', height: '22px', background: '#E8EAED', marginRight: '4px', flexShrink: 0 }} />
-
-              <button type="submit"
+              {/* ═══ LE conteneur unique : bordure + radius + ombre ici, nulle part ailleurs ═══ */}
+              <form
+                onSubmit={e => { e.preventDefault(); goToSearch(searchQuery) }}
                 style={{
-                  background: 'linear-gradient(135deg, #FF8A3D, #FF4500)',
-                  border: 'none', borderRadius: '50px',
-                  padding: '0 clamp(14px, 1.6vw, 24px)', height: 'clamp(34px, 3.6vw, 40px)',
-                  display: 'flex', alignItems: 'center', gap: '6px',
-                  color: '#fff', fontSize: '14px', fontWeight: 700, cursor: 'pointer',
-                  transition: 'filter 0.15s', flexShrink: 0, whiteSpace: 'nowrap',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.filter = 'brightness(0.95)' }}
-                onMouseLeave={e => { e.currentTarget.style.filter = 'none' }}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                  <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                </svg>
-                <span className="gh-searchbtn-text">Rechercher</span>
-              </button>
+                  position: 'absolute', top: 0, left: 0, right: 0,
+                  background: '#fff',
+                  border: '2px solid #FF4500',
+                  borderRadius: open ? '24px' : '50px',
+                  overflow: 'hidden',              // rogne la liste sur les coins arrondis
+                  boxShadow: open ? '0 16px 40px rgba(0,0,0,.12)' : 'none',
+                  animation: 'fadeIn 0.2s ease',
+                  transition: 'border-radius .18s, box-shadow .18s',
+                  boxSizing: 'border-box',
+                  zIndex: 2500,                   // au-dessus des méga-menus (2000)
+                }}>
 
-              {showDropdown && suggestions.length > 0 && (
-                <SuggestionsDropdown
-                  suggestions={suggestions}
-                  activeIndex={activeIndex}
-                  setActiveIndex={setActiveIndex}
-                  onSelect={goToSearch}
-                />
-              )}
-            </form>
+                {/* ── Ligne de saisie ── */}
+                <div className="gh-searchrow" style={{
+                  display: 'flex', alignItems: 'center',
+                  height: SEARCH_ROW_H,
+                }}>
+                  <input type="text" value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    onFocus={() => { setFocused(true); if (suggestions.length > 0) setShowDropdown(true) }}
+                    onBlur={() => { setFocused(false); setTimeout(() => setShowDropdown(false), 150) }}
+                    onKeyDown={e => handleKeyDown(e, goToSearch)}
+                    placeholder="Rechercher..."
+                    style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', fontSize: '14px', color: '#0F1419', background: 'transparent' }} />
+
+                  <button type="button" title="Recherche par image" className="gh-searchcam"
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 12px', display: 'flex', alignItems: 'center', color: '#6B7785', flexShrink: 0 }}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/>
+                      <circle cx="12" cy="13" r="3"/>
+                    </svg>
+                  </button>
+
+                  <div style={{ width: '1px', height: '22px', background: '#E8EAED', marginRight: '4px', flexShrink: 0 }} />
+
+                  <button type="submit"
+                    style={{
+                      background: 'linear-gradient(135deg, #FF8A3D, #FF4500)',
+                      border: 'none', borderRadius: '50px',
+                      padding: '0 clamp(14px, 1.6vw, 24px)', height: 'clamp(34px, 3.6vw, 40px)',
+                      display: 'flex', alignItems: 'center', gap: '6px',
+                      color: '#fff', fontSize: '14px', fontWeight: 700, cursor: 'pointer',
+                      transition: 'filter 0.15s', flexShrink: 0, whiteSpace: 'nowrap',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.filter = 'brightness(0.95)' }}
+                    onMouseLeave={e => { e.currentTarget.style.filter = 'none' }}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                      <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                    </svg>
+                    <span className="gh-searchbtn-text">Rechercher</span>
+                  </button>
+                </div>
+
+                {/* ── Suggestions : même conteneur, simple séparateur interne ── */}
+                {open && (
+                  <>
+                    <div style={{ height: 1, background: '#F0F0F0', margin: '0 18px' }} />
+
+                    {isRecent && hasRecent && (
+                      <div style={{ display: 'flex', alignItems: 'center', padding: '9px 18px 3px' }}>
+                        <span style={{ fontSize: '11px', fontWeight: 700, color: '#9AA3AE', textTransform: 'uppercase', letterSpacing: '.5px' }}>
+                          Recherches récentes
+                        </span>
+                        <div style={{ flex: 1 }} />
+                        <button
+                          type="button"
+                          onMouseDown={e => e.preventDefault()}
+                          onClick={clearRecent}
+                          style={{ fontSize: '12px', fontWeight: 600, color: '#FF4500', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                          Effacer
+                        </button>
+                      </div>
+                    )}
+
+                    <div style={{ padding: '4px 0 8px', textAlign: 'left' }}>
+                      {suggestions.map((s, i) => {
+                        const active = i === activeIndex
+                        const stroke = active ? '#FF4500' : '#bbb'
+                        return (
+                          <div
+                            key={`${s.type}-${s.text}`}
+                            onMouseDown={e => e.preventDefault()}   // garde le focus input
+                            onClick={() => goToSearch(s.text)}
+                            onMouseEnter={() => setActiveIndex(i)}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: '12px',
+                              padding: '10px 18px',
+                              cursor: 'pointer',
+                              background: active ? '#FFF4F0' : 'transparent',
+                              transition: 'background 0.1s',
+                            }}>
+                            {s.type === 'recent' ? (
+                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                              </svg>
+                            ) : (
+                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth="2" strokeLinecap="round" style={{ flexShrink: 0 }}>
+                                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                              </svg>
+                            )}
+                            <span style={{
+                              fontSize: '14px', fontWeight: 500,
+                              color: active ? '#FF4500' : '#333',
+                              flex: 1,
+                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                            }}>
+                              {s.text}
+                            </span>
+                            {s.type === 'category' && (
+                              <span style={{
+                                fontSize: '11px', fontWeight: 600, color: '#9AA3AE',
+                                background: '#F4F5F7', padding: '3px 10px', borderRadius: '20px',
+                                flexShrink: 0, textTransform: 'uppercase', letterSpacing: '.4px',
+                              }}>
+                                Catégorie
+                              </span>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </>
+                )}
+              </form>
+            </div>
           )}
 
           <div className="gh-delivery" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', marginRight: '6px', cursor: 'pointer', lineHeight: 1.05, flexShrink: 0 }}>
@@ -197,25 +335,9 @@ export default function Header() {
           {user ? (
             /* ══ CONNECTÉ : rangée d'icônes ══ */
             <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(12px, 1.7vw, 24px)', marginLeft: 'clamp(12px, 1.8vw, 26px)', flexShrink: 0 }}>
-              <HeaderIcon to="/messages" title="Messages">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
-                </svg>
-              </HeaderIcon>
-              <HeaderIcon to="/dashboard/commandes" title="Mes commandes">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
-                  <rect x="8" y="2" width="8" height="4" rx="1"/>
-                  <line x1="8" y1="11" x2="16" y2="11"/><line x1="8" y1="15" x2="13" y2="15"/>
-                </svg>
-              </HeaderIcon>
-              {/* ⭐ Panier — badge branché sur le CartContext */}
-              <HeaderIcon to="/panier" title="Panier" badge={cartCount}>
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
-                  <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
-                </svg>
-              </HeaderIcon>
+              <MessagesDropdown />
+              <OrdersDropdown />
+              <CartDropdown />
               <AccountMenu signOut={signOut} />
             </div>
           ) : (
@@ -287,10 +409,7 @@ function HeaderIcon({ to, title, children, badge = 0 }) {
 
 // ── AccountMenu (icône compte + menu déroulant avec déconnexion) ──
 function AccountMenu({ signOut }) {
-  const [open, setOpen] = useState(false)
-  const timerRef = useRef(null)
-  const enter = () => { clearTimeout(timerRef.current); setOpen(true) }
-  const leave = () => { timerRef.current = setTimeout(() => setOpen(false), 150) }
+  const { open, wrapRef, menuRef, handleEnter, handleLeave } = useHoverMenu()
   const links = [
     { label: 'Mon compte',        to: '/dashboard' },
     { label: 'Mes commandes',     to: '/dashboard/commandes' },
@@ -298,7 +417,7 @@ function AccountMenu({ signOut }) {
     { label: 'Liste de souhaits', to: '/favoris' },
   ]
   return (
-    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }} onMouseEnter={enter} onMouseLeave={leave}>
+    <div ref={wrapRef} style={{ position: 'relative', display: 'flex', alignItems: 'center' }} onMouseEnter={handleEnter} onMouseLeave={handleLeave}>
       <Link to="/dashboard" title="Mon compte" className="gh-util"
         style={{ display: 'flex', alignItems: 'center', color: open ? '#FF4500' : '#0F1419', textDecoration: 'none', transition: 'color .15s' }}>
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
@@ -306,7 +425,7 @@ function AccountMenu({ signOut }) {
         </svg>
       </Link>
       {open && (
-        <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '12px', background: '#fff', border: '1px solid #E8EAED', borderRadius: '12px', boxShadow: '0 8px 28px rgba(0,0,0,0.12)', minWidth: '200px', padding: '8px', zIndex: 2000 }}>
+        <div ref={menuRef} style={{ position: 'absolute', top: '100%', right: 0, marginTop: '12px', background: '#fff', border: '1px solid #E8EAED', borderRadius: '12px', boxShadow: '0 8px 28px rgba(0,0,0,0.12)', minWidth: '200px', padding: '8px', zIndex: 2000 }}>
           {links.map((it, i) => (
             <Link key={i} to={it.to}
               style={{ display: 'block', padding: '9px 12px', fontSize: '13.5px', color: '#0F1419', textDecoration: 'none', borderRadius: '8px' }}
@@ -337,13 +456,10 @@ function CatIcon({ name, size = 18, color = 'currentColor' }) {
 
 // ── CategoriesButton ──────────────────────────────────────────────
 function CategoriesButton() {
-  const [open, setOpen] = useState(false)
-  const timerRef = useRef(null)
-  const handleEnter = () => { clearTimeout(timerRef.current); setOpen(true) }
-  const handleLeave = () => { timerRef.current = setTimeout(() => setOpen(false), 150) }
+  const { open, wrapRef, menuRef, handleEnter, handleLeave } = useHoverMenu()
 
   return (
-    <div style={{ position: 'relative', height: '38px', display: 'flex', alignItems: 'center' }}
+    <div ref={wrapRef} style={{ position: 'relative', height: '38px', display: 'flex', alignItems: 'center' }}
       onMouseEnter={handleEnter} onMouseLeave={handleLeave}>
       <button style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 'clamp(14px, 1.1vw, 16px)', fontWeight: 600, color: open ? '#FF4500' : '#0F1419', padding: '0 14px 0 0', height: '100%', marginRight: '12px', flexShrink: 0, whiteSpace: 'nowrap' }}>
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -351,7 +467,7 @@ function CategoriesButton() {
         </svg>
         Toutes les catégories
       </button>
-      {open && <MegaMenu onMouseEnter={handleEnter} onMouseLeave={handleLeave} />}
+      {open && <MegaMenu ref={menuRef} onMouseEnter={handleEnter} onMouseLeave={handleLeave} />}
     </div>
   )
 }
@@ -424,12 +540,12 @@ function SubCategoryItem({ sub }) {
 
         {sub.is_hot && !sub.is_external && (
           <div style={{ position: 'absolute', top: '-4px', right: '-4px', zIndex: 2 }}>
-            <DotLottieReact src="/src/assets/lottie/fire.json" autoplay loop width={32} height={32} />
+            <DotLottieReact src="/src/assets/lottie/hot1.json" autoplay loop width={32} height={32} />
           </div>
         )}
         {sub.is_new && !sub.is_hot && !sub.is_external && (
           <div style={{ position: 'absolute', top: '-6px', right: '-10px', zIndex: 2 }}>
-            <DotLottieReact src="/src/assets/lottie/new.json" autoplay loop width={44} height={44} />
+            <DotLottieReact src="/src/assets/lottie/new1.json" autoplay loop width={44} height={44} />
           </div>
         )}
       </div>
@@ -459,7 +575,7 @@ function SubCategoryItem({ sub }) {
 const POUR_VOUS_ID = '__pour_vous__'
 const _cache = { categories: null, allSubs: null, subs: {} }
 
-function MegaMenu({ onMouseEnter, onMouseLeave }) {
+const MegaMenu = forwardRef(function MegaMenu({ onMouseEnter, onMouseLeave }, ref) {
   const [categories, setCategories] = useState(_cache.categories || [])
   const [activeId, setActiveId]     = useState(POUR_VOUS_ID)
   const [loading, setLoading]       = useState(!_cache.categories)
@@ -548,6 +664,7 @@ function MegaMenu({ onMouseEnter, onMouseLeave }) {
 
   return (
     <div
+      ref={ref}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       className="gh-dd"
@@ -729,142 +846,16 @@ function MegaMenu({ onMouseEnter, onMouseLeave }) {
       </div>
     </div>
   )
-}
+})
 
-// ── ProtectionNavLink ─────────────────────────────────────────────
-function ProtectionNavLink() {
-  const [open, setOpen] = useState(false)
-  const timerRef = useRef(null)
-  const handleEnter = () => { clearTimeout(timerRef.current); setOpen(true) }
-  const handleLeave = () => { timerRef.current = setTimeout(() => setOpen(false), 150) }
-  return (
-    <div style={{ position: 'relative', height: '38px', display: 'flex', alignItems: 'center' }} onMouseEnter={handleEnter} onMouseLeave={handleLeave}>
-      <a href="/protection" style={{ display: 'inline-flex', alignItems: 'center', padding: '0 12px', height: '38px', textDecoration: 'none', whiteSpace: 'nowrap', fontSize: '13px', fontWeight: open ? 600 : 400, color: open ? '#FF4500' : '#3D4853', borderBottom: open ? '2px solid #FF4500' : '2px solid transparent', transition: 'color 0.15s, border-color 0.15s' }}>
-        Protection des commandes
-      </a>
-      {open && <ProtectionMenu onMouseEnter={handleEnter} onMouseLeave={handleLeave} />}
-    </div>
-  )
-}
-
-function ProtectionMenu({ onMouseEnter, onMouseLeave }) {
-  const items = [
-    { icon: 'ShieldCheck', label: 'Paiements sûrs et faciles',  desc: 'Paiements 100% sécurisés',  href: '/protection/paiements' },
-    { icon: 'RefreshCw',   label: 'Politique de remboursement', desc: 'Remboursement garanti',      href: '/protection/remboursement' },
-    { icon: 'Ship',        label: 'Services logistiques',        desc: 'Livraison suivie',           href: '/protection/logistique' },
-    { icon: 'Wrench',      label: 'Protections après-vente',    desc: 'SAV dédié aux acheteurs',    href: '/protection/apres-vente' },
-  ]
-  return (
-    <div onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}
-      style={{ position: 'fixed', top: 'clamp(106px, 11vw, 126px)', left: 0, right: 0, background: '#fff', borderTop: '1px solid #E8EAED', boxShadow: '0 8px 32px rgba(0,0,0,0.10)', zIndex: 2000, padding: '40px 0' }}>
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 40px', display: 'flex', gap: '80px', alignItems: 'center' }}>
-        <div style={{ flexShrink: 0, width: '300px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '18px' }}>
-            <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'linear-gradient(135deg, #FFF3CD, #FFE082)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Icons.ShieldCheck size={22} color="#E65C00" strokeWidth={2} />
-            </div>
-            <span style={{ fontSize: '14px', fontWeight: 700, color: '#0F1419' }}>Protection des commandes</span>
-          </div>
-          <h3 style={{ fontSize: '26px', fontWeight: 800, color: '#0F1419', lineHeight: 1.25, margin: '0 0 10px' }}>Achetez en toute confiance</h3>
-          <p style={{ fontSize: '14px', color: '#6B7785', lineHeight: 1.6, margin: '0 0 24px' }}>Votre paiement est protégé jusqu'à la réception et validation de votre commande.</p>
-          <a href="/protection" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#FF4500', color: '#fff', textDecoration: 'none', fontSize: '14px', fontWeight: 700, padding: '11px 28px', borderRadius: '8px' }}
-            onMouseEnter={e => { e.currentTarget.style.background = '#D63A00' }} onMouseLeave={e => { e.currentTarget.style.background = '#FF4500' }}>
-            En savoir plus <Icons.ArrowRight size={16} />
-          </a>
-        </div>
-        <div style={{ width: '1px', height: '160px', background: '#E8EAED', flexShrink: 0 }} />
-        <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-          {items.map((item, i) => {
-            const Icon = Icons[item.icon] || Icons.Shield
-            return (
-              <a key={i} href={item.href} style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px 20px', background: '#FAFAFA', border: '1px solid #F0F0F0', borderRadius: '14px', textDecoration: 'none', transition: 'all 0.15s' }}
-                onMouseEnter={e => { e.currentTarget.style.background='#FFF8F5'; e.currentTarget.style.borderColor='#FFD0BC'; e.currentTarget.style.transform='translateY(-2px)' }}
-                onMouseLeave={e => { e.currentTarget.style.background='#FAFAFA'; e.currentTarget.style.borderColor='#F0F0F0'; e.currentTarget.style.transform='none' }}>
-                <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'linear-gradient(135deg, #FFF3CD, #FFE082)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Icon size={22} color="#E65C00" strokeWidth={1.8} />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#0F1419', marginBottom: '3px' }}>{item.label}</div>
-                  <div style={{ fontSize: '12px', color: '#9AA3AE' }}>{item.desc}</div>
-                </div>
-                <Icons.ArrowRight size={16} color="#C0C6CC" style={{ flexShrink: 0 }} />
-              </a>
-            )
-          })}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function CentreAcheteursNavLink() {
-  const [open, setOpen] = useState(false)
-  const timerRef = useRef(null)
-  const handleEnter = () => { clearTimeout(timerRef.current); setOpen(true) }
-  const handleLeave = () => { timerRef.current = setTimeout(() => setOpen(false), 150) }
-  const links = [
-    { label: 'Pourquoi GROSHOP ?',              href: '/about' },
-    { label: 'À propos de GROSHOP',              href: '/about/groshop' },
-    { label: 'Comment fonctionne le sourcing ?', href: '/about/sourcing' },
-    { label: 'Actualités GROSHOP',               href: '/news' },
-  ]
-  const services = [
-    { label: 'Protection des commandes',          href: '/protection' },
-    { label: 'Suivi de production et inspection', href: '/inspection' },
-  ]
-  const assistance = [
-    { label: 'Assistance pour les acheteurs', href: '/help/acheteurs' },
-    { label: 'Ouvrir un litige',              href: '/help/litige' },
-    { label: 'Signaler un abus',              href: '/help/abus' },
-  ]
-  return (
-    <div style={{ position: 'relative', height: '38px', display: 'flex', alignItems: 'center' }} onMouseEnter={handleEnter} onMouseLeave={handleLeave}>
-      <a href="/acheteurs" style={{ display: 'inline-flex', alignItems: 'center', padding: '0 12px', height: '38px', textDecoration: 'none', whiteSpace: 'nowrap', fontSize: '13px', fontWeight: open ? 600 : 400, color: open ? '#FF4500' : '#3D4853', borderBottom: open ? '2px solid #FF4500' : '2px solid transparent', transition: 'color 0.15s, border-color 0.15s' }}>Centre des acheteurs</a>
-      {open && (
-        <div onMouseEnter={handleEnter} onMouseLeave={handleLeave}
-          style={{ position: 'fixed', top: 'clamp(106px, 11vw, 126px)', left: 0, right: 0, background: '#fff', borderTop: '1px solid #E8EAED', boxShadow: '0 8px 32px rgba(0,0,0,0.10)', zIndex: 2000, padding: '36px 0' }}>
-          <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 40px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1px 1fr', gap: '0 40px' }}>
-            <div>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: '#0F1419', marginBottom: '14px' }}>Pourquoi GROSHOP ?</div>
-              {links.map((l, i) => <a key={i} href={l.href} style={{ display: 'block', fontSize: '13px', color: '#3D4853', textDecoration: 'none', padding: '6px 0' }} onMouseEnter={e => e.target.style.color='#FF4500'} onMouseLeave={e => e.target.style.color='#3D4853'}>{l.label}</a>)}
-            </div>
-            <div>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: '#0F1419', marginBottom: '14px' }}>Services</div>
-              {services.map((l, i) => <a key={i} href={l.href} style={{ display: 'block', fontSize: '13px', color: '#3D4853', textDecoration: 'none', padding: '6px 0' }} onMouseEnter={e => e.target.style.color='#FF4500'} onMouseLeave={e => e.target.style.color='#3D4853'}>{l.label}</a>)}
-            </div>
-            <div>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: '#0F1419', marginBottom: '14px' }}>Centre d'assistance</div>
-              {assistance.map((l, i) => <a key={i} href={l.href} style={{ display: 'block', fontSize: '13px', color: '#3D4853', textDecoration: 'none', padding: '6px 0' }} onMouseEnter={e => e.target.style.color='#FF4500'} onMouseLeave={e => e.target.style.color='#3D4853'}>{l.label}</a>)}
-            </div>
-            <div style={{ background: '#E8EAED' }} />
-            <div>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: '#0F1419', marginBottom: '14px' }}>Magasins partenaires</div>
-              <a href="/partenaires/wix" style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 16px', border: '1px solid #E8EAED', borderRadius: '10px', textDecoration: 'none', transition: 'border-color 0.15s' }}
-                onMouseEnter={e => e.currentTarget.style.borderColor='#FF4500'} onMouseLeave={e => e.currentTarget.style.borderColor='#E8EAED'}>
-                <div style={{ width: '48px', height: '48px', borderRadius: '8px', background: '#F4F5F7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '16px', color: '#0F1419' }}>WiX</div>
-                <div>
-                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#0F1419' }}>Intégrer GROSHOP à Wix</div>
-                  <div style={{ fontSize: '12px', color: '#9AA3AE' }}>Connectez votre boutique</div>
-                </div>
-              </a>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
+// ── AppNavLink ────────────────────────────────────────────────────
 function AppNavLink() {
-  const [open, setOpen] = useState(false)
-  const timerRef = useRef(null)
-  const handleEnter = () => { clearTimeout(timerRef.current); setOpen(true) }
-  const handleLeave = () => { timerRef.current = setTimeout(() => setOpen(false), 150) }
+  const { open, wrapRef, menuRef, handleEnter, handleLeave } = useHoverMenu()
   return (
-    <div style={{ position: 'relative', height: '38px', display: 'flex', alignItems: 'center' }} onMouseEnter={handleEnter} onMouseLeave={handleLeave}>
+    <div ref={wrapRef} style={{ position: 'relative', height: '38px', display: 'flex', alignItems: 'center' }} onMouseEnter={handleEnter} onMouseLeave={handleLeave}>
       <a href="/app" style={{ display: 'inline-flex', alignItems: 'center', padding: '0 12px', height: '38px', textDecoration: 'none', whiteSpace: 'nowrap', fontSize: 'clamp(14px, 1.1vw, 16px)', fontWeight: open ? 600 : 400, color: open ? '#FF4500' : '#3D4853', borderBottom: open ? '2px solid #FF4500' : '2px solid transparent', transition: 'color 0.15s, border-color 0.15s' }}>Application et extension</a>
       {open && (
-        <div onMouseEnter={handleEnter} onMouseLeave={handleLeave} className="gh-dd"
+        <div ref={menuRef} onMouseEnter={handleEnter} onMouseLeave={handleLeave} className="gh-dd"
           style={{ position: 'fixed', top: 'clamp(106px, 11vw, 126px)', left: 0, right: 0, background: '#fff', borderTop: '1px solid #E8EAED', boxShadow: '0 8px 32px rgba(0,0,0,0.10)', zIndex: 2000, padding: '40px 0' }}>
           <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 40px', display: 'grid', gridTemplateColumns: '1fr 1px 1fr', gap: '0 60px', alignItems: 'start' }}>
             <div>
@@ -892,21 +883,19 @@ function AppNavLink() {
   )
 }
 
+// ── VendreNavLink ─────────────────────────────────────────────────
 function VendreNavLink() {
-  const [open, setOpen] = useState(false)
-  const timerRef = useRef(null)
-  const handleEnter = () => { clearTimeout(timerRef.current); setOpen(true) }
-  const handleLeave = () => { timerRef.current = setTimeout(() => setOpen(false), 150) }
+  const { open, wrapRef, menuRef, handleEnter, handleLeave } = useHoverMenu()
   const cards = [
     { icon: 'Globe',     title: 'Fournisseurs Tunisie',        desc: "Vendez localement et à l'export", href: '/vendre/tunisie' },
     { icon: 'Globe2',    title: 'Fournisseurs internationaux', desc: 'Basés hors Tunisie',              href: '/vendre/international' },
     { icon: 'Handshake', title: 'Programme de partenariat',    desc: 'Devenez partenaire GROSHOP',      href: '/vendre/partenariat' },
   ]
   return (
-    <div style={{ position: 'relative', height: '38px', display: 'flex', alignItems: 'center' }} onMouseEnter={handleEnter} onMouseLeave={handleLeave}>
+    <div ref={wrapRef} style={{ position: 'relative', height: '38px', display: 'flex', alignItems: 'center' }} onMouseEnter={handleEnter} onMouseLeave={handleLeave}>
       <a href="/vendre" style={{ display: 'inline-flex', alignItems: 'center', padding: '0 12px', height: '38px', textDecoration: 'none', whiteSpace: 'nowrap', fontSize: 'clamp(14px, 1.1vw, 16px)', fontWeight: open ? 600 : 400, color: open ? '#FF4500' : '#3D4853', borderBottom: open ? '2px solid #FF4500' : '2px solid transparent', transition: 'color 0.15s, border-color 0.15s' }}>Vendre sur GROSHOP</a>
       {open && (
-        <div onMouseEnter={handleEnter} onMouseLeave={handleLeave} className="gh-dd"
+        <div ref={menuRef} onMouseEnter={handleEnter} onMouseLeave={handleLeave} className="gh-dd"
           style={{ position: 'fixed', top: 'clamp(106px, 11vw, 126px)', left: 0, right: 0, background: '#fff', borderTop: '1px solid #E8EAED', boxShadow: '0 8px 32px rgba(0,0,0,0.10)', zIndex: 2000, padding: '40px 0' }}>
           <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 40px' }}>
             <div style={{ fontSize: '13px', color: '#9AA3AE', marginBottom: '20px', fontWeight: 500 }}>Choisissez votre profil fournisseur</div>

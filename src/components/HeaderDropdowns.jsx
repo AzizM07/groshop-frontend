@@ -9,7 +9,7 @@ import { messaging, orders } from '../lib/api'
 const fetchMessages = () => messaging.conversations()
 const fetchOrders   = () => orders.list()
 
-const ORANGE = '#FF4500'
+const ORANGE = '#ff5e20'
 const INK    = '#0F1419'
 const MUTE   = '#6B7785'
 const FAINT  = '#9AA3AE'

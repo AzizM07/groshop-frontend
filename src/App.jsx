@@ -34,8 +34,8 @@ import SupplierLandingPage from './pages/supplier-landing/SupplierLandingPage'
 import SupplierSignupPage from './pages/supplier-landing/SupplierSignupPage'
 import Footer from './components/Footer'
 import AddProductPage from './pages/AddProductPage'
-
-const NO_LAYOUT   = ['/login', '/signup', '/pending', '/dashboard', '/supplier']
+import RequireAuth from './router/RequireAuth'
+const NO_LAYOUT   = ['/login', '/signup', '/pending', '/supplier','/dashboard']
 const FOOTER_ONLY = ['/devenir-fournisseur']
 
 function AppContent() {
@@ -65,10 +65,8 @@ function AppContent() {
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/pending"        element={<PendingPage />} />
         <Route path="/devenir-fournisseur/inscription" element={<SupplierSignupPage />} />
-        <Route path="/dashboard"      element={
-          <ProtectedRoute><DashboardPage /></ProtectedRoute>
-        } />
-
+        // bloc isNoLayout
+<Route path="/dashboard" element={<RequireAuth><DashboardPage /></RequireAuth>} />
         <Route path="/supplier" element={
           <SupplierRoute><SupplierDashboardLayout /></SupplierRoute>
         }>
@@ -104,10 +102,13 @@ function AppContent() {
         <Route path="/"                            element={<HomePage />} />
         <Route path="/search"                      element={<SearchPage />} />
         <Route path="/panier"                      element={<CartPage />} />
+        <Route path="/dashboard" element={<RequireAuth><DashboardPage /></RequireAuth>} />
+        <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
         <Route path="/produit/:id"                 element={<ProductPage />} />
         <Route path="/fournisseur/:slug"           element={<SupplierProfilePage />} />
         <Route path="/fournisseur/:slug/catalogue" element={<SupplierCataloguePage />} />
         <Route path="*"                            element={<Navigate to="/" replace />} />
+        
       </Routes>
     </Layout>
   )

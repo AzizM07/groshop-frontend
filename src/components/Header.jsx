@@ -10,6 +10,22 @@ import LOGO_SRC from '../assets/logo2.png'
 import { useSearchSuggestions } from './SearchSuggestions'
 import { MessagesDropdown, OrdersDropdown, CartDropdown } from './HeaderDropdowns'
 
+/* Largeur commune des méga-menus : 90% de l'écran, centrés, plafonnés. */
+const MENU_STYLE = {
+  position: 'fixed',
+  top: 'clamp(106px, 11vw, 126px)',
+  left: '50%',
+  transform: 'translateX(-50%)',
+  width: '92%',
+  maxWidth: '1600px',
+  background: '#fff',
+  border: '1px solid #E8EAED',
+  borderRadius: '0 0 16px 16px',
+  boxShadow: '0 12px 40px rgba(0,0,0,0.12)',
+  zIndex: 2000,
+  overflow: 'hidden',
+}
+
 if (typeof document !== 'undefined' && !document.getElementById('header-anim')) {
   const s = document.createElement('style')
   s.id = 'header-anim'
@@ -19,30 +35,22 @@ if (typeof document !== 'undefined' && !document.getElementById('header-anim')) 
     @keyframes fadeIn { from { opacity:0; transform:scaleX(0.95) } to { opacity:1; transform:scaleX(1) } }
     @keyframes skeleton-pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
 
-    /* Icônes utilitaires (messages, commandes, panier, compte) — taille relative */
     .gh-util svg { width: clamp(23px, 2.2vw, 30px); height: clamp(23px, 2.2vw, 30px); }
 
-    /* Animation d'ouverture des menus déroulants.
-       Le wrapper fixed ne bouge pas, seul l'enfant glisse. */
+    /* Animation d'ouverture : le wrapper fixe ne bouge pas, seul l'enfant glisse. */
     @keyframes ghFade  { from { opacity: 0 } to { opacity: 1 } }
-    @keyframes ghSlide { from { transform: translateY(-10px) } to { transform: translateY(0) } }
+    @keyframes ghSlide { from { transform: translateX(-50%) translateY(-10px) } to { transform: translateX(-50%) translateY(0) } }
     .gh-dd     { animation: ghFade 0.18s ease; }
-    .gh-dd > * { animation: ghSlide 0.22s cubic-bezier(0.16, 1, 0.3, 1); }
 
-    /* Badge panier — pop à chaque changement */
     @keyframes gh-badge-pop { 0% { transform: scale(0.6) } 60% { transform: scale(1.15) } 100% { transform: scale(1) } }
     .gh-badge { animation: gh-badge-pop 0.25s ease; }
 
-    /* ── Anti-scroll horizontal (clip, pas hidden : ne casse pas le fixed/sticky) ── */
     html, body { overflow-x: clip; max-width: 100%; }
 
-    /* ── Spacer : compense la hauteur du header fixed (ligne1 + ligne2) ── */
     .gh-spacer { height: clamp(106px, 11vw, 126px); flex-shrink: 0; }
 
-    /* ── Barre de recherche : le wrapper garde la hauteur, le conteneur s'étale ── */
     .gh-searchrow { padding-left: 20px; padding-right: 4px; }
 
-    /* Responsive header */
     @media (max-width: 1100px) { .gh-delivery { display: none !important; } }
     @media (max-width: 920px)  { .gh-lang-text, .gh-account-text { display: none !important; } }
     @media (max-width: 720px)  {
@@ -65,23 +73,13 @@ if (typeof document !== 'undefined' && !document.getElementById('header-anim')) 
 }
 
 const SEARCH_H = 'clamp(42px, 4.5vw, 50px)'
-// La ligne fait SEARCH_H moins les 2×2px de bordure du conteneur :
-// total identique à l'ancien form en border-box.
 const SEARCH_ROW_H = 'calc(clamp(42px, 4.5vw, 50px) - 4px)'
 
-/* ═══════════════════════════════════════════════════════════════════
-   SUIVI DU CURSEUR
-   mouseleave peut se déclencher alors que la souris n'a pas bougé
-   (frontière sous-pixel entre le header et le menu, reflow…).
-   Comme aucun mouseenter ne suit, le timer de fermeture n'est jamais
-   annulé → le menu se ferme tout seul. On vérifie donc la position
-   réelle du curseur avant de fermer.
-   ═══════════════════════════════════════════════════════════════════ */
+/* ── Suivi du curseur pour fermeture fiable des menus ── */
 const pointer = { x: -1, y: -1 }
 if (typeof window !== 'undefined') {
   window.addEventListener('mousemove', e => { pointer.x = e.clientX; pointer.y = e.clientY }, { passive: true })
 }
-
 const isUnder = (el, pad = 4) => {
   if (!el) return false
   const r = el.getBoundingClientRect()
@@ -89,7 +87,6 @@ const isUnder = (el, pad = 4) => {
       && pointer.y >= r.top - pad  && pointer.y <= r.bottom + pad
 }
 
-/* Hook partagé par tous les menus au survol */
 function useHoverMenu(delay = 150) {
   const [open, setOpen] = useState(false)
   const timerRef = useRef(null)
@@ -97,16 +94,13 @@ function useHoverMenu(delay = 150) {
   const menuRef  = useRef(null)
 
   const handleEnter = () => { clearTimeout(timerRef.current); setOpen(true) }
-
   const handleLeave = () => {
     clearTimeout(timerRef.current)
     timerRef.current = setTimeout(() => {
-      // le curseur est-il VRAIMENT sorti, ou n'a-t-il simplement pas bougé ?
       if (isUnder(wrapRef.current) || isUnder(menuRef.current)) return
       setOpen(false)
     }, delay)
   }
-
   useEffect(() => () => clearTimeout(timerRef.current), [])
 
   return { open, wrapRef, menuRef, handleEnter, handleLeave }
@@ -177,7 +171,6 @@ export default function Header() {
           <div style={{ flex: 1, minWidth: 0 }} />
 
           {showSearch && (
-            /* Wrapper : garde la hauteur de la ligne, ne grandit jamais */
             <div className="gh-search" style={{
               position: 'relative',
               height: SEARCH_H,
@@ -185,8 +178,6 @@ export default function Header() {
               marginRight: 'clamp(8px, 1.5vw, 20px)',
               minWidth: 0,
             }}>
-
-              {/* ═══ LE conteneur unique : bordure + radius + ombre ici, nulle part ailleurs ═══ */}
               <form
                 onSubmit={e => { e.preventDefault(); goToSearch(searchQuery) }}
                 style={{
@@ -194,19 +185,15 @@ export default function Header() {
                   background: '#fff',
                   border: '2px solid #FF4500',
                   borderRadius: open ? '24px' : '50px',
-                  overflow: 'hidden',              // rogne la liste sur les coins arrondis
+                  overflow: 'hidden',
                   boxShadow: open ? '0 16px 40px rgba(0,0,0,.12)' : 'none',
                   animation: 'fadeIn 0.2s ease',
                   transition: 'border-radius .18s, box-shadow .18s',
                   boxSizing: 'border-box',
-                  zIndex: 2500,                   // au-dessus des méga-menus (2000)
+                  zIndex: 2500,
                 }}>
 
-                {/* ── Ligne de saisie ── */}
-                <div className="gh-searchrow" style={{
-                  display: 'flex', alignItems: 'center',
-                  height: SEARCH_ROW_H,
-                }}>
+                <div className="gh-searchrow" style={{ display: 'flex', alignItems: 'center', height: SEARCH_ROW_H }}>
                   <input type="text" value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
                     onFocus={() => { setFocused(true); if (suggestions.length > 0) setShowDropdown(true) }}
@@ -243,7 +230,6 @@ export default function Header() {
                   </button>
                 </div>
 
-                {/* ── Suggestions : même conteneur, simple séparateur interne ── */}
                 {open && (
                   <>
                     <div style={{ height: 1, background: '#F0F0F0', margin: '0 18px' }} />
@@ -254,10 +240,7 @@ export default function Header() {
                           Recherches récentes
                         </span>
                         <div style={{ flex: 1 }} />
-                        <button
-                          type="button"
-                          onMouseDown={e => e.preventDefault()}
-                          onClick={clearRecent}
+                        <button type="button" onMouseDown={e => e.preventDefault()} onClick={clearRecent}
                           style={{ fontSize: '12px', fontWeight: 600, color: '#FF4500', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
                           Effacer
                         </button>
@@ -271,13 +254,12 @@ export default function Header() {
                         return (
                           <div
                             key={`${s.type}-${s.text}`}
-                            onMouseDown={e => e.preventDefault()}   // garde le focus input
+                            onMouseDown={e => e.preventDefault()}
                             onClick={() => goToSearch(s.text)}
                             onMouseEnter={() => setActiveIndex(i)}
                             style={{
                               display: 'flex', alignItems: 'center', gap: '12px',
-                              padding: '10px 18px',
-                              cursor: 'pointer',
+                              padding: '10px 18px', cursor: 'pointer',
                               background: active ? '#FFF4F0' : 'transparent',
                               transition: 'background 0.1s',
                             }}>
@@ -292,8 +274,7 @@ export default function Header() {
                             )}
                             <span style={{
                               fontSize: '14px', fontWeight: 500,
-                              color: active ? '#FF4500' : '#333',
-                              flex: 1,
+                              color: active ? '#FF4500' : '#333', flex: 1,
                               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                             }}>
                               {s.text}
@@ -333,7 +314,6 @@ export default function Header() {
           </button>
 
           {user ? (
-            /* ══ CONNECTÉ : rangée d'icônes ══ */
             <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(12px, 1.7vw, 24px)', marginLeft: 'clamp(12px, 1.8vw, 26px)', flexShrink: 0 }}>
               <MessagesDropdown />
               <OrdersDropdown />
@@ -341,23 +321,18 @@ export default function Header() {
               <AccountMenu signOut={signOut} />
             </div>
           ) : (
-            /* ══ DÉCONNECTÉ ══ */
             <>
               <Divider />
-
               <button style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', cursor: 'pointer', color: '#0F1419', padding: '0 14px', flexShrink: 0 }}>
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/>
                 </svg>
               </button>
-
               <Divider />
-
               <Link to="/login" style={{ ...topLinkStyle, padding: '0 14px', flexShrink: 0 }}>
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" style={{ marginRight: '5px' }}><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                 <span className="gh-account-text">Se connecter</span>
               </Link>
-
               <Link to="/signup/buyer" className="gh-cta"
                 style={{ background: '#FF4500', color: '#fff', textDecoration: 'none', fontSize: '14px', fontWeight: 700, padding: '10px 24px', borderRadius: '6px', marginLeft: '10px', whiteSpace: 'nowrap', flexShrink: 0 }}
                 onMouseEnter={e => { e.currentTarget.style.background = '#D63A00' }}
@@ -377,37 +352,12 @@ export default function Header() {
         </nav>
       </header>
 
-      {/* ══ SPACER : réserve la place du header fixed ══ */}
       <div className="gh-spacer" aria-hidden="true" />
     </>
   )
 }
 
-// ── HeaderIcon (icône cliquable avec hover orange + badge optionnel) ──
-function HeaderIcon({ to, title, children, badge = 0 }) {
-  const [hov, setHov] = useState(false)
-  return (
-    <Link to={to} title={title} className="gh-util"
-      onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
-      style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', color: hov ? '#FF4500' : '#0F1419', textDecoration: 'none', transition: 'color .15s', flexShrink: 0 }}>
-      {children}
-      {badge > 0 && (
-        <span key={badge} className="gh-badge" style={{
-          position: 'absolute', top: '-5px', right: '-7px',
-          minWidth: '18px', height: '18px', padding: '0 4px',
-          borderRadius: '9px', background: '#FF4500', color: '#fff',
-          fontSize: '10px', fontWeight: 700, lineHeight: 1,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          border: '2px solid #fff', boxSizing: 'border-box', pointerEvents: 'none',
-        }}>
-          {badge > 9 ? '9+' : badge}
-        </span>
-      )}
-    </Link>
-  )
-}
-
-// ── AccountMenu (icône compte + menu déroulant avec déconnexion) ──
+// ── AccountMenu ───────────────────────────────────────────────────
 function AccountMenu({ signOut }) {
   const { open, wrapRef, menuRef, handleEnter, handleLeave } = useHoverMenu()
   const links = [
@@ -447,7 +397,6 @@ function AccountMenu({ signOut }) {
   )
 }
 
-// ── CatIcon ───────────────────────────────────────────────────────
 function CatIcon({ name, size = 18, color = 'currentColor' }) {
   const Icon = Icons[name]
   if (!Icon) return <Icons.Grid size={size} color={color} />
@@ -457,7 +406,6 @@ function CatIcon({ name, size = 18, color = 'currentColor' }) {
 // ── CategoriesButton ──────────────────────────────────────────────
 function CategoriesButton() {
   const { open, wrapRef, menuRef, handleEnter, handleLeave } = useHoverMenu()
-
   return (
     <div ref={wrapRef} style={{ position: 'relative', height: '38px', display: 'flex', alignItems: 'center' }}
       onMouseEnter={handleEnter} onMouseLeave={handleLeave}>
@@ -475,65 +423,31 @@ function CategoriesButton() {
 // ── SubCategoryItem ───────────────────────────────────────────────
 function SubCategoryItem({ sub }) {
   const [hov, setHov] = useState(false)
-
   return (
     <div onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
       style={{ textAlign: 'center', cursor: 'pointer', width: '100%' }}>
-
       <div style={{ position: 'relative', width: '120px', height: '120px', margin: '0 auto 10px' }}>
         <div style={{
-          width: '120px',
-          height: '120px',
-          borderRadius: '50%',
-          overflow: 'hidden',
+          width: '120px', height: '120px', borderRadius: '50%', overflow: 'hidden',
           transition: 'transform 0.2s, background 0.2s',
           transform: hov ? 'scale(1.04)' : 'scale(1)',
           background: hov ? '#EAECEF' : '#F2F3F5',
         }}>
           {sub.image_url ? (
-            <img
-              src={sub.image_url}
-              alt={sub.name}
-              style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-                display: 'block',
-              }}
-              onError={e => { e.target.style.display = 'none' }}
-            />
+            <img src={sub.image_url} alt={sub.name}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+              onError={e => { e.target.style.display = 'none' }} />
           ) : (
-            <div style={{
-              width: '100%',
-              height: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '36px',
-            }}>
+            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '36px' }}>
               {sub.emoji || (sub.name && sub.name[0])}
             </div>
           )}
         </div>
 
         {sub.is_external && (
-          <div style={{
-            position: 'absolute',
-            top: '6px',
-            right: '6px',
-            width: '24px',
-            height: '24px',
-            borderRadius: '50%',
-            background: '#1668FF',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 2px 6px rgba(22,104,255,0.3)',
-            zIndex: 2,
-          }}>
+          <div style={{ position: 'absolute', top: '6px', right: '6px', width: '24px', height: '24px', borderRadius: '50%', background: '#1668FF', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(22,104,255,0.3)', zIndex: 2 }}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="7" y1="17" x2="17" y2="7"/>
-              <polyline points="7 7 17 7 17 17"/>
+              <line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/>
             </svg>
           </div>
         )}
@@ -551,18 +465,11 @@ function SubCategoryItem({ sub }) {
       </div>
 
       <div style={{
-        fontSize: '13px',
-        fontWeight: 400,
+        fontSize: '13px', fontWeight: 400,
         color: hov ? '#1668FF' : '#1F2937',
-        lineHeight: 1.35,
-        transition: 'color 0.15s',
-        display: '-webkit-box',
-        WebkitLineClamp: 2,
-        WebkitBoxOrient: 'vertical',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        padding: '0 4px',
-        minHeight: '36px',
+        lineHeight: 1.35, transition: 'color 0.15s',
+        display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+        overflow: 'hidden', textOverflow: 'ellipsis', padding: '0 4px', minHeight: '36px',
         fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif',
       }}>
         {sub.name}
@@ -585,10 +492,7 @@ const MegaMenu = forwardRef(function MegaMenu({ onMouseEnter, onMouseLeave }, re
   const isScrollingFromClick = useRef(false)
 
   const scrollToCategory = (catId) => {
-    if (catId === POUR_VOUS_ID) {
-      rightRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
-      return
-    }
+    if (catId === POUR_VOUS_ID) { rightRef.current?.scrollTo({ top: 0, behavior: 'smooth' }); return }
     const el = document.getElementById(`cat-section-${catId}`)
     if (el && rightRef.current) {
       isScrollingFromClick.current = true
@@ -629,29 +533,19 @@ const MegaMenu = forwardRef(function MegaMenu({ onMouseEnter, onMouseLeave }, re
     if (_cache.categories) return
     products.categories().then(data => {
       const cats = data || []
-      // L'API Django renvoie les catégories racines AVEC leurs children imbriqués
-      // On sépare en 2 structures : racines (sans children) + map des sous-cats
       const c = cats.map(({ children, ...rest }) => rest)
       const s = []
-
       cats.forEach(cat => {
-        const subs = (cat.children || []).map(sub => ({
-          ...sub,
-          parent_id: cat.id,   // ← compatibilité avec l'ancien code
-        }))
+        const subs = (cat.children || []).map(sub => ({ ...sub, parent_id: cat.id }))
         _cache.subs[cat.id] = subs
         s.push(...subs)
       })
-
       _cache.categories = c
       _cache.allSubs = s
       setCategories(c)
       setLoading(false)
       forceUpdate(n => n + 1)
-    }).catch(err => {
-      console.error('Categories error:', err)
-      setLoading(false)
-    })
+    }).catch(err => { console.error('Categories error:', err); setLoading(false) })
   }, [])
 
   const activeCat  = activeId === POUR_VOUS_ID
@@ -663,186 +557,106 @@ const MegaMenu = forwardRef(function MegaMenu({ onMouseEnter, onMouseLeave }, re
     : (_cache.subs[activeId] || [])
 
   return (
-    <div
-      ref={ref}
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
-      className="gh-dd"
-      style={{
-        /* COLLÉ EN HAUT — touche le bas du header de navigation */
-        position: 'fixed',
-        top: 'clamp(106px, 11vw, 126px)',
-        left: 0,
-        right: 0,
-        /* Le fond prend toute la largeur (pas de scroll horizontal via 100vw) */
-        height: '540px',
-        background: '#fff',
-        borderTop: '1px solid #E8EAED',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.10)',
-        zIndex: 2000,
-      }}
-    >
-      {/* Container interne centré avec marges latérales — c'est ça qui crée le "blanc" autour */}
-      <div style={{
-        maxWidth: '1600px',
-        width: '100%',
-        height: '100%',
-        margin: '0 auto',
-        padding: '0 clamp(40px, 4vw, 80px)',  /* marges blanches gauche/droite */
-        display: 'flex',
-        boxSizing: 'border-box',
-      }}>
+    <div ref={ref} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} className="gh-dd"
+      style={{ ...MENU_STYLE, height: '540px', display: 'flex' }}>
 
-        {/* SIDEBAR gauche */}
-        <div ref={leftRef} style={{
-          width: '300px',
-          flexShrink: 0,
-          overflowY: 'auto',
-          height: '100%',
-          background: '#fff',
-          padding: '20px 0',
-        }}>
-          {loading
-            ? [...Array(10)].map((_, i) => <div key={i} style={{ height: '48px', margin: '4px 12px', background: '#F4F5F7', borderRadius: '6px', animation: 'skeleton-pulse 1.5s infinite' }} />)
-            : [{ id: POUR_VOUS_ID, name: 'Catégories pour vous', is_hot: false, is_new: false }, ...categories].map(cat => {
-                const isActive = activeId === cat.id
+      {/* SIDEBAR gauche */}
+      <div ref={leftRef} style={{ width: '300px', flexShrink: 0, overflowY: 'auto', height: '100%', background: '#fff', padding: '20px 0' }}>
+        {loading
+          ? [...Array(10)].map((_, i) => <div key={i} style={{ height: '48px', margin: '4px 12px', background: '#F4F5F7', borderRadius: '6px', animation: 'skeleton-pulse 1.5s infinite' }} />)
+          : [{ id: POUR_VOUS_ID, name: 'Catégories pour vous', is_hot: false, is_new: false }, ...categories].map(cat => {
+              const isActive = activeId === cat.id
+              return (
+                <div key={cat.id} id={`cat-left-${cat.id}`}
+                  onMouseEnter={() => setActiveId(cat.id)}
+                  onClick={() => { setActiveId(cat.id); scrollToCategory(cat.id) }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 24px', cursor: 'pointer',
+                    background: isActive ? '#F4F5F7' : 'transparent',
+                    borderLeft: isActive ? '4px solid #1F2937' : '4px solid transparent',
+                    transition: 'background 0.1s', position: 'relative',
+                  }}>
+                  <span style={{ flexShrink: 0, color: '#1F2937', display: 'flex', alignItems: 'center', opacity: isActive ? 1 : 0.85 }}>
+                    {cat.id === POUR_VOUS_ID
+                      ? <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                      : <CatIcon name={cat.icon} size={22} color="#1F2937" />}
+                  </span>
+                  <span style={{ fontSize: '14px', flex: 1, lineHeight: 1.3, fontWeight: isActive ? 700 : 500, color: '#1F2937', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif' }}>
+                    {cat.name}
+                  </span>
+{cat.is_hot && (
+  <DotLottieReact src="/src/assets/lottie/hot1.json" autoplay loop
+    style={{ width: 20, height: 20, flexShrink: 0 }} />
+)}
+{cat.is_new && (
+  <DotLottieReact src="/src/assets/lottie/new1.json" autoplay loop
+    style={{ width: 34, height: 20, flexShrink: 0 }} />
+)}
+                </div>
+              )
+            })
+        }
+      </div>
+
+      {/* PANNEAU droit */}
+      <div ref={rightRef} onScroll={handleRightScroll} style={{ flex: 1, overflowY: 'auto', height: '100%', padding: '24px 40px', background: '#fff', scrollbarWidth: 'thin', scrollbarColor: '#C0C6CC #f0f0f0', minWidth: 0 }}>
+        {activeCat && (
+          <>
+            {loading ? (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(135px, 1fr))', gap: '24px 12px' }}>
+                {[...Array(14)].map((_, i) => (
+                  <div key={i} style={{ textAlign: 'center' }}>
+                    <div style={{ width: '120px', height: '120px', borderRadius: '50%', background: '#F2F3F5', margin: '0 auto 10px', animation: 'skeleton-pulse 1.5s infinite' }} />
+                    <div style={{ height: '10px', background: '#F2F3F5', borderRadius: '4px', width: '70%', margin: '0 auto' }} />
+                  </div>
+                ))}
+              </div>
+            ) : activeId === POUR_VOUS_ID ? (
+              (() => {
+                const cats = _cache.categories || []
+                const allSubs = Object.values(_cache.subs).flat()
+                const randomSubs = [...allSubs].sort(() => Math.random() - 0.5).slice(0, 14)
                 return (
-                  <div
-                    key={cat.id}
-                    id={`cat-left-${cat.id}`}
-                    onMouseEnter={() => setActiveId(cat.id)}
-                    onClick={() => { setActiveId(cat.id); scrollToCategory(cat.id) }}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '14px',
-                      padding: '14px 24px',
-                      cursor: 'pointer',
-                      background: isActive ? '#F4F5F7' : 'transparent',
-                      borderLeft: isActive ? '4px solid #1F2937' : '4px solid transparent',
-                      transition: 'background 0.1s',
-                      position: 'relative',
-                    }}
-                  >
-                    <span style={{
-                      flexShrink: 0,
-                      color: '#1F2937',
-                      display: 'flex',
-                      alignItems: 'center',
-                      opacity: isActive ? 1 : 0.85,
-                    }}>
-                      {cat.id === POUR_VOUS_ID
-                        ? <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-                          </svg>
-                        : <CatIcon name={cat.icon} size={22} color="#1F2937" />
-                      }
-                    </span>
-                    <span style={{
-                      fontSize: '14px',
-                      flex: 1,
-                      lineHeight: 1.3,
-                      fontWeight: isActive ? 700 : 500,
-                      color: '#1F2937',
-                      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif',
-                    }}>
-                      {cat.name}
-                    </span>
-                    {cat.is_hot && <span style={{ fontSize: '14px' }}>🔥</span>}
-                    {cat.is_new && <span style={{ background: '#0F9D58', color: '#fff', fontSize: '9px', fontWeight: 700, padding: '1px 5px', borderRadius: '3px' }}>NEW</span>}
+                  <div>
+                    <div style={{ marginBottom: '32px' }}>
+                      <div style={{ fontSize: '18px', fontWeight: 700, color: '#1F2937', marginBottom: '20px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif' }}>
+                        Catégories pour vous
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '20px 12px' }}>
+                        {randomSubs.map((sub, i) => <SubCategoryItem key={`${sub.id}-${i}`} sub={sub} />)}
+                      </div>
+                    </div>
+                    {cats.map(cat => {
+                      const catSubs = _cache.subs[cat.id] || []
+                      if (catSubs.length === 0) return null
+                      return (
+                        <div key={cat.id} id={`cat-section-${cat.id}`} style={{ marginBottom: '32px' }}>
+                          <div style={{ fontSize: '18px', fontWeight: 700, color: '#1F2937', marginBottom: '20px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif' }}>
+                            {cat.name}
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(135px, 1fr))', gap: '20px 12px' }}>
+                            {catSubs.map(sub => <SubCategoryItem key={sub.id} sub={sub} />)}
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
                 )
-              })
-          }
-        </div>
-
-        {/* PANNEAU droit — grille catégories */}
-        <div ref={rightRef} onScroll={handleRightScroll} style={{
-          flex: 1,
-          overflowY: 'auto',
-          height: '100%',
-          padding: '24px 0 24px 40px',
-          background: '#fff',
-          scrollbarWidth: 'thin',
-          scrollbarColor: '#C0C6CC #f0f0f0',
-          minWidth: 0,
-        }}>
-          {activeCat && (
-            <>
-              {loading ? (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(135px, 1fr))', gap: '24px 12px' }}>
-                  {[...Array(14)].map((_, i) => (
-                    <div key={i} style={{ textAlign: 'center' }}>
-                      <div style={{ width: '120px', height: '120px', borderRadius: '50%', background: '#F2F3F5', margin: '0 auto 10px', animation: 'skeleton-pulse 1.5s infinite' }} />
-                      <div style={{ height: '10px', background: '#F2F3F5', borderRadius: '4px', width: '70%', margin: '0 auto' }} />
-                    </div>
-                  ))}
+              })()
+            ) : activeSubs.length > 0 ? (
+              <>
+                <div style={{ fontSize: '18px', fontWeight: 700, color: '#1F2937', marginBottom: '20px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif' }}>
+                  {activeCat.name}
                 </div>
-              ) : activeId === POUR_VOUS_ID ? (
-                (() => {
-                  const allSubs = Object.values(_cache.subs).flat()
-                  const randomSubs = [...allSubs].sort(() => Math.random() - 0.5).slice(0, 14)
-                  const cats = _cache.categories || []
-                  return (
-                    <div>
-                      <div style={{ marginBottom: '32px' }}>
-                        <div style={{
-                          fontSize: '18px',
-                          fontWeight: 700,
-                          color: '#1F2937',
-                          marginBottom: '20px',
-                          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif',
-                        }}>
-                          Catégories pour vous
-                        </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '20px 12px' }}>
-                          {randomSubs.map((sub, i) => <SubCategoryItem key={`${sub.id}-${i}`} sub={sub} />)}
-                        </div>
-                      </div>
-                      {cats.map(cat => {
-                        const catSubs = _cache.subs[cat.id] || []
-                        if (catSubs.length === 0) return null
-                        return (
-                          <div key={cat.id} id={`cat-section-${cat.id}`} style={{ marginBottom: '32px' }}>
-                            <div style={{
-                              fontSize: '18px',
-                              fontWeight: 700,
-                              color: '#1F2937',
-                              marginBottom: '20px',
-                              fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif',
-                            }}>
-                              {cat.name}
-                            </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(135px, 1fr))', gap: '20px 12px' }}>
-                              {catSubs.map(sub => <SubCategoryItem key={sub.id} sub={sub} />)}
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )
-                })()
-              ) : activeSubs.length > 0 ? (
-                <>
-                  <div style={{
-                    fontSize: '18px',
-                    fontWeight: 700,
-                    color: '#1F2937',
-                    marginBottom: '20px',
-                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif',
-                  }}>
-                    {activeCat.name}
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(135px, 1fr))', gap: '20px 12px' }}>
-                    {activeSubs.map(sub => <SubCategoryItem key={sub.id} sub={sub} />)}
-                  </div>
-                </>
-              ) : (
-                <div style={{ color: '#9AA3AE', fontSize: '13px', paddingTop: '20px' }}>Aucune sous-catégorie</div>
-              )}
-            </>
-          )}
-        </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(135px, 1fr))', gap: '20px 12px' }}>
+                  {activeSubs.map(sub => <SubCategoryItem key={sub.id} sub={sub} />)}
+                </div>
+              </>
+            ) : (
+              <div style={{ color: '#9AA3AE', fontSize: '13px', paddingTop: '20px' }}>Aucune sous-catégorie</div>
+            )}
+          </>
+        )}
       </div>
     </div>
   )
@@ -856,8 +670,8 @@ function AppNavLink() {
       <a href="/app" style={{ display: 'inline-flex', alignItems: 'center', padding: '0 12px', height: '38px', textDecoration: 'none', whiteSpace: 'nowrap', fontSize: 'clamp(14px, 1.1vw, 16px)', fontWeight: open ? 600 : 400, color: open ? '#FF4500' : '#3D4853', borderBottom: open ? '2px solid #FF4500' : '2px solid transparent', transition: 'color 0.15s, border-color 0.15s' }}>Application et extension</a>
       {open && (
         <div ref={menuRef} onMouseEnter={handleEnter} onMouseLeave={handleLeave} className="gh-dd"
-          style={{ position: 'fixed', top: 'clamp(106px, 11vw, 126px)', left: 0, right: 0, background: '#fff', borderTop: '1px solid #E8EAED', boxShadow: '0 8px 32px rgba(0,0,0,0.10)', zIndex: 2000, padding: '40px 0' }}>
-          <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 40px', display: 'grid', gridTemplateColumns: '1fr 1px 1fr', gap: '0 60px', alignItems: 'start' }}>
+          style={{ ...MENU_STYLE, padding: '40px clamp(24px, 4vw, 60px)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1px 1fr', gap: '0 60px', alignItems: 'start' }}>
             <div>
               <div style={{ fontSize: '16px', fontWeight: 800, color: '#0F1419', marginBottom: '10px' }}>Téléchargez l'application GROSHOP</div>
               <p style={{ fontSize: '13px', color: '#6B7785', lineHeight: 1.6, margin: '0 0 20px' }}>Trouvez des produits, communiquez avec des fournisseurs, gérez et payez vos commandes partout.</p>
@@ -896,39 +710,27 @@ function VendreNavLink() {
       <a href="/vendre" style={{ display: 'inline-flex', alignItems: 'center', padding: '0 12px', height: '38px', textDecoration: 'none', whiteSpace: 'nowrap', fontSize: 'clamp(14px, 1.1vw, 16px)', fontWeight: open ? 600 : 400, color: open ? '#FF4500' : '#3D4853', borderBottom: open ? '2px solid #FF4500' : '2px solid transparent', transition: 'color 0.15s, border-color 0.15s' }}>Vendre sur GROSHOP</a>
       {open && (
         <div ref={menuRef} onMouseEnter={handleEnter} onMouseLeave={handleLeave} className="gh-dd"
-          style={{ position: 'fixed', top: 'clamp(106px, 11vw, 126px)', left: 0, right: 0, background: '#fff', borderTop: '1px solid #E8EAED', boxShadow: '0 8px 32px rgba(0,0,0,0.10)', zIndex: 2000, padding: '40px 0' }}>
-          <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 40px' }}>
-            <div style={{ fontSize: '13px', color: '#9AA3AE', marginBottom: '20px', fontWeight: 500 }}>Choisissez votre profil fournisseur</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
-              {cards.map((card, i) => {
-                const Icon = Icons[card.icon] || Icons.Store
-                return (
-                  <a key={i} href={card.href} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 24px', border: '1px solid #E8EAED', borderRadius: '16px', textDecoration: 'none', textAlign: 'center', gap: '12px', transition: 'all 0.15s' }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor='#FF4500'; e.currentTarget.style.background='#FFF8F5'; e.currentTarget.style.transform='translateY(-2px)' }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor='#E8EAED'; e.currentTarget.style.background='#fff'; e.currentTarget.style.transform='none' }}>
-                    <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: '#F4F5F7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Icon size={28} color="#3D4853" strokeWidth={1.5} />
-                    </div>
-                    <div style={{ fontSize: '14px', fontWeight: 700, color: '#0F1419' }}>{card.title}</div>
-                    <div style={{ fontSize: '12px', color: '#9AA3AE' }}>{card.desc}</div>
-                  </a>
-                )
-              })}
-            </div>
+          style={{ ...MENU_STYLE, padding: '40px clamp(24px, 4vw, 60px)' }}>
+          <div style={{ fontSize: '13px', color: '#9AA3AE', marginBottom: '20px', fontWeight: 500 }}>Choisissez votre profil fournisseur</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+            {cards.map((card, i) => {
+              const Icon = Icons[card.icon] || Icons.Store
+              return (
+                <a key={i} href={card.href} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 24px', border: '1px solid #E8EAED', borderRadius: '16px', textDecoration: 'none', textAlign: 'center', gap: '12px', transition: 'all 0.15s' }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor='#FF4500'; e.currentTarget.style.background='#FFF8F5'; e.currentTarget.style.transform='translateY(-2px)' }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor='#E8EAED'; e.currentTarget.style.background='#fff'; e.currentTarget.style.transform='none' }}>
+                  <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: '#F4F5F7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Icon size={28} color="#3D4853" strokeWidth={1.5} />
+                  </div>
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: '#0F1419' }}>{card.title}</div>
+                  <div style={{ fontSize: '12px', color: '#9AA3AE' }}>{card.desc}</div>
+                </a>
+              )
+            })}
           </div>
         </div>
       )}
     </div>
-  )
-}
-
-function NavLink({ label, href, bold }) {
-  const [hov, setHov] = useState(false)
-  return (
-    <a href={href} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
-      style={{ display: 'inline-flex', alignItems: 'center', padding: '0 12px', height: '38px', textDecoration: 'none', whiteSpace: 'nowrap', fontSize: '13px', fontWeight: bold ? 600 : 400, color: hov ? '#FF4500' : '#3D4853', borderBottom: hov ? '2px solid #FF4500' : '2px solid transparent', transition: 'color 0.15s, border-color 0.15s' }}>
-      {label}
-    </a>
   )
 }
 

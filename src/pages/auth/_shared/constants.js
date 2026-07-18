@@ -1,9 +1,9 @@
 export const C = {
-  primary:      '#FF6B35',
+  primary:      '#ff5e20',
   primaryDark:  '#E55A2B',
   primaryLight: '#FFF3EE',
   primaryBorder:'#FFD4C2',
-  primaryText:  '#D94B1A',
+  primaryText:  '#ff5e20',
   glow:         '0 8px 24px rgba(255,107,53,0.40)',
   glowSm:       '0 4px 14px rgba(255,107,53,0.30)',
 }

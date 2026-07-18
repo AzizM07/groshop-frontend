@@ -229,7 +229,7 @@ export default function SupplierLandingHeader() {
           onClick={() => navigate('/devenir-fournisseur/inscription')}
           className="sh-cta"
           style={{
-            background: `linear-gradient(135deg, ${C.primary} 0%, #FF8557 100%)`,
+            background: `linear-gradient(135deg, ${C.primary} 0%, #ff5e20 100%)`,
             color: '#fff',
             fontWeight: 700, fontSize: 14,
             padding: '0 32px',

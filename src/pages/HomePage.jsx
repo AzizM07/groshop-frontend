@@ -11,6 +11,8 @@ import Footer from '../components/Footer'
 import AdSlot from '../components/AdSlot'
 import { Fragment } from 'react'
 import { usePageTracking } from '../hooks/usePageTracking'
+import { useIsMobile } from '../hooks/useIsMobile'
+import MobileHome from '../components/MobileHome'
 
 // ── Paramètres globaux layout ───────────────────────────────────
 const LAYOUT = {
@@ -130,6 +132,7 @@ export default function HomePage() {
   const [isPersonalized, setIsPersonalized]     = useState(false)
   const [loading, setLoading]                   = useState(true)
   const [error, setError]                       = useState(null)
+  const isMobile = useIsMobile()
 
   useEffect(() => {
     async function fetchProducts() {
@@ -157,6 +160,19 @@ export default function HomePage() {
     fetchProducts()
   }, [])
   usePageTracking({ pageType: 'home' })
+
+  // ── Rendu mobile : layout dédié, données déjà chargées ci-dessus ──
+  if (isMobile) {
+    return (
+      <MobileHome
+        items={loading ? [] : products.map(mapProduct)}
+        trending={trendingProducts}
+        loading={loading}
+        error={error}
+        isPersonalized={isPersonalized}
+      />
+    )
+  }
 
   return (
     <div>

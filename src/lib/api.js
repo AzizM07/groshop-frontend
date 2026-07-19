@@ -180,6 +180,24 @@ export const products = {
     const q = new URLSearchParams(params).toString()
     return request(`/products/mine/${q ? '?' + q : ''}`)
   },
+  createReview: (data) => request('/products/reviews/create/', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+
+  // ── Favoris ──
+  async favorites() {
+    return request('/products/favorites/')
+  },
+  async addFavorite(id) {
+    return request('/products/favorites/', {
+      method: 'POST',
+      body: JSON.stringify({ product_id: id }),
+    })
+  },
+  async removeFavorite(id) {
+    return request(`/products/favorites/${id}/`, { method: 'DELETE' })
+  },
 }
 
 // ── Cart ──────────────────────────────────────────────────────────
@@ -265,6 +283,8 @@ export const orders = {
       method: 'POST',
     })
   },
+
+  toReview: () => request('/orders/to-review/'),
 
   // ── Espace fournisseur ──
   async supplier(params = {}) {

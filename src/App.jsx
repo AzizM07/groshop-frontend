@@ -4,14 +4,18 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { AuthProvider } from './context/AuthContext'
 import { CartProvider } from './context/CartContext'
 import { useAuth } from './context/AuthContext'
-import ProtectedRoute from './router/ProtectedRoute'
 import SupplierRoute from './router/SupplierRoute'
 import Layout from './components/Layout'
 import GoogleOneTap from './components/GoogleOneTap'
 import LoginPage          from './pages/LoginPage'
 import SignupPage         from './pages/SignupPage'
 import PendingPage        from './pages/PendingPage'
+import DashboardLayout    from './components/DashboardLayout'
 import DashboardPage      from './pages/DashboardPage'
+import MessagesPage       from './pages/MessagesPage'
+import CommandesPage      from './pages/CommandesPage'
+import FavorisPage        from './pages/FavorisPage'
+import ParametresPage     from './pages/ParametresPage'
 import HomePage           from './pages/HomePage'
 import SearchPage         from './pages/SearchPage'
 import CartPage           from './pages/CartPage'
@@ -35,8 +39,21 @@ import SupplierSignupPage from './pages/supplier-landing/SupplierSignupPage'
 import Footer from './components/Footer'
 import AddProductPage from './pages/AddProductPage'
 import RequireAuth from './router/RequireAuth'
-const NO_LAYOUT   = ['/login', '/signup', '/pending', '/supplier','/dashboard']
+
+const NO_LAYOUT   = ['/login', '/signup', '/pending', '/supplier', '/dashboard']
 const FOOTER_ONLY = ['/devenir-fournisseur']
+
+// Placeholder pour les sous-pages du dashboard pas encore construites
+// (commandes, paiement, favoris, logistique, parametres…). Rendu DANS la coque.
+function DashSoon() {
+  return (
+    <div style={{ padding: 48, textAlign: 'center', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif' }}>
+      <div style={{ fontSize: 44, marginBottom: 12 }}>🚧</div>
+      <div style={{ fontSize: 17, fontWeight: 800, color: '#0F1419' }}>Page en construction</div>
+      <div style={{ fontSize: 13.5, color: '#6B7785', marginTop: 6 }}>Cette section arrive bientôt.</div>
+    </div>
+  )
+}
 
 function AppContent() {
   const location    = useLocation()
@@ -44,8 +61,9 @@ function AppContent() {
 
   // ⭐ Un compte = un rôle. Le fournisseur n'a accès qu'à son dashboard.
   //    /produit/:id reste public (SEO + prévisualisation de ses fiches).
-  const BUYER_PATHS = ['/', '/search', '/panier', '/dashboard']
+  const BUYER_PATHS = ['/', '/search', '/panier']
   const isBuyerPath = BUYER_PATHS.includes(location.pathname)
+                   || location.pathname.startsWith('/dashboard')
                    || location.pathname.startsWith('/fournisseur')
 
   if (!authLoading && user?.role === 'supplier' && isBuyerPath) {
@@ -54,6 +72,7 @@ function AppContent() {
 
   const isNoLayout = NO_LAYOUT.includes(location.pathname)
                   || location.pathname.startsWith('/supplier')
+                  || location.pathname.startsWith('/dashboard')
                   || location.pathname.startsWith('/devenir-fournisseur/inscription')
   const isFooterOnly = !isNoLayout && FOOTER_ONLY.includes(location.pathname)
 
@@ -65,8 +84,20 @@ function AppContent() {
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/pending"        element={<PendingPage />} />
         <Route path="/devenir-fournisseur/inscription" element={<SupplierSignupPage />} />
-        // bloc isNoLayout
-<Route path="/dashboard" element={<RequireAuth><DashboardPage /></RequireAuth>} />
+
+        {/* ═══ Espace acheteur : coque persistante (topbar + sidebar), contenu via <Outlet/> ═══ */}
+        <Route path="/dashboard" element={<RequireAuth><DashboardLayout /></RequireAuth>}>
+          <Route index               element={<DashboardPage />} />
+          <Route path="messages"     element={<MessagesPage />} />
+          <Route path="messages/:id" element={<MessagesPage />} />
+          <Route path="commandes"    element={<CommandesPage />} />
+          <Route path="favoris"      element={<FavorisPage />} />
+          <Route path="parametres"   element={<ParametresPage />} />
+          {/* commandes/:id (détail), sous-pages parametres, logistique : à construire */}
+          <Route path="*"            element={<DashSoon />} />
+        </Route>
+
+        {/* ═══ Espace fournisseur ═══ */}
         <Route path="/supplier" element={
           <SupplierRoute><SupplierDashboardLayout /></SupplierRoute>
         }>
@@ -102,13 +133,10 @@ function AppContent() {
         <Route path="/"                            element={<HomePage />} />
         <Route path="/search"                      element={<SearchPage />} />
         <Route path="/panier"                      element={<CartPage />} />
-        <Route path="/dashboard" element={<RequireAuth><DashboardPage /></RequireAuth>} />
-        <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
         <Route path="/produit/:id"                 element={<ProductPage />} />
         <Route path="/fournisseur/:slug"           element={<SupplierProfilePage />} />
         <Route path="/fournisseur/:slug/catalogue" element={<SupplierCataloguePage />} />
         <Route path="*"                            element={<Navigate to="/" replace />} />
-        
       </Routes>
     </Layout>
   )

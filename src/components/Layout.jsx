@@ -1,6 +1,10 @@
+// src/components/Layout.jsx
 import Header from './Header'
+import MobileBottomNav from './MobileBottomNav'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 export default function Layout({ children }) {
+  const isMobile = useIsMobile()
   return (
     <div style={{
       minHeight: '100vh',
@@ -11,6 +15,7 @@ export default function Layout({ children }) {
       <main>
         {children}
       </main>
+      {isMobile && <MobileBottomNav />}
     </div>
   )
 }

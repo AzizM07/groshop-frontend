@@ -648,6 +648,7 @@ export default function ProductPage() {
         if (cancelled) return;
 
         setProduct(productData);
+        setWishlisted(!!productData.is_favorited);   // ⭐ cœur initialisé depuis le backend
         setSimilar(similarData || []);
         setReviews(reviewsData || []);
         setRecommendations(recommendationsData || []);
@@ -668,6 +669,20 @@ export default function ProductPage() {
   }, [id]);
 
   const handleShare = () => { navigator.clipboard?.writeText(window.location.href); setCopied(true); setTimeout(() => setCopied(false), 2000); };
+
+  // ⭐ Favori : bascule optimiste + appel backend (rollback si échec)
+  const toggleWishlist = async () => {
+    if (!product) return;
+    const next = !wishlisted;
+    setWishlisted(next);
+    try {
+      if (next) await productsApi.addFavorite(product.id);
+      else      await productsApi.removeFavorite(product.id);
+    } catch {
+      setWishlisted(!next);
+    }
+  };
+
   // ⭐ Tracking — attend que le produit soit chargé (le backend déduit le fournisseur)
   usePageTracking({ pageType: 'product_detail', productId: product?.id });
   // Placeholder — le vrai panier (lié au compte) sera connecté séparément
@@ -736,7 +751,7 @@ export default function ProductPage() {
               <div className="w-full lg:sticky lg:top-[140px] lg:self-start">
                 <ImageGallery images={images}
                   wishlistBtn={
-                    <button onClick={() => setWishlisted(w => !w)}
+                    <button onClick={toggleWishlist}
                       className={"w-10 h-10 rounded-full shadow-md flex items-center justify-center transition-all " + (wishlisted ? "bg-[#FFF4F0] text-[#FF4500]" : "bg-white text-[#9AA3AE] hover:text-[#FF4500]")}>
                       <Heart size={18} fill={wishlisted ? "currentColor" : "none"} />
                     </button>}

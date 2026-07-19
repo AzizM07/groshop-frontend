@@ -1,17 +1,13 @@
 // pages/DashboardPage.jsx — GROSHOP.tn
-// Tableau de bord acheteur : sidebar + résumé compte, commandes, favoris, historique.
+// CONTENU du tableau de bord acheteur (page d'accueil de l'espace).
+// Rendu dans DashboardLayout via <Outlet /> : plus de topbar/sidebar ici.
 
 import { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import {
-  LayoutGrid, MessageSquare, ClipboardList, CreditCard, Heart,
-  Settings, Store, Truck, Package, ChevronRight, Headphones, Gift,
-  ShoppingCart, User, MapPin,
-} from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { ChevronRight, Headphones, Package, Gift } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
-import { orders as ordersApi, messaging, store as storeApi } from '../lib/api'
-import LOGO_SRC from '../assets/logo2.png'
+import { orders as ordersApi, store as storeApi, products as productsApi } from '../lib/api'
 import Footer from '../components/Footer'
 
 const ORANGE = '#FF4500'
@@ -20,9 +16,25 @@ const MUTE   = '#6B7785'
 const FAINT  = '#9AA3AE'
 const LINE   = '#E8EAED'
 const SOFT   = '#FFF0E8'
-const BG     = '#F4F5F7'
 
 const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
+
+const STATUS_LABELS = {
+  pending:        'En attente',
+  call_confirmed: 'Confirmée',
+  in_production:  'En production',
+  shipped:        'Expédiée',
+  delivered:      'Livrée',
+  cancelled:      'Annulée',
+}
+const STATUS_COLORS = {
+  pending:        { fg: '#92600A', bg: '#FEF3C7' },
+  call_confirmed: { fg: '#1E40AF', bg: '#DBEAFE' },
+  in_production:  { fg: '#5B21B6', bg: '#EDE9FE' },
+  shipped:        { fg: '#155E75', bg: '#CFFAFE' },
+  delivered:      { fg: '#166534', bg: '#DCFCE7' },
+  cancelled:      { fg: '#991B1B', bg: '#FEE2E2' },
+}
 
 const asText = (v) => {
   if (v == null) return ''
@@ -37,81 +49,21 @@ const fmtDate = (d) => {
   return isNaN(date) ? '' : date.toLocaleDateString('fr-FR')
 }
 
-const CSS = `
-/* Coque sous la topbar (64px) : sidebar fixe + zone droite scrollable */
-.gd-shell {
-  display: flex;
-  align-items: stretch;
-  height: calc(100vh - 64px);
+function normalize(d) {
+  if (Array.isArray(d)) return d
+  return d?.results || d?.orders || []
 }
-.gd-rail {
-  width: clamp(200px, 17vw, 280px);
-  flex-shrink: 0;
-  overflow-y: auto;
-  height: 100%;
-  background: ${BG};
-}
-.gd-main {
-  flex: 1;
-  min-width: 0;
-  overflow-y: auto;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-.gd-main > div:first-child { flex: 1; }   /* pousse le footer en bas si contenu court */
-
-.gd-grid {
-  display: grid;
-  grid-template-columns: minmax(0,1fr) 360px;
-  gap: 16px;
-  align-items: start;
-}
-@media (max-width: 1100px) {
-  .gd-grid { grid-template-columns: minmax(0,1fr); }
-  .gd-aside { grid-column: 1 / -1; }
-}
-@media (max-width: 820px) {
-  .gd-shell { display: block; height: auto; }
-  .gd-rail { width: 100%; height: auto; }
-  .gd-main { height: auto; }
-  .gd-sidenav { display: flex; overflow-x: auto; gap: 4px; }
-  .gd-sidenav-group { display: none; }
-}
-@keyframes gd-spin { to { transform: rotate(360deg) } }
-@media (max-width: 720px) {
-  .gd-tb-hide { display: none !important; }
-}`
-
-const NAV = [
-  { group: null, items: [
-    { label: 'Tableau de bord', to: '/dashboard', icon: LayoutGrid, exact: true },
-  ]},
-  { group: 'Commerce en ligne', items: [
-    { label: 'Messages',    to: '/messages',              icon: MessageSquare },
-    { label: 'Commandes',   to: '/dashboard/commandes',   icon: ClipboardList },
-    { label: 'Paiement',    to: '/dashboard/paiement',    icon: CreditCard },
-    { label: 'Favoris',     to: '/favoris',               icon: Heart },
-  ]},
-  { group: 'Services complémentaires', items: [
-    { label: 'Services logistiques', to: '/dashboard/logistique', icon: Truck },
-    { label: 'Vendre sur GROSHOP',   to: '/vendre',               icon: Store },
-  ]},
-  { group: 'Paramètres', items: [
-    { label: 'Paramètres du compte', to: '/dashboard/parametres', icon: Settings },
-  ]},
-]
 
 // ═══════════════════════════════════════════════════════════════════
 export default function DashboardPage() {
-  const { user, loading: authLoading } = useAuth()
+  const { user } = useAuth()
   const { count: cartCount = 0 } = useCart()
-  const navigate = useNavigate()
 
-  const [orders, setOrders]     = useState(null)
-  const [convos, setConvos]     = useState(null)
-  const [recent, setRecent]     = useState([])
-  const [tab, setTab]           = useState('all')
+  const [orders, setOrders]       = useState(null)
+  const [toReview, setToReview]   = useState(null)
+  const [recent, setRecent]       = useState([])
+  const [favorites, setFavorites] = useState(null)   // ⭐ favoris (null = chargement)
+  const [tab, setTab]             = useState('all')
 
   useEffect(() => {
     if (!user) return
@@ -121,74 +73,50 @@ export default function DashboardPage() {
       .then(d => alive && setOrders(normalize(d)))
       .catch(() => alive && setOrders([]))
 
-    messaging.conversations()
-      .then(d => alive && setConvos(normalize(d)))
-      .catch(() => alive && setConvos([]))
+    ordersApi.toReview()
+      .then(d => alive && setToReview(d?.results || []))
+      .catch(() => alive && setToReview([]))
 
     storeApi.recentSearches()
       .then(d => alive && setRecent(d?.searches || []))
       .catch(() => {})
 
+    productsApi.favorites()
+      .then(d => alive && setFavorites(d?.products || []))
+      .catch(() => alive && setFavorites([]))
+
     return () => { alive = false }
   }, [user])
 
-  useEffect(() => {
-    if (!authLoading && !user) navigate('/login')
-  }, [authLoading, user, navigate])
-
-  if (authLoading || !user) {
-    return (
-      <div style={{ background: BG, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <style>{CSS}</style>
-        <div style={{ width: 32, height: 32, border: `4px solid ${ORANGE}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'gd-spin .8s linear infinite' }} />
-      </div>
-    )
-  }
-
-  const unread = (convos || []).reduce((n, c) => n + (Number(c.unread_count) || 0), 0)
+  // L'accès est déjà protégé par <RequireAuth> sur la route /dashboard.
+  if (!user) return null
 
   const TABS = [
-    { id: 'all',      label: 'Toutes les commandes' },
-    { id: 'pending',  label: 'À confirmer' },
-    { id: 'paid',     label: 'Paiements en attente' },
-    { id: 'shipping', label: 'Expéditions en attente' },
+    { id: 'all',           label: 'Toutes les commandes' },
+    { id: 'pending',       label: 'En attente' },
+    { id: 'in_production', label: 'En production' },
+    { id: 'shipped',       label: 'Expédiées' },
+    { id: 'delivered',     label: 'Livrées' },
   ]
 
   const filtered = (orders || []).filter(o => {
     if (tab === 'all') return true
-    const s = String(o.status || '').toLowerCase()
-    if (tab === 'pending')  return s.includes('pending') || s.includes('attente')
-    if (tab === 'paid')     return s.includes('paid') || s.includes('pay')
-    if (tab === 'shipping') return s.includes('ship') || s.includes('expedi')
-    return true
+    if (tab === 'pending') return o.status === 'pending' || o.status === 'call_confirmed'
+    return o.status === tab
   })
 
   return (
-    <div style={{ background: BG, minHeight: '100vh', fontFamily: FONT, color: INK }}>
-      <style>{CSS}</style>
+    <>
+      <div style={{ padding: '16px clamp(16px, 2vw, 32px) 40px', fontFamily: FONT, color: INK }}>
+        <div className="gd-grid">
 
-      <DashboardTopbar unread={unread} cartCount={cartCount} />
-
-      {/* Sous la topbar : sidebar fixe à gauche + zone droite scrollable */}
-      <div className="gd-shell">
-
-        {/* ═══ SIDEBAR — fixe, ne scrolle pas avec la page ═══ */}
-        <aside className="gd-rail">
-          <Sidebar />
-        </aside>
-
-        {/* ═══ ZONE DROITE — contenu + footer, prend tout sauf la sidebar ═══ */}
-        <div className="gd-main">
-          <div style={{ padding: '16px clamp(16px, 2vw, 32px) 40px' }}>
-            <div className="gd-grid">
-
-              {/* COLONNE CENTRALE */}
-              <div>
-                {/* Carte profil */}
-                <Card style={{ marginBottom: 16 }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, padding: '20px 22px 0' }}>
-                    <Avatar user={user} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
+          {/* COLONNE CENTRALE */}
+          <div>
+            {/* Carte profil */}
+            <Card style={{ marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, padding: '20px 22px 0' }}>
+                <Avatar user={user} />
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                     <span style={{ fontSize: 18, fontWeight: 800, color: INK }}>
                       {asText(user.full_name) || asText(user.email)?.split('@')[0]}
@@ -218,7 +146,7 @@ export default function DashboardPage() {
 
               {/* Stats */}
               <div style={{ display: 'flex', padding: '22px 22px 20px' }}>
-                <Stat value={unread}        label="Messages non lus" to="/messages" />
+                <Stat value={(toReview || []).length} label="À évaluer" to="/dashboard/commandes?filter=to-review" />
                 <StatDivider />
                 <Stat value={(orders || []).length} label="Commandes"       to="/dashboard/commandes" />
                 <StatDivider />
@@ -287,37 +215,38 @@ export default function DashboardPage() {
                 </div>
               )}
 
-              {orders !== null && filtered.slice(0, 5).map(o => (
-                <Link key={o.id} to={`/dashboard/commandes/${o.id}`} style={{
-                  display: 'flex', alignItems: 'center', gap: 14,
-                  padding: '14px 22px', borderTop: `1px solid #F2F3F5`, textDecoration: 'none',
-                }}>
-                  <div style={{ width: 52, height: 52, borderRadius: 8, background: '#F4F5F7', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {o.image_url
-                      ? <img src={o.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      : <Package size={20} color={FAINT} />}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13.5, fontWeight: 700, color: INK }}>
-                      {asText(o.reference) || `Commande #${o.id}`}
+              {orders !== null && filtered.slice(0, 5).map(o => {
+                const nSub = o.sub_orders_count || 0
+                return (
+                  <Link key={o.id} to={`/dashboard/commandes/${o.id}`} style={{
+                    display: 'flex', alignItems: 'center', gap: 14,
+                    padding: '14px 22px', borderTop: `1px solid #F2F3F5`, textDecoration: 'none',
+                  }}>
+                    <div style={{ width: 52, height: 52, borderRadius: 8, background: '#F4F5F7', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Package size={20} color={FAINT} />
                     </div>
-                    <div style={{ fontSize: 12, color: MUTE, marginTop: 3 }}>
-                      {fmtDate(o.created_at)} · {o.items_count || 0} article{(o.items_count || 0) > 1 ? 's' : ''}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13.5, fontWeight: 700, color: INK }}>
+                        Commande #{String(o.id).slice(0, 8).toUpperCase()}
+                      </div>
+                      <div style={{ fontSize: 12, color: MUTE, marginTop: 3 }}>
+                        {fmtDate(o.created_at)} · {nSub} fournisseur{nSub > 1 ? 's' : ''}
+                      </div>
                     </div>
-                  </div>
-                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 800, color: ORANGE }}>{fmt(o.total_tnd)} TND</div>
-                    {(o.status_display || o.status) && (
+                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 800, color: ORANGE }}>{fmt(o.total_tnd)} TND</div>
                       <span style={{
                         display: 'inline-block', marginTop: 4, fontSize: 10.5, fontWeight: 600,
-                        color: MUTE, background: '#F4F5F7', padding: '2px 8px', borderRadius: 20,
+                        color: STATUS_COLORS[o.status]?.fg || MUTE,
+                        background: STATUS_COLORS[o.status]?.bg || '#F4F5F7',
+                        padding: '2px 8px', borderRadius: 20,
                       }}>
-                        {asText(o.status_display || o.status)}
+                        {STATUS_LABELS[o.status] || o.status}
                       </span>
-                    )}
-                  </div>
-                </Link>
-              ))}
+                    </div>
+                  </Link>
+                )
+              })}
             </Card>
           </div>
 
@@ -325,16 +254,40 @@ export default function DashboardPage() {
           <aside className="gd-aside">
             {/* Favoris */}
             <Card style={{ marginBottom: 16, padding: '20px 20px 22px' }}>
-              <h3 style={{ margin: '0 0 16px', fontSize: 18, fontWeight: 800, color: INK }}>Favoris</h3>
-              <div style={{
-                background: '#FAFAFA', borderRadius: 10, padding: '30px 16px', textAlign: 'center',
-              }}>
-                <div style={{ fontSize: 40, marginBottom: 8 }}>📦</div>
-                <div style={{ fontSize: 13.5, color: MUTE, marginBottom: 6 }}>Aucun favori pour l'instant</div>
-                <Link to="/" style={{ fontSize: 13, color: MUTE, textDecoration: 'underline', textUnderlineOffset: 3 }}>
-                  Explorer des produits
-                </Link>
+              <div style={{ display: 'flex', alignItems: 'baseline', marginBottom: 16 }}>
+                <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: INK, flex: 1 }}>Favoris</h3>
+                {favorites && favorites.length > 0 && (
+                  <Link to="/dashboard/favoris" style={{ fontSize: 12.5, color: FAINT, textDecoration: 'none' }}>Afficher tout ›</Link>
+                )}
               </div>
+
+              {favorites === null ? (
+                <div style={{ fontSize: 13, color: FAINT, padding: '8px 0' }}>Chargement…</div>
+              ) : favorites.length === 0 ? (
+                <div style={{ background: '#FAFAFA', borderRadius: 10, padding: '30px 16px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 40, marginBottom: 8 }}>📦</div>
+                  <div style={{ fontSize: 13.5, color: MUTE, marginBottom: 6 }}>Aucun favori pour l'instant</div>
+                  <Link to="/" style={{ fontSize: 13, color: MUTE, textDecoration: 'underline', textUnderlineOffset: 3 }}>
+                    Explorer des produits
+                  </Link>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {favorites.slice(0, 3).map(p => (
+                    <Link key={p.id} to={`/produit/${p.id}`} style={{ display: 'flex', gap: 12, alignItems: 'center', textDecoration: 'none' }}>
+                      <div style={{ width: 52, height: 52, borderRadius: 8, overflow: 'hidden', background: '#F4F5F7', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {p.primary_image
+                          ? <img src={p.primary_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          : <Package size={20} color={FAINT} />}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, color: INK, lineHeight: 1.35, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+                        <div style={{ fontSize: 13.5, fontWeight: 800, color: ORANGE, marginTop: 3 }}>{fmt(p.base_price_tnd)} TND</div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
             </Card>
 
             {/* Historique de recherches */}
@@ -381,118 +334,15 @@ export default function DashboardPage() {
               </div>
             </Card>
           </aside>
-            </div>
-          </div>
-
-          <Footer />
         </div>
       </div>
-    </div>
+
+      <Footer />
+    </>
   )
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// TOPBAR dédiée au tableau de bord (style « Mon compte »)
-// ═══════════════════════════════════════════════════════════════════
-function DashboardTopbar({ unread = 0, cartCount = 0 }) {
-  return (
-    <div style={{
-      background: '#FFFFFF', borderBottom: `1px solid ${LINE}`,
-      position: 'sticky', top: 0, zIndex: 1000, width: '100%',
-      boxShadow: '0 1px 3px rgba(0,0,0,.04)',
-      isolation: 'isolate',
-    }}>
-      <div style={{
-        padding: '0 clamp(20px, 3vw, 48px)', height: 64,
-        display: 'flex', alignItems: 'center', gap: 16,
-      }}>
-        {/* Logo → accueil */}
-        <Link to="/" style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-          <img src={LOGO_SRC} alt="GROSHOP.tn"
-            style={{ height: 'auto', maxHeight: 48, maxWidth: 170, objectFit: 'contain', display: 'block' }}
-            onError={e => { e.currentTarget.style.display = 'none' }} />
-        </Link>
-
-        {/* Séparateur + libellé */}
-        <div style={{ width: 1, height: 26, background: LINE, flexShrink: 0 }} />
-        <span style={{ fontSize: 17, fontWeight: 700, color: INK, whiteSpace: 'nowrap' }}>Mon compte</span>
-
-        <div style={{ flex: 1 }} />
-
-        {/* Adresse de livraison */}
-        <div className="gd-tb-hide" style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1, flexShrink: 0 }}>
-          <span style={{ fontSize: 12, color: MUTE }}>Adresse de livraison :</span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 14.5, fontWeight: 700, color: INK, marginTop: 3 }}>
-            <span style={{ fontSize: 16 }}>🇹🇳</span> TN
-          </span>
-        </div>
-
-        <div className="gd-tb-hide" style={{ width: 1, height: 26, background: LINE, flexShrink: 0 }} />
-
-        {/* Vendre sur GROSHOP */}
-        <Link to="/vendre" className="gd-tb-hide" style={{
-          display: 'inline-flex', alignItems: 'center', gap: 8,
-          fontSize: 14, color: INK, textDecoration: 'none', flexShrink: 0, whiteSpace: 'nowrap',
-        }}>
-          <Store size={20} strokeWidth={1.7} /> Vendre sur GROSHOP
-        </Link>
-
-        <div style={{ width: 1, height: 26, background: LINE, flexShrink: 0 }} />
-
-        {/* Icônes */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexShrink: 0 }}>
-          <TbIcon to="/messages" title="Messages" badge={unread}>
-            <MessageSquare size={22} strokeWidth={1.7} />
-          </TbIcon>
-          <TbIcon to="/dashboard/commandes" title="Mes commandes">
-            <ClipboardList size={22} strokeWidth={1.7} />
-          </TbIcon>
-          <TbIcon to="/panier" title="Panier" badge={cartCount}>
-            <ShoppingCart size={22} strokeWidth={1.7} />
-          </TbIcon>
-          <TbIcon to="/help/acheteurs" title="Assistance">
-            <Headphones size={22} strokeWidth={1.7} />
-          </TbIcon>
-          <TbIcon to="/dashboard" title="Mon compte">
-            <User size={22} strokeWidth={1.7} />
-          </TbIcon>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function TbIcon({ to, title, badge = 0, children }) {
-  const [hov, setHov] = useState(false)
-  return (
-    <Link to={to} title={title}
-      onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
-      style={{
-        position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        color: hov ? ORANGE : INK, textDecoration: 'none', transition: 'color .15s',
-      }}>
-      {children}
-      {badge > 0 && (
-        <span style={{
-          position: 'absolute', top: -5, right: -7,
-          minWidth: 18, height: 18, padding: '0 4px', borderRadius: 9,
-          background: ORANGE, color: '#fff', fontSize: 10, fontWeight: 700, lineHeight: 1,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          border: '2px solid #fff', boxSizing: 'border-box',
-        }}>
-          {badge > 9 ? '9+' : badge}
-        </span>
-      )}
-    </Link>
-  )
-}
-
-// ═══════════════════════════════════════════════════════════════════
-function normalize(d) {
-  if (Array.isArray(d)) return d
-  return d?.results || d?.orders || d?.conversations || []
-}
-
+// ── Sous-composants ─────────────────────────────────────────────────
 function Card({ children, style }) {
   return (
     <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${LINE}`, ...style }}>
@@ -540,57 +390,6 @@ function Skeleton({ rows = 2 }) {
           </div>
         </div>
       ))}
-    </div>
-  )
-}
-
-// ── Sidebar ───────────────────────────────────────────────────────
-function Sidebar() {
-  const path = typeof window !== 'undefined' ? window.location.pathname : ''
-
-  return (
-    <div style={{ padding: '4px 0' }}>
-      <div className="gd-sidenav">
-        {NAV.map((section, si) => (
-          <div key={si}>
-            {section.group && (
-              <div className="gd-sidenav-group" style={{
-                fontSize: 11.5, fontWeight: 600, color: FAINT,
-                padding: '18px 20px 8px', letterSpacing: '.2px',
-              }}>
-                {section.group}
-              </div>
-            )}
-            {section.items.map(item => {
-              const active = item.exact ? path === item.to : path.startsWith(item.to)
-              const Icon = item.icon
-              return (
-                <Link key={item.to} to={item.to} style={{
-                  display: 'flex', alignItems: 'center', gap: 12,
-                  padding: '13px 20px', textDecoration: 'none',
-                  // seul l'item actif a un fond blanc arrondi à droite
-                  background: active ? '#fff' : 'transparent',
-                  borderRadius: active ? '0 30px 30px 0' : 0,
-                  boxShadow: active ? '0 1px 4px rgba(0,0,0,.05)' : 'none',
-                  color: active ? INK : '#3D4853',
-                  fontSize: 14, fontWeight: active ? 800 : 500,
-                  whiteSpace: 'nowrap', position: 'relative',
-                }}
-                  onMouseEnter={e => { if (!active) e.currentTarget.style.color = ORANGE }}
-                  onMouseLeave={e => { if (!active) e.currentTarget.style.color = '#3D4853' }}>
-                  {active && <span style={{
-                    position: 'absolute', left: 0, top: 8, bottom: 8, width: 4,
-                    background: INK, borderRadius: '0 4px 4px 0',
-                  }} />}
-                  <Icon size={18} strokeWidth={1.7} color={active ? INK : '#3D4853'} style={{ flexShrink: 0 }} />
-                  <span style={{ flex: 1 }}>{item.label}</span>
-                  {!item.exact && <ChevronRight size={15} color={FAINT} />}
-                </Link>
-              )
-            })}
-          </div>
-        ))}
-      </div>
     </div>
   )
 }

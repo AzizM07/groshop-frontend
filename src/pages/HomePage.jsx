@@ -12,7 +12,7 @@ import AdSlot from '../components/AdSlot'
 import { Fragment } from 'react'
 import { usePageTracking } from '../hooks/usePageTracking'
 import { useIsMobile } from '../hooks/useIsMobile'
-import MobileHome from '../components/MobileHome'
+import MobileHome from './MobileHome'
 
 // ── Paramètres globaux layout ───────────────────────────────────
 const LAYOUT = {

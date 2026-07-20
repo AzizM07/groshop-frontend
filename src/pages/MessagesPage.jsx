@@ -7,7 +7,8 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { Search, Send, Store, ArrowLeft, Package, AlertCircle } from 'lucide-react'
 import { messaging } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
-
+import { useIsMobile } from '../hooks/useIsMobile'
+import MobileMessages from '../components/MobileMessages'
 const ORANGE = '#FF4500'
 const INK    = '#0F1419'
 const MUTE   = '#6B7785'
@@ -41,7 +42,7 @@ const CSS = `
 @keyframes msg-spin { to { transform: rotate(360deg) } }
 `
 
-export default function MessagesPage() {
+function MessagesPageDesktop() {
   const { id: routeId } = useParams()
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -330,4 +331,8 @@ function Empty({ icon, text }) {
       <div style={{ fontSize: 13.5 }}>{text}</div>
     </div>
   )
+}
+export default function MessagesPage() {
+  const isMobile = useIsMobile()
+  return isMobile ? <MobileMessages /> : <MessagesPageDesktop />
 }

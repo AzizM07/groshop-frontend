@@ -12,7 +12,8 @@ import {
 import { useCart } from '../context/CartContext'
 import { useAuth } from '../context/AuthContext'
 import Footer from '../components/Footer'
-
+import { useIsMobile } from '../hooks/useIsMobile'
+import MobileCart from '../components/MobileCart'
 /* ⚠️ Adapte cette ligne à ton endpoint réel de suggestions */
 const RECO_URL = `${import.meta.env.VITE_API_URL || ''}/api/products/?ordering=-created_at&page_size=8`
 
@@ -124,7 +125,7 @@ function Checkbox({ checked, size = 20, onClick }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-export default function CartPage() {
+function CartPageDesktop() {
   const { user, loading: authLoading } = useAuth()
   const { items, loading, setQty, remove, clear } = useCart()
   const navigate = useNavigate()
@@ -732,4 +733,8 @@ function LoginPrompt() {
       </div>
     </Center>
   )
+}
+export default function CartPage() {
+  const isMobile = useIsMobile()
+  return isMobile ? <MobileCart /> : <CartPageDesktop />
 }

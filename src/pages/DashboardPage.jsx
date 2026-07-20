@@ -9,7 +9,8 @@ import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
 import { orders as ordersApi, store as storeApi, products as productsApi } from '../lib/api'
 import Footer from '../components/Footer'
-
+import { useIsMobile } from '../hooks/useIsMobile'
+import MobileAccount from '../components/MobileAccount'
 const ORANGE = '#FF4500'
 const INK    = '#0F1419'
 const MUTE   = '#6B7785'
@@ -55,7 +56,7 @@ function normalize(d) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-export default function DashboardPage() {
+function DashboardPageDesktop() {
   const { user } = useAuth()
   const { count: cartCount = 0 } = useCart()
 
@@ -392,4 +393,8 @@ function Skeleton({ rows = 2 }) {
       ))}
     </div>
   )
+}
+export default function DashboardPage() {
+  const isMobile = useIsMobile()
+  return isMobile ? <MobileAccount /> : <DashboardPageDesktop />
 }

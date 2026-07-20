@@ -1,8 +1,12 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
 import { Field, PhoneInput, SelectField, InfoCard, DocCard,
-         Alert, NextBtn, Spinner, Modal, FloatInput } from './_shared'
+         Alert, NextBtn, Spinner } from './_shared'
+
+// ⚠️ Inscription rebranchée sur Django (plus Supabase).
+//    Crée un User(role='supplier') + SupplierProfile(pending) → visible dans l'admin.
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
+
 const CITIES   = ['Tunis','Sfax','Sousse','Mahdia','Nabeul','Bizerte','Gabès','Monastir','Kairouan','Gafsa','Autre']
 const SECTORS  = ['Textile','Beauté & Cosmétique','Électronique','Alimentaire','Agriculture','Mobilier','Bâtiment','Parapharmacie','Outillage','Autre']
 const STEPS    = ['Compte', 'Entreprise', 'Contact', 'Documents']
@@ -196,7 +200,7 @@ function Step3({ data, onNext }) {
   )
 }
 
-// ── STEP 4 — Documents ────────────────────────────────────
+// ── STEP 4 — Documents + soumission (Django) ──────────────
 function Step4({ data, setError, loading, setLoading }) {
   const navigate  = useNavigate()
   const [cin,     setCin]     = useState(null)
@@ -210,59 +214,31 @@ function Step4({ data, setError, loading, setLoading }) {
     input.click()
   }
 
-  async function uploadFile(file, path) {
-    const { error } = await supabase.storage.from('supplier-docs').upload(path, file, { upsert: true })
-    if (error) throw error
-    return supabase.storage.from('supplier-docs').getPublicUrl(path).data.publicUrl
-  }
-
   async function submit() {
-    if (!cin) return setError('CIN ou Patente obligatoire')
-    if (!rne) return setError('Registre du Commerce obligatoire')
     setLoading(true); setError('')
-
     try {
-      // Auth signup
-      let uid
-      try {
-        const { data: authData, error: err } = await supabase.auth.signUp({
-          email: data.email, password: data.password,
-          options: { data: { full_name: data.name, user_type: 'supplier' } }
-        })
-        if (err) throw err
-        uid = authData.user.id
-      } catch {
-        const { data: authData } = await supabase.auth.signInWithPassword({
-          email: data.email, password: data.password
-        })
-        uid = authData.user.id
+      const res = await fetch(`${API_BASE}/auth/supplier-signup/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email:        data.email,
+          password:     data.password,
+          full_name:    data.name,
+          company_name: data.company_name,
+          tax_number:   data.matricule,   // matricule fiscal
+          city:         data.city,
+          address:      data.address,
+          phone:        data.phone,
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setError(body.error || 'Erreur lors de la soumission.')
+        return
       }
-
-      // Upload docs
-      const cinUrl   = await uploadFile(cin, `suppliers/${uid}/cin.jpg`)
-      const rneUrl   = await uploadFile(rne, `suppliers/${uid}/rne.jpg`)
-      const localUrl = local ? await uploadFile(local, `suppliers/${uid}/local.jpg`) : null
-
-      // Upsert supplier
-      await supabase.from('suppliers').upsert({
-        user_id: uid, name: data.company_name,
-        city: data.city, matricule: data.matricule,
-        phone: data.phone, address: data.address,
-        website: data.website, description: data.sector,
-        status: 'pending', verified: false,
-        submitted_at: new Date().toISOString(),
-        doc_cin_url: cinUrl, doc_rne_url: rneUrl,
-        doc_local_url: localUrl,
-      })
-
-      await supabase.from('profiles').upsert({
-        id: uid, full_name: data.name,
-        phone: data.phone, user_type: 'supplier',
-      })
-
       navigate('/pending')
-    } catch (err) {
-      setError(err.message || 'Erreur lors de la soumission')
+    } catch {
+      setError('Impossible de contacter le serveur. Réessayez.')
     } finally {
       setLoading(false)
     }
@@ -274,16 +250,17 @@ function Step4({ data, setError, loading, setLoading }) {
         <InfoCard emoji="📄" title="Documents officiels" subtitle="Pour vérifier votre identité commerciale" />
 
         <div className="mt-4 space-y-3">
-          <DocCard title="CIN ou Patente *" subtitle="Photo recto/verso de votre pièce d'identité"
-            emoji="🪪" file={cin} required onPick={() => pickFile(setCin)} />
-          <DocCard title="Registre du Commerce (RNE) *" subtitle="Document officiel d'enregistrement"
-            emoji="📋" file={rne} required onPick={() => pickFile(setRne)} />
+          <DocCard title="CIN ou Patente" subtitle="Photo recto/verso de votre pièce d'identité"
+            emoji="🪪" file={cin} onPick={() => pickFile(setCin)} />
+          <DocCard title="Registre du Commerce (RNE)" subtitle="Document officiel d'enregistrement"
+            emoji="📋" file={rne} onPick={() => pickFile(setRne)} />
           <DocCard title="Photo du local (optionnel)" subtitle="Photo de votre magasin ou entrepôt"
             emoji="🏭" file={local} onPick={() => pickFile(setLocal)} />
         </div>
 
-        <div className="bg-green-50 border border-green-200 rounded-xl p-3 mt-4 text-xs text-green-700">
-          ℹ️ Dossier examiné sous 24-48h. Confirmation par email.
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mt-4 text-xs text-amber-700">
+          ⏳ Le téléversement des documents sera activé prochainement — pour l'instant votre compte
+          est créé en attente et validé par un administrateur d'après vos informations.
         </div>
       </div>
 

@@ -217,7 +217,7 @@ function HomeFeed({ items, trending, loading, error, isPersonalized }) {
             : items.map((p, i) => (
                 <Fragment key={p.id}>
                   <ProductCard product={p} />
-                  {(i + 1) % 6 === 0 && <div style={{ gridColumn: '1 / -1' }}><AdSlot index={i} /></div>}
+                  {(i + 1) % 6 === 0 && <AdSlot index={i} />}
                 </Fragment>
               ))
           }

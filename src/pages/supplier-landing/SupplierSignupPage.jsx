@@ -2,7 +2,13 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { C } from '../auth/_shared/constants'
+import { uploadFile } from '../../lib/api'
 import LOGO_SRC from '../../assets/logo2.png'
+
+// ⚠️ Inscription branchée sur Django : crée User(role='supplier') + SupplierProfile(pending)
+//    → apparaît dans l'admin Fournisseurs pour validation.
+const API_BASE = 'http://localhost:8000/api'
+const UPLOAD_DOC_ENDPOINT = '/auth/upload-document/'
 
 const SECTORS = [
   'Agroalimentaire', 'Boissons', 'Cosmétiques & Hygiène', 'Textile & Habillement',
@@ -23,6 +29,8 @@ const STEPS = [
   { id: 2, label: 'Entreprise' },
   { id: 3, label: 'Documents' },
 ]
+
+const emptyDoc = { url: '', uploading: false, name: '' }
 
 export default function SupplierSignupPage() {
   const navigate = useNavigate()
@@ -46,16 +54,27 @@ export default function SupplierSignupPage() {
   const [website, setWebsite] = useState('')
   const [description, setDescription] = useState('')
 
-  const [docRne, setDocRne] = useState(null)
-  const [docCin, setDocCin] = useState(null)
-  const [docRib, setDocRib] = useState(null)
-  const [docLogo, setDocLogo] = useState(null)
+  const [docRne, setDocRne]   = useState(emptyDoc)
+  const [docCin, setDocCin]   = useState(emptyDoc)
+  const [docRib, setDocRib]   = useState(emptyDoc)
+  const [docLogo, setDocLogo] = useState(emptyDoc)
   const [cguOk, setCguOk] = useState(false)
 
-  // Force le retour en haut du formulaire à chaque changement d'étape
   useEffect(() => {
     formTopRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [step])
+
+  async function handleDocUpload(setter, file) {
+    if (!file) { setter(emptyDoc); return }
+    setter({ url: '', uploading: true, name: file.name })
+    try {
+      const { url } = await uploadFile(UPLOAD_DOC_ENDPOINT, file)
+      setter({ url, uploading: false, name: file.name })
+    } catch (e) {
+      setter(emptyDoc)
+      setError(e.message || "Échec de l'upload du document.")
+    }
+  }
 
   function validateStep() {
     if (step === 1) {
@@ -73,9 +92,11 @@ export default function SupplierSignupPage() {
       if (!address.trim()) return 'Adresse requise.'
     }
     if (step === 3) {
-      if (!docRne) return "Veuillez joindre l'extrait RNE."
-      if (!docCin) return 'Veuillez joindre la copie CIN du gérant.'
-      if (!docRib) return 'Veuillez joindre le RIB bancaire.'
+      if (docRne.uploading || docCin.uploading || docRib.uploading || docLogo.uploading)
+        return 'Attends la fin des téléversements.'
+      if (!docRne.url) return "Veuillez joindre l'extrait RNE."
+      if (!docCin.url) return 'Veuillez joindre la copie CIN du gérant.'
+      if (!docRib.url) return 'Veuillez joindre le RIB bancaire.'
       if (!cguOk) return 'Vous devez accepter les CGU.'
     }
     return null
@@ -99,117 +120,92 @@ export default function SupplierSignupPage() {
     if (err) { setError(err); return }
     setLoading(true)
     try {
-      await new Promise(r => setTimeout(r, 1500))
+      const res = await fetch(`${API_BASE}/auth/supplier-signup/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          password,
+          full_name:    fullName,
+          company_name: companyName,
+          rc_number:    rne,
+          tax_number:   mf,
+          wilaya:       governorate,
+          address,
+          phone,
+          doc_rne:  docRne.url,
+          doc_cin:  docCin.url,
+          doc_rib:  docRib.url,
+          doc_logo: docLogo.url,
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setError(body.error || 'Une erreur est survenue.')
+        return
+      }
       navigate('/pending')
-    } catch (err) {
-      setError(err.message || 'Une erreur est survenue.')
-    } finally { setLoading(false) }
+    } catch {
+      setError('Impossible de contacter le serveur. Réessayez.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
-    <div style={{
-      display: 'flex',
-      height: '100vh',
-      overflow: 'hidden',
-      background: '#fff',
-    }}>
+    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: '#fff' }}>
 
-      {/* ── LEFT PANEL — fixed ── */}
-      <div style={{
-        width: '38%',
-        minWidth: 340,
-        maxWidth: 520,
-        position: 'relative',
-        overflow: 'hidden',
-        flexShrink: 0,
-      }}>
+      {/* ── LEFT PANEL ── */}
+      <div style={{ width: '38%', minWidth: 340, maxWidth: 520, position: 'relative', overflow: 'hidden', flexShrink: 0 }}>
         <div style={{
           position: 'absolute', inset: 0,
           backgroundImage: 'url(https://images.unsplash.com/photo-1556761175-5973dc0f32e7?w=900&q=80)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
+          backgroundSize: 'cover', backgroundPosition: 'center',
         }} />
         <div style={{
           position: 'absolute', inset: 0,
           background: 'linear-gradient(180deg, rgba(10,14,26,0.72) 0%, rgba(10,14,26,0.38) 45%, rgba(10,14,26,0.82) 100%)',
         }} />
-
         <div style={{
-          position: 'relative', zIndex: 2,
-          height: '100%',
-          display: 'flex', flexDirection: 'column',
-          justifyContent: 'space-between',
-          padding: '32px 28px 36px',
-          boxSizing: 'border-box',
+          position: 'relative', zIndex: 2, height: '100%',
+          display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+          padding: '32px 28px 36px', boxSizing: 'border-box',
         }}>
           <button onClick={() => navigate('/')}
-            style={{
-              background: 'none', border: 'none', cursor: 'pointer', padding: 0,
-              display: 'flex', alignItems: 'center', gap: 10,
-            }}>
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ color: '#fff', fontSize: 18, fontWeight: 800, letterSpacing: '-0.02em' }}>
               GROSHOP<span style={{ color: C.primary }}>.tn</span>
             </span>
           </button>
-
           <div>
-            <h2 style={{
-              color: '#fff', fontSize: 26, fontWeight: 800,
-              margin: '0 0 10px', lineHeight: 1.2, letterSpacing: '-0.02em',
-            }}>
+            <h2 style={{ color: '#fff', fontSize: 26, fontWeight: 800, margin: '0 0 10px', lineHeight: 1.2, letterSpacing: '-0.02em' }}>
               Rejoignez +500 fournisseurs qui vendent sur GROSHOP
             </h2>
-            <p style={{
-              color: 'rgba(255,255,255,0.55)', fontSize: 13.5,
-              lineHeight: 1.55, margin: '0 0 24px',
-            }}>
+            <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: 13.5, lineHeight: 1.55, margin: '0 0 24px' }}>
               Inscription gratuite · Validation sous 24h · Zéro commission le premier mois
             </p>
-
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{ display: 'flex' }}>
                 {[11, 32, 47, 59].map((id, i) => (
                   <img key={id} src={`https://i.pravatar.cc/80?img=${id}`} alt=""
-                    style={{
-                      width: 34, height: 34, borderRadius: '50%',
-                      border: '2.5px solid rgba(10,14,26,0.80)',
-                      marginLeft: i === 0 ? 0 : -10, objectFit: 'cover',
-                    }} />
+                    style={{ width: 34, height: 34, borderRadius: '50%', border: '2.5px solid rgba(10,14,26,0.80)', marginLeft: i === 0 ? 0 : -10, objectFit: 'cover' }} />
                 ))}
               </div>
-              <span style={{ color: 'rgba(255,255,255,0.50)', fontSize: 11.5, fontWeight: 500 }}>
-                +500 fournisseurs actifs
-              </span>
+              <span style={{ color: 'rgba(255,255,255,0.50)', fontSize: 11.5, fontWeight: 500 }}>+500 fournisseurs actifs</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ── RIGHT PANEL — CHANGEMENT ICI : Gestion du scroll fluide ── */}
-      <div style={{
-        flex: 1,
-        height: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        overflowY: 'auto', // Permet le scroll vertical du panneau complet si nécessaire
-        background: '#fff',
-        boxSizing: 'border-box',
-      }}>
-        {/* Top bar (reste collée en haut si on veut, ou défile avec le reste) */}
+      {/* ── RIGHT PANEL ── */}
+      <div style={{ flex: 1, height: '100vh', display: 'flex', flexDirection: 'column', overflowY: 'auto', background: '#fff', boxSizing: 'border-box' }}>
         <div style={{
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          padding: '16px 40px',
-          background: '#fff',
-          borderBottom: '1px solid #f3f4f6',
-          flexShrink: 0,
-          position: 'sticky', top: 0, zIndex: 10, // Reste visible au scroll
+          padding: '16px 40px', background: '#fff', borderBottom: '1px solid #f3f4f6',
+          flexShrink: 0, position: 'sticky', top: 0, zIndex: 10,
         }}>
           <button onClick={() => navigate('/devenir-fournisseur')}
-            style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              color: '#6b7280', fontSize: 13, fontWeight: 600,
-              display: 'flex', alignItems: 'center', gap: 6, padding: 0,
-            }}>
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, padding: 0 }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="15 18 9 12 15 6"/>
             </svg>
@@ -218,32 +214,22 @@ export default function SupplierSignupPage() {
           <span style={{ color: '#9ca3af', fontSize: 13 }}>
             Déjà un compte ?{' '}
             <button onClick={() => navigate('/login')}
-              style={{
-                background: 'none', border: 'none', cursor: 'pointer',
-                color: '#111827', fontWeight: 700, fontSize: 13,
-                textDecoration: 'underline', textUnderlineOffset: 3, padding: 0,
-              }}>Se connecter</button>
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#111827', fontWeight: 700, fontSize: 13, textDecoration: 'underline', textUnderlineOffset: 3, padding: 0 }}>
+              Se connecter
+            </button>
           </span>
         </div>
 
-        {/* Form Body Container */}
         <div style={{
-          flex: 1,
-          maxWidth: 500,
-          width: '100%',
-          margin: '0 auto',
-          padding: '4vh 40px 6vh', // Un peu plus de padding en bas pour respirer au scroll
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          boxSizing: 'border-box',
+          flex: 1, maxWidth: 500, width: '100%', margin: '0 auto',
+          padding: '4vh 40px 6vh', display: 'flex', flexDirection: 'column',
+          justifyContent: 'center', boxSizing: 'border-box',
         }}>
           <div ref={formTopRef} style={{ scrollMarginTop: '100px' }} />
 
-          <h1 style={{
-            fontSize: 'calc(20px + 0.5vh)', fontWeight: 800, color: '#111827',
-            margin: '0 0 4px', letterSpacing: '-0.015em',
-          }}>Créer un compte fournisseur</h1>
+          <h1 style={{ fontSize: 'calc(20px + 0.5vh)', fontWeight: 800, color: '#111827', margin: '0 0 4px', letterSpacing: '-0.015em' }}>
+            Créer un compte fournisseur
+          </h1>
           <p style={{ color: '#6b7280', fontSize: 13.5, margin: '0 0 3vh' }}>
             Remplissez les informations ci-dessous pour commencer.
           </p>
@@ -270,24 +256,18 @@ export default function SupplierSignupPage() {
                         </svg>
                       ) : s.id}
                     </div>
-                    <span style={{
-                      fontSize: 13, fontWeight: active ? 700 : 500,
-                      color: active ? '#111827' : done ? '#6b7280' : '#b0b5bf',
-                    }}>{s.label}</span>
+                    <span style={{ fontSize: 13, fontWeight: active ? 700 : 500, color: active ? '#111827' : done ? '#6b7280' : '#b0b5bf' }}>
+                      {s.label}
+                    </span>
                   </div>
                   {i < STEPS.length - 1 && (
-                    <div style={{
-                      width: 36, height: 2, margin: '0 12px', borderRadius: 1,
-                      background: done ? C.primary : '#e5e7eb',
-                      transition: 'background 0.25s ease',
-                    }} />
+                    <div style={{ width: 36, height: 2, margin: '0 12px', borderRadius: 1, background: done ? C.primary : '#e5e7eb', transition: 'background 0.25s ease' }} />
                   )}
                 </div>
               )
             })}
           </div>
 
-          {/* ── ERROR ── */}
           {error && (
             <div style={{
               background: '#FFF5F3', border: '1px solid rgba(255,107,53,0.25)',
@@ -300,22 +280,15 @@ export default function SupplierSignupPage() {
           {step === 1 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5vh' }}>
               <SectionLabel icon="👤" label="Informations personnelles" />
-
               <Field label="Nom complet" required>
                 <Input value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Ahmed Ben Ali" />
               </Field>
-
               <Field label="Email professionnel" required>
                 <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="contact@votreentreprise.tn" />
               </Field>
-
               <Field label="Téléphone" required>
                 <div style={{ position: 'relative' }}>
-                  <span style={{
-                    position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)',
-                    color: '#6b7280', fontSize: 13.5, fontWeight: 600, pointerEvents: 'none',
-                    display: 'flex', alignItems: 'center', gap: 6,
-                  }}>
+                  <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: '#6b7280', fontSize: 13.5, fontWeight: 600, pointerEvents: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
                     🇹🇳 +216
                   </span>
                   <Input type="tel" value={phone}
@@ -323,17 +296,14 @@ export default function SupplierSignupPage() {
                     placeholder="XX XXX XXX" style={{ paddingLeft: 92 }} />
                 </div>
               </Field>
-
               <Field label="Mot de passe" required>
                 <div style={{ position: 'relative' }}>
                   <Input type={showPass ? 'text' : 'password'} value={password}
                     onChange={e => setPassword(e.target.value)} placeholder="Min. 8 caractères" />
                   <button type="button" onClick={() => setShowPass(v => !v)}
-                    style={{
-                      position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)',
-                      background: 'none', border: 'none', cursor: 'pointer',
-                      color: '#9ca3af', fontSize: 16, padding: 0, lineHeight: 1,
-                    }}>{showPass ? '🙈' : '👁️'}</button>
+                    style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 16, padding: 0, lineHeight: 1 }}>
+                    {showPass ? '🙈' : '👁️'}
+                  </button>
                 </div>
               </Field>
             </div>
@@ -343,11 +313,9 @@ export default function SupplierSignupPage() {
           {step === 2 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2vh' }}>
               <SectionLabel icon="🏢" label="Informations entreprise" />
-
               <Field label="Raison sociale" required>
                 <Input value={companyName} onChange={e => setCompanyName(e.target.value)} placeholder="SARL Mon Entreprise" />
               </Field>
-
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                 <Field label="Numéro RNE" required>
                   <Input value={rne} onChange={e => setRne(e.target.value)} placeholder="A012345678" />
@@ -356,7 +324,6 @@ export default function SupplierSignupPage() {
                   <Input value={mf} onChange={e => setMf(e.target.value)} placeholder="1234567/A/B/C/000" />
                 </Field>
               </div>
-
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                 <Field label="Secteur d'activité" required>
                   <Select value={sector} onChange={e => setSector(e.target.value)} placeholder="Choisir...">
@@ -369,25 +336,19 @@ export default function SupplierSignupPage() {
                   </Select>
                 </Field>
               </div>
-
               <Field label="Adresse complète" required>
                 <Input value={address} onChange={e => setAddress(e.target.value)} placeholder="Rue, ville, code postal" />
               </Field>
-
               <Field label="Site web" hint="optionnel">
                 <Input value={website} onChange={e => setWebsite(e.target.value)} placeholder="https://www.votresite.tn" />
               </Field>
-
               <Field label="Description" hint="optionnel">
                 <textarea value={description} onChange={e => setDescription(e.target.value)}
-                  placeholder="Décrivez brièvement votre activité..."
-                  rows={2}
+                  placeholder="Décrivez brièvement votre activité..." rows={2}
                   style={{
-                    width: '100%', background: '#fff',
-                    border: '1.5px solid #e5e7eb', borderRadius: 10,
-                    padding: '10px 14px', color: '#111827', fontSize: 13.5,
-                    fontFamily: 'inherit', resize: 'none', outline: 'none',
-                    transition: 'border-color 0.2s', boxSizing: 'border-box',
+                    width: '100%', background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 10,
+                    padding: '10px 14px', color: '#111827', fontSize: 13.5, fontFamily: 'inherit',
+                    resize: 'none', outline: 'none', transition: 'border-color 0.2s', boxSizing: 'border-box',
                   }}
                   onFocus={e => e.target.style.borderColor = C.primary}
                   onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
@@ -398,23 +359,18 @@ export default function SupplierSignupPage() {
           {/* ═══ STEP 3 ═══ */}
           {step === 3 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2vh' }}>
-              <div>
-                <SectionLabel icon="📄" label="Documents de vérification" />
-              </div>
+              <SectionLabel icon="📄" label="Documents de vérification" />
+              <FileUpload label="Extrait RNE *" doc={docRne} onSelect={f => handleDocUpload(setDocRne, f)} accept=".pdf,.jpg,.jpeg,.png" />
+              <FileUpload label="Copie CIN du gérant *" doc={docCin} onSelect={f => handleDocUpload(setDocCin, f)} accept=".pdf,.jpg,.jpeg,.png" />
+              <FileUpload label="RIB bancaire *" doc={docRib} onSelect={f => handleDocUpload(setDocRib, f)} accept=".pdf,.jpg,.jpeg,.png" />
+              <FileUpload label="Logo de l'entreprise" doc={docLogo} onSelect={f => handleDocUpload(setDocLogo, f)} accept=".jpg,.jpeg,.png,.svg" />
 
-              <FileUpload label="Extrait RNE *" file={docRne} onFile={setDocRne} accept=".pdf,.jpg,.jpeg,.png" />
-              <FileUpload label="Copie CIN du gérant *" file={docCin} onFile={setDocCin} accept=".pdf,.jpg,.jpeg,.png" />
-              <FileUpload label="RIB bancaire *" file={docRib} onFile={setDocRib} accept=".pdf,.jpg,.jpeg,.png" />
-              <FileUpload label="Logo de l'entreprise" file={docLogo} onFile={setDocLogo} accept=".jpg,.jpeg,.png,.svg" />
-
-              <label style={{
-                display: 'flex', alignItems: 'flex-start', gap: 9,
-                marginTop: 2, cursor: 'pointer',
-              }}>
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: 9, marginTop: 2, cursor: 'pointer' }}>
                 <input type="checkbox" checked={cguOk} onChange={e => setCguOk(e.target.checked)}
                   style={{ width: 16, height: 16, marginTop: 2, accentColor: C.primary, cursor: 'pointer', flexShrink: 0 }} />
                 <span style={{ fontSize: 12, color: '#6b7280', lineHeight: 1.4 }}>
-                  J'accepte les <a href="/cgu" target="_blank" rel="noopener" style={{ color: '#111827', fontWeight: 600 }}>CGU</a> et la <a href="/confidentialite" target="_blank" rel="noopener" style={{ color: '#111827', fontWeight: 600 }}>politique de confidentialité</a>.
+                  J'accepte les <a href="/cgu" target="_blank" rel="noopener" style={{ color: '#111827', fontWeight: 600 }}>CGU</a> et la{' '}
+                  <a href="/confidentialite" target="_blank" rel="noopener" style={{ color: '#111827', fontWeight: 600 }}>politique de confidentialité</a>.
                 </span>
               </label>
             </div>
@@ -424,12 +380,7 @@ export default function SupplierSignupPage() {
           <div style={{ display: 'flex', gap: 12, marginTop: '3vh' }}>
             {step > 1 && (
               <button onClick={handleBack}
-                style={{
-                  background: '#fff', border: '1.5px solid #e5e7eb',
-                  color: '#374151', padding: '11px 24px', borderRadius: 999,
-                  fontSize: 14, fontWeight: 700, cursor: 'pointer',
-                  transition: 'border-color 0.15s',
-                }}
+                style={{ background: '#fff', border: '1.5px solid #e5e7eb', color: '#374151', padding: '11px 24px', borderRadius: 999, fontSize: 14, fontWeight: 700, cursor: 'pointer', transition: 'border-color 0.15s' }}
                 onMouseEnter={e => e.currentTarget.style.borderColor = '#d1d5db'}
                 onMouseLeave={e => e.currentTarget.style.borderColor = '#e5e7eb'}>
                 Retour
@@ -439,32 +390,18 @@ export default function SupplierSignupPage() {
               onClick={step < 3 ? handleNext : handleSubmit}
               disabled={loading}
               style={{
-                flex: 1, background: loading ? '#d1d5db' : C.primary,
-                color: '#fff', border: 'none', padding: '11px 24px',
-                borderRadius: 999, fontSize: 14.5, fontWeight: 700,
+                flex: 1, background: loading ? '#d1d5db' : C.primary, color: '#fff', border: 'none',
+                padding: '11px 24px', borderRadius: 999, fontSize: 14.5, fontWeight: 700,
                 cursor: loading ? 'not-allowed' : 'pointer',
-                boxShadow: loading ? 'none' : '0 6px 20px rgba(255,107,53,0.25)',
-                transition: 'all 0.15s ease',
+                boxShadow: loading ? 'none' : '0 6px 20px rgba(255,107,53,0.25)', transition: 'all 0.15s ease',
               }}
-              onMouseEnter={e => {
-                if (!loading) {
-                  e.currentTarget.style.transform = 'translateY(-1px)'
-                  e.currentTarget.style.boxShadow = '0 8px 24px rgba(255,107,53,0.35)'
-                }
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.transform = 'translateY(0)'
-                e.currentTarget.style.boxShadow = loading ? 'none' : '0 6px 20px rgba(255,107,53,0.30)'
-              }}>
+              onMouseEnter={e => { if (!loading) { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(255,107,53,0.35)' } }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = loading ? 'none' : '0 6px 20px rgba(255,107,53,0.30)' }}>
               {loading ? 'Envoi en cours…' : step < 3 ? 'Continuer' : 'Soumettre ma candidature'}
             </button>
           </div>
 
-          {/* Security note */}
-          <div style={{
-            marginTop: '2vh', display: 'flex', alignItems: 'center',
-            justifyContent: 'center', gap: 6, color: '#c4c8cf', fontSize: 11,
-          }}>
+          <div style={{ marginTop: '2vh', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, color: '#c4c8cf', fontSize: 11 }}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
               <path d="M7 11V7a5 5 0 0110 0v4"/>
@@ -478,7 +415,7 @@ export default function SupplierSignupPage() {
 }
 
 // ═══════════════════════════════════════════════════
-// SUB-COMPONENTS (Inchangés mais conservés pour ton copier-coller)
+// SUB-COMPONENTS
 // ═══════════════════════════════════════════════════
 function SectionLabel({ icon, label }) {
   return (
@@ -506,24 +443,16 @@ function Input({ style, onFocus, onBlur, ...props }) {
   return (
     <input {...props}
       style={{
-        width: '100%', background: '#fff',
-        border: '1.5px solid #e5e7eb', borderRadius: 10,
-        padding: '10px 14px', color: '#111827', fontSize: 13.5,
-        outline: 'none', transition: 'border-color 0.2s',
-        boxSizing: 'border-box', ...style,
+        width: '100%', background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 10,
+        padding: '10px 14px', color: '#111827', fontSize: 13.5, outline: 'none',
+        transition: 'border-color 0.2s', boxSizing: 'border-box', ...style,
       }}
       onFocus={e => {
-        if (e.target.style) {
-          e.target.style.borderColor = C.primary
-          e.target.style.boxShadow = '0 0 0 3px rgba(255,107,53,0.06)'
-        }
+        if (e.target.style) { e.target.style.borderColor = C.primary; e.target.style.boxShadow = '0 0 0 3px rgba(255,107,53,0.06)' }
         onFocus?.(e)
       }}
       onBlur={e => {
-        if (e.target.style) {
-          e.target.style.borderColor = '#e5e7eb'
-          e.target.style.boxShadow = 'none'
-        }
+        if (e.target.style) { e.target.style.borderColor = '#e5e7eb'; e.target.style.boxShadow = 'none' }
         onBlur?.(e)
       }} />
   )
@@ -533,66 +462,55 @@ function Select({ value, onChange, placeholder, children }) {
   return (
     <select value={value} onChange={onChange}
       style={{
-        width: '100%', background: '#fff',
-        border: '1.5px solid #e5e7eb', borderRadius: 10,
-        padding: '10px 14px', color: value ? '#111827' : '#9ca3af',
-        fontSize: 13.5, outline: 'none', cursor: 'pointer',
-        transition: 'border-color 0.2s', boxSizing: 'border-box',
-        appearance: 'none',
+        width: '100%', background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 10,
+        padding: '10px 14px', color: value ? '#111827' : '#9ca3af', fontSize: 13.5, outline: 'none',
+        cursor: 'pointer', transition: 'border-color 0.2s', boxSizing: 'border-box', appearance: 'none',
         backgroundImage: `url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%239ca3af' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
-        backgroundRepeat: 'no-repeat',
-        backgroundPosition: 'right 14px center',
+        backgroundRepeat: 'no-repeat', backgroundPosition: 'right 14px center',
       }}
-      onFocus={e => {
-        e.target.style.borderColor = C.primary
-        e.target.style.boxShadow = '0 0 0 3px rgba(255,107,53,0.06)'
-      }}
-      onBlur={e => {
-        e.target.style.borderColor = '#e5e7eb'
-        e.target.style.boxShadow = 'none'
-      }}>
+      onFocus={e => { e.target.style.borderColor = C.primary; e.target.style.boxShadow = '0 0 0 3px rgba(255,107,53,0.06)' }}
+      onBlur={e => { e.target.style.borderColor = '#e5e7eb'; e.target.style.boxShadow = 'none' }}>
       <option value="" disabled>{placeholder}</option>
       {children}
     </select>
   )
 }
 
-function FileUpload({ label, file, onFile, accept }) {
+function FileUpload({ label, doc, onSelect, accept }) {
   const ref = useRef(null)
-  function handleRemove(e) {
-    e.stopPropagation()
-    onFile(null)
-    if (ref.current) ref.current.value = ''
+
+  function handleClick() {
+    if (!doc.url && !doc.uploading) ref.current?.click()
   }
 
   return (
-    <div onClick={() => !file && ref.current?.click()}
+    <div onClick={handleClick}
       style={{
-        border: file ? `1.5px solid rgba(255,107,53,0.30)` : '1.5px dashed #d1d5db',
+        border: doc.url ? `1.5px solid rgba(255,107,53,0.30)` : '1.5px dashed #d1d5db',
         borderRadius: 10, padding: '10px 14px',
-        background: file ? '#FFF8F5' : '#fafafa',
-        cursor: file ? 'default' : 'pointer',
-        display: 'flex', alignItems: 'center', gap: 12,
-        transition: 'all 0.15s ease',
+        background: doc.url ? '#FFF8F5' : '#fafafa',
+        cursor: doc.url || doc.uploading ? 'default' : 'pointer',
+        display: 'flex', alignItems: 'center', gap: 12, transition: 'all 0.15s ease',
       }}
-      onMouseEnter={e => { if (!file) e.currentTarget.style.borderColor = C.primary }}
-      onMouseLeave={e => { if (!file) e.currentTarget.style.borderColor = '#d1d5db' }}>
+      onMouseEnter={e => { if (!doc.url && !doc.uploading) e.currentTarget.style.borderColor = C.primary }}
+      onMouseLeave={e => { if (!doc.url && !doc.uploading) e.currentTarget.style.borderColor = '#d1d5db' }}>
       <input ref={ref} type="file" accept={accept}
-        onChange={e => { if (e.target.files?.[0]) onFile(e.target.files[0]) }}
+        onChange={e => { if (e.target.files?.[0]) onSelect(e.target.files[0]); e.target.value = '' }}
         style={{ display: 'none' }} />
-      {file ? (
+
+      {doc.uploading ? (
+        <span style={{ fontSize: 12.5, color: '#6b7280' }}>Téléversement de {doc.name}…</span>
+      ) : doc.url ? (
         <>
           <div style={{ flex: 1, minWidth: 0, display: 'flex', gap: 8, alignItems: 'center' }}>
             <span style={{ color: '#111827', fontSize: 12.5, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {label.replace(' *', '')} joint : {file.name}
+              {label.replace(' *', '')} joint : {doc.name}
             </span>
           </div>
-          <button onClick={handleRemove}
-            style={{
-              background: '#f3f4f6', border: 'none', borderRadius: 6,
-              width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', color: '#6b7280', fontSize: 11, flexShrink: 0,
-            }}>✕</button>
+          <button onClick={(e) => { e.stopPropagation(); onSelect(null) }}
+            style={{ background: '#f3f4f6', border: 'none', borderRadius: 6, width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#6b7280', fontSize: 11, flexShrink: 0 }}>
+            ✕
+          </button>
         </>
       ) : (
         <>

@@ -1,23 +1,22 @@
 // src/components/MobileCart.jsx
 import { useState, useMemo, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { MapPin, Heart, Trash2, Minus, Plus, Store, Check, ArrowRight } from 'lucide-react'
+import {
+  MapPin, Trash2, Minus, Plus, Store, ChevronRight, ChevronDown,
+  Truck, RotateCcw, AlertCircle, Tag, Lock, ArrowRight, Check,
+} from 'lucide-react'
 import { useCart } from '../context/CartContext'
 import { useAuth } from '../context/AuthContext'
 
-const ORANGE = '#FF4500'
-const INK = '#1A1A1A', MUTE = '#7A7A7A', FAINT = '#A0A0A0', LINE = '#EDEDED', SOFT = '#FFF0E8', GREEN = '#0E9F6E', RED = '#DC2626'
+const ORANGE='#FF4500', INK='#1A1A1A', MUTE='#7A7A7A', FAINT='#A0A0A0', LINE='#EDEDED', SOFT='#FFF0E8', GREEN='#0E9F6E', RED='#DC2626'
 const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
 const fmt = (n) => (Number(n) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 function Checkbox({ checked, size = 22, onClick }) {
   return (
-    <span onClick={onClick} style={{
-      width: size, height: size, borderRadius: '50%', flexShrink: 0,
-      background: checked ? ORANGE : 'transparent',
-      border: `2px solid ${checked ? ORANGE : '#CCC'}`,
-      display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-    }}>{checked && <Check size={size * 0.6} color="#fff" strokeWidth={3} />}</span>
+    <span onClick={onClick} style={{ width: size, height: size, borderRadius: '50%', flexShrink: 0, background: checked ? ORANGE : 'transparent', border: `2px solid ${checked ? ORANGE : '#CCC'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+      {checked && <Check size={size * 0.6} color="#fff" strokeWidth={3} />}
+    </span>
   )
 }
 
@@ -28,6 +27,8 @@ export default function MobileCart() {
 
   const [selected, setSelected] = useState(new Set())
   const [confirmClear, setConfirmClear] = useState(false)
+  const [promoOpen, setPromoOpen] = useState(false)
+  const [promo, setPromo] = useState('')
 
   useEffect(() => { setSelected(new Set(items.map(i => i.id))) }, [items.length])
 
@@ -44,19 +45,23 @@ export default function MobileCart() {
     return [...m.values()]
   }, [items])
 
-  const { total, selCount, unitCount } = useMemo(() => {
-    let t = 0, n = 0, u = 0
+  const { total, savings, selCount, unitCount } = useMemo(() => {
+    let t = 0, s = 0, n = 0, u = 0
     items.forEach(i => {
       if (!selected.has(i.id)) return
-      t += (parseFloat(i.unit_price_tnd) || 0) * (Number(i.quantity) || 0); n++; u += Number(i.quantity) || 0
+      const unit = parseFloat(i.unit_price_tnd) || 0
+      const qty = Number(i.quantity) || 0
+      const old = parseFloat(i.product?.old_price_tnd) || 0
+      t += unit * qty
+      if (old > unit) s += (old - unit) * qty
+      n++; u += qty
     })
-    return { total: t, selCount: n, unitCount: u }
+    return { total: t, savings: s, selCount: n, unitCount: u }
   }, [items, selected])
 
   const allSelected = items.length > 0 && selected.size === items.length
   const toggleAll = () => setSelected(allSelected ? new Set() : new Set(items.map(i => i.id)))
 
-  // ── États ──
   if (authLoading || (loading && !items.length)) return <Screen><Spinner /></Screen>
   if (!user) return <Screen><Prompt emoji="🔒" title="Connectez-vous" sub="pour voir votre panier" to="/login" cta="Se connecter" /></Screen>
   if (!items.length) return <Screen><Prompt emoji="🛒" title="Panier vide" sub="Ajoutez des produits pour commander" to="/" cta="Découvrir les produits" /></Screen>
@@ -67,79 +72,104 @@ export default function MobileCart() {
       {/* Barre titre */}
       <div style={{ position: 'sticky', top: 56, zIndex: 40, background: '#fff', borderBottom: `1px solid ${LINE}`, display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px' }}>
         <span style={{ fontSize: 20, fontWeight: 800 }}>Panier ({items.length})</span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11.5, fontWeight: 500, background: SOFT, color: ORANGE, padding: '3px 9px', borderRadius: 999 }}><MapPin size={12} /> Tunisie</span>
         <div style={{ flex: 1 }} />
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 12.5, color: MUTE }}><MapPin size={14} /> Tunisie</span>
-        <Link to="/dashboard/favoris" style={{ color: INK, display: 'flex' }}><Heart size={20} /></Link>
-        <button onClick={() => setConfirmClear(true)} style={{ background: 'none', border: 'none', color: INK, cursor: 'pointer', display: 'flex', padding: 0 }}><Trash2 size={20} /></button>
+        <button onClick={() => setConfirmClear(true)} style={{ background: 'none', border: 'none', color: MUTE, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12.5, padding: 0 }}><Trash2 size={16} /> Vider</button>
+      </div>
+
+      {/* Sélection globale */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 14px 4px' }}>
+        <div onClick={toggleAll} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+          <Checkbox checked={allSelected} size={20} />
+          <span style={{ fontSize: 13, fontWeight: 500 }}>Tout sélectionner</span>
+        </div>
       </div>
 
       {/* Liste par fournisseur */}
-      <div style={{ padding: '10px 10px 96px' }}>
+      <div style={{ padding: '6px 10px 0' }}>
         {groups.map(({ supplier, items: gItems }) => {
           const gIds = gItems.map(i => i.id)
           const gAll = gIds.every(id => selected.has(id))
           return (
-            <div key={supplier?.id || 'unknown'} style={{ background: '#fff', borderRadius: 12, marginBottom: 10, overflow: 'hidden' }}>
+            <div key={supplier?.id || 'unknown'} style={{ background: '#fff', borderRadius: 14, marginBottom: 10, overflow: 'hidden', border: `1px solid ${LINE}` }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px' }}>
                 <Checkbox checked={gAll} onClick={() => setSelected(s => { const n = new Set(s); gAll ? gIds.forEach(id => n.delete(id)) : gIds.forEach(id => n.add(id)); return n })} />
                 <div style={{ width: 24, height: 24, borderRadius: 6, background: SOFT, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                   {supplier?.logo_url ? <img src={supplier.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Store size={13} color={ORANGE} />}
                 </div>
-                <Link to={supplier?.slug ? `/fournisseur/${supplier.slug}` : '#'} style={{ fontSize: 14, fontWeight: 700, color: INK, textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {supplier?.name || 'Fournisseur'}
+                <Link to={supplier?.slug ? `/fournisseur/${supplier.slug}` : '#'} style={{ fontSize: 14, fontWeight: 600, color: INK, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 3, minWidth: 0 }}>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{supplier?.name || 'Fournisseur'}</span>
+                  <ChevronRight size={15} color={FAINT} />
                 </Link>
               </div>
 
-              {gItems.map(item => {
-                const p = item.product || {}
-                const qty = Number(item.quantity) || 0
-                const unit = parseFloat(item.unit_price_tnd) || 0
-                const old = parseFloat(p.old_price_tnd) || 0
-                const moq = Number(p.moq) || 1
-                return (
-                  <div key={item.id} style={{ display: 'flex', gap: 10, padding: '12px 14px', borderTop: `1px solid #F4F4F4`, alignItems: 'flex-start' }}>
-                    <div style={{ paddingTop: 26 }}><Checkbox checked={selected.has(item.id)} onClick={() => toggle(item.id)} /></div>
-                    <Link to={`/produit/${p.id}`} style={{ flexShrink: 0 }}>
-                      <div style={{ width: 82, height: 82, borderRadius: 10, overflow: 'hidden', background: '#F6F6F6' }}>
-                        {p.image_url ? <img src={p.image_url} alt={p.name} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>📦</div>}
-                      </div>
-                    </Link>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <Link to={`/produit/${p.id}`} style={{ fontSize: 13.5, fontWeight: 500, color: INK, lineHeight: 1.3, textDecoration: 'none', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{p.name}</Link>
-                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 8 }}>
-                        <span style={{ fontSize: 16, fontWeight: 700, color: ORANGE }}>{fmt(unit)} <span style={{ fontSize: 11, color: MUTE, fontWeight: 400 }}>TND</span></span>
-                        {old > unit && <span style={{ fontSize: 11.5, color: '#BBB', textDecoration: 'line-through' }}>{fmt(old)}</span>}
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', marginTop: 10 }}>
-                        {qty <= moq && <span style={{ fontSize: 11, color: FAINT }}>MOQ {moq}</span>}
-                        <div style={{ flex: 1 }} />
-                        <div style={{ display: 'flex', alignItems: 'center', border: `1px solid ${LINE}`, borderRadius: 20 }}>
-                          <button onClick={() => setQty(item.id, qty - 1)} disabled={qty <= moq} style={step(qty <= moq)}><Minus size={14} /></button>
-                          <span style={{ minWidth: 30, textAlign: 'center', fontSize: 13, fontWeight: 600 }}>{qty}</span>
-                          <button onClick={() => setQty(item.id, qty + 1)} style={step(false)}><Plus size={14} /></button>
-                        </div>
-                        <button onClick={() => remove(item.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#C4C4C4', padding: '0 0 0 12px', display: 'flex' }}><Trash2 size={17} /></button>
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
+              {gItems.map(item => (
+                <div key={item.id}>
+                  <div style={{ height: 1, background: '#F2F2F2', margin: '0 14px' }} />
+                  <MobileRow item={item} selected={selected.has(item.id)} onToggle={() => toggle(item.id)} onQty={q => setQty(item.id, q)} onRemove={() => remove(item.id)} />
+                </div>
+              ))}
             </div>
           )
         })}
+
+        {/* Récapitulatif */}
+        <div style={{ background: '#fff', borderRadius: 14, border: `1px solid ${LINE}`, padding: 18, marginTop: 4, marginBottom: 12 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>Récapitulatif</div>
+
+          {/* Code promo */}
+          <div style={{ border: `1px solid ${LINE}`, borderRadius: 10, marginBottom: 16, overflow: 'hidden' }}>
+            <div onClick={() => setPromoOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '11px 12px', cursor: 'pointer' }}>
+              <Tag size={14} color={FAINT} />
+              <span style={{ fontSize: 12.5, color: MUTE, flex: 1 }}>Vous avez un code promo ?</span>
+              <ChevronDown size={15} color={FAINT} style={{ transform: promoOpen ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }} />
+            </div>
+            {promoOpen && (
+              <div style={{ display: 'flex', gap: 6, padding: '0 12px 12px' }}>
+                <input value={promo} onChange={e => setPromo(e.target.value.toUpperCase())} placeholder="CODE" style={{ flex: 1, minWidth: 0, border: `1px solid ${LINE}`, borderRadius: 8, padding: '9px 10px', fontSize: 12.5, fontFamily: FONT, outline: 'none', letterSpacing: .5, color: INK }} />
+                <button style={{ background: INK, color: '#fff', border: 'none', borderRadius: 8, padding: '0 14px', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>Appliquer</button>
+              </div>
+            )}
+          </div>
+
+          <Line label={`Sous-total (${unitCount} ${unitCount > 1 ? 'articles' : 'article'})`} value={`${fmt(total)} TND`} />
+          <Line label="Livraison" value="Gratuite" valueColor={GREEN} />
+          {savings > 0 && <Line label="Économies" value={`− ${fmt(savings)} TND`} valueColor={ORANGE} />}
+
+          {savings > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, background: '#F0FDF4', color: '#166534', borderRadius: 8, padding: '10px 12px', fontSize: 12 }}>
+              <Check size={14} strokeWidth={3} color={GREEN} /> Livraison standard offerte
+            </div>
+          )}
+
+          <div style={{ height: 1, background: LINE, margin: '16px 0' }} />
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 15, fontWeight: 600 }}>Total <span style={{ fontSize: 12, fontWeight: 400, color: FAINT }}>TVA incluse</span></span>
+            <span style={{ fontSize: 19, fontWeight: 700 }}>{fmt(total)} TND</span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, fontSize: 11.5, color: MUTE }}>
+            <AlertCircle size={14} color={FAINT} style={{ flexShrink: 0 }} />
+            Les articles ne sont pas réservés tant que la commande n'est pas validée.
+          </div>
+        </div>
       </div>
 
-      {/* Barre d'action fixe (au-dessus du bottom nav) */}
+      {/* Espace pour la barre fixe + bottom nav */}
+      <div style={{ height: 76 }} />
+
+      {/* Barre d'action fixe */}
       <div style={{ position: 'fixed', left: 0, right: 0, bottom: 'calc(56px + env(safe-area-inset-bottom))', zIndex: 950, background: '#fff', borderTop: `1px solid ${LINE}`, display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px' }}>
         <div onClick={toggleAll} style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer' }}>
           <Checkbox checked={allSelected} size={20} />
-          <span style={{ fontSize: 12.5, color: INK }}>Tout</span>
+          <span style={{ fontSize: 12.5 }}>Tout</span>
         </div>
         <div style={{ flex: 1, textAlign: 'right' }}>
-          <div style={{ fontSize: 17, fontWeight: 800, color: INK }}>{fmt(total)} <span style={{ fontSize: 12, fontWeight: 400, color: MUTE }}>TND</span></div>
+          {savings > 0 && <div style={{ fontSize: 10.5, color: ORANGE, fontWeight: 600 }}>Économie {fmt(savings)} TND</div>}
+          <div style={{ fontSize: 17, fontWeight: 800 }}>{fmt(total)} <span style={{ fontSize: 12, fontWeight: 400, color: MUTE }}>TND</span></div>
         </div>
         <button onClick={() => navigate('/checkout', { state: { itemIds: [...selected] } })} disabled={selCount === 0}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '12px 22px', borderRadius: 26, border: 'none', color: '#fff', fontSize: 14, fontWeight: 700, cursor: selCount ? 'pointer' : 'default', background: selCount ? 'linear-gradient(135deg,#FF6B35,#FF4500)' : '#DDD' }}>
+          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '12px 22px', borderRadius: 26, border: 'none', color: '#fff', fontSize: 14, fontWeight: 700, cursor: selCount ? 'pointer' : 'default', background: selCount ? 'linear-gradient(135deg,#FF6B35,#FF4500)' : '#DDD', boxShadow: selCount ? '0 4px 12px rgba(255,69,0,.28)' : 'none' }}>
           Commander ({selCount}) <ArrowRight size={16} />
         </button>
       </div>
@@ -156,6 +186,70 @@ export default function MobileCart() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// ── Ligne article (riche, comme le desktop) ──
+function MobileRow({ item, selected, onToggle, onQty, onRemove }) {
+  const p = item.product || {}
+  const qty = Number(item.quantity) || 0
+  const unit = parseFloat(item.unit_price_tnd) || 0
+  const old = parseFloat(p.old_price_tnd) || 0
+  const moq = Number(p.moq) || 1
+  const stock = p.stock_qty != null ? Number(p.stock_qty) : null
+  const lowStock = stock != null && stock > 0 && stock <= 5
+
+  return (
+    <div style={{ display: 'flex', gap: 10, padding: '14px', alignItems: 'flex-start' }}>
+      <div style={{ paddingTop: 28 }}><Checkbox checked={selected} onClick={onToggle} size={20} /></div>
+      <Link to={`/produit/${p.id}`} style={{ flexShrink: 0 }}>
+        <div style={{ width: 84, height: 84, borderRadius: 10, overflow: 'hidden', background: '#F6F6F6' }}>
+          {p.image_url ? <img src={p.image_url} alt={p.name} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>📦</div>}
+        </div>
+      </Link>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <Link to={`/produit/${p.id}`} style={{ fontSize: 13.5, fontWeight: 500, color: INK, lineHeight: 1.3, textDecoration: 'none', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{p.name}</Link>
+
+        {item.variant_data?.name && <div style={{ fontSize: 12, color: FAINT, marginTop: 3 }}>{item.variant_data.name}</div>}
+
+        {lowStock && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#FEF2F2', color: RED, borderRadius: 6, padding: '5px 9px', fontSize: 11, marginTop: 6, width: 'fit-content' }}>
+            <AlertCircle size={12} /> Plus que {stock} en stock
+          </div>
+        )}
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginTop: 7 }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: GREEN }}><Truck size={12} /> Livraison sous {p.delivery_days || '2–5'} jours</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: MUTE }}><RotateCcw size={12} /> Retours acceptés sous 7 jours</span>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, marginTop: 10 }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 16, fontWeight: 700, color: INK }}>{fmt(unit * qty)} TND</span>
+              {old > unit && <span style={{ fontSize: 11, color: '#BBB', textDecoration: 'line-through' }}>{fmt(old)}</span>}
+            </div>
+            <div style={{ fontSize: 11, color: FAINT, marginTop: 1 }}>{fmt(unit)} / {p.unit || 'pièce'}{qty <= moq ? ` · MOQ ${moq}` : ''}</div>
+          </div>
+          <div style={{ flex: 1 }} />
+          <div style={{ display: 'flex', alignItems: 'center', border: `1px solid ${LINE}`, borderRadius: 22 }}>
+            <button onClick={() => onQty(qty - 1)} disabled={qty <= moq} style={step(qty <= moq)}><Minus size={14} /></button>
+            <span style={{ minWidth: 30, textAlign: 'center', fontSize: 13, fontWeight: 600 }}>{qty}</span>
+            <button onClick={() => onQty(qty + 1)} style={step(false)}><Plus size={14} /></button>
+          </div>
+          <button onClick={onRemove} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#C4C4C4', padding: 4, display: 'flex' }}><Trash2 size={16} /></button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function Line({ label, value, valueColor = INK }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+      <span style={{ fontSize: 12.5, color: MUTE }}>{label}</span>
+      <span style={{ fontSize: 12.5, fontWeight: 500, color: valueColor }}>{value}</span>
     </div>
   )
 }

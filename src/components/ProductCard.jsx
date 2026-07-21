@@ -6,7 +6,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useCart } from '../context/CartContext'
-
+import { useIsMobile } from '../hooks/useIsMobile'
+import MobileProductCard from './MobileProductCard'
 const ORANGE = '#ff5e20'
 const INK    = '#0F1419'
 const MUTE   = '#6B7785'
@@ -21,7 +22,7 @@ function fmtPrice(p) {
   return Array.isArray(p) ? `${f(p[0])}–${f(p[1])}` : f(p)
 }
 
-export default function ProductCard({ product, onOrder }) {
+function DesktopProductCard({ product, onOrder }) {
   const [hov, setHov]   = useState(false)
   const [done, setDone] = useState(false)   // ✓ éphémère après ajout
   const navigate = useNavigate()
@@ -248,4 +249,8 @@ export default function ProductCard({ product, onOrder }) {
       </div>
     </div>
   )
+}
+export default function ProductCard(props) {
+  const isMobile = useIsMobile()
+  return isMobile ? <MobileProductCard {...props} /> : <DesktopProductCard {...props} />
 }

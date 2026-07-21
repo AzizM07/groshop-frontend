@@ -40,8 +40,8 @@ import Footer from './components/Footer'
 import AddProductPage from './pages/AddProductPage'
 import RequireAuth from './router/RequireAuth'
 import MobileCategoriesPage from './pages/MobileCategoriesPage'
-
-const NO_LAYOUT   = ['/login', '/signup', '/pending', '/supplier', '/dashboard', '/categories']
+import CheckoutPage from './pages/CheckoutPage'
+const NO_LAYOUT   = ['/login', '/signup', '/pending', '/supplier', '/dashboard', '/categories', '/checkout']
 const FOOTER_ONLY = ['/devenir-fournisseur']
 
 // Placeholder pour les sous-pages du dashboard pas encore construites
@@ -85,6 +85,7 @@ function AppContent() {
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/pending"        element={<PendingPage />} />
         <Route path="/categories"     element={<MobileCategoriesPage />} />
+        <Route path="/checkout" element={<RequireAuth><CheckoutPage /></RequireAuth>} />
         <Route path="/devenir-fournisseur/inscription" element={<SupplierSignupPage />} />
 
         {/* ═══ Espace acheteur : coque persistante (topbar + sidebar), contenu via <Outlet/> ═══ */}

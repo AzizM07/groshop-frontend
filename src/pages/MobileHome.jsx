@@ -202,8 +202,10 @@ function HomeFeed({ items, trending, loading, error, isPersonalized }) {
       <Shortcuts />
       <MobileHero />
       {trending.length > 0 && (
-        <div style={{ padding: '14px 12px 0' }}><CategorySection products={trending} /></div>
-      )}
+  <div style={{ padding: '14px 0 0' }}>
+    <CategorySection products={trending} />
+  </div>
+)}
       <div style={{ padding: '16px 12px 24px' }}>
         <h2 style={{ margin: '0 0 12px', fontSize: 15, fontWeight: 700, color: '#0F1419' }}>
           {isPersonalized ? 'Recommandé pour vous' : 'Produits recommandés'}

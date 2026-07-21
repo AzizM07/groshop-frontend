@@ -1,22 +1,12 @@
 import React, { useState, useRef } from 'react';
-
-const TrendingSection = ({ products = [] }) => {
+import { useIsMobile } from '../hooks/useIsMobile';
+import MobileTrending from './MobileTrending';
+const DesktopTrending = ({ products = [] }) => {
   const [activeCategory, setActiveCategory] = useState('Tout');
   const [hoveredCard, setHoveredCard] = useState(null);
   const scrollRef = useRef(null);
 
-  const demoProducts = [
-    { id: 1, name: 'Câbles USB-C Lot Vrac', image: '/products/usb-c.jpg', rating: 4.5, reviews: '3.4k', oldPrice: 1.80, newPrice: 1.10, discount: 39, category: 'Accessoires' },
-    { id: 2, name: 'Câble USB-C Premium Quality', image: '/products/usb-c-2.jpg', rating: 4.5, reviews: '3.4k', oldPrice: 2.00, newPrice: 1.20, discount: 40, category: 'Accessoires' },
-    { id: 3, name: 'Crème Argan Premium Bio', image: '/products/argan.jpg', rating: 4.5, reviews: '1.2k', oldPrice: 6.10, newPrice: 4.20, discount: 31, category: 'Beauté' },
-    { id: 4, name: 'Lot T-shirts Cotton 100%', image: '/products/tshirt.jpg', rating: 4.5, reviews: '870', oldPrice: 5.10, newPrice: 3.80, discount: 25, category: 'T-shirts' },
-    { id: 5, name: 'Huile Olive Extra Vierge', image: '/products/huile.jpg', rating: 4.8, reviews: '2.1k', oldPrice: 12.00, newPrice: 8.50, discount: 29, category: 'Huiles' },
-    { id: 6, name: 'Épices Mix Tunisien', image: '/products/epices.jpg', rating: 4.6, reviews: '650', oldPrice: 4.50, newPrice: 3.20, discount: 29, category: 'Épices' },
-    { id: 7, name: 'Chargeur Rapide 65W', image: '/products/charger.jpg', rating: 4.7, reviews: '1.8k', oldPrice: 25.00, newPrice: 17.00, discount: 32, category: 'Électronique' },
-    { id: 8, name: 'Dattes Deglet Nour', image: '/products/dattes.jpg', rating: 4.9, reviews: '3.2k', oldPrice: 8.00, newPrice: 5.50, discount: 31, category: 'Alimentaire' },
-  ];
-
-  const displayProducts = products.length > 0 ? products : demoProducts;
+  const displayProducts = products;
   const categories = ['Tout', ...new Set(displayProducts.map(p => p.category).filter(Boolean))];
 
   const filteredProducts = activeCategory === 'Tout'
@@ -479,4 +469,12 @@ const TrendingSection = ({ products = [] }) => {
   );
 };
 
-export default TrendingSection;
+function CategorySection({ products = [] }) {
+  const isMobile = useIsMobile();
+  if (!products || products.length === 0) return null;
+  return isMobile
+    ? <MobileTrending products={products} />
+    : <DesktopTrending products={products} />;
+}
+
+export default CategorySection;

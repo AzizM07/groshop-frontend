@@ -4,10 +4,11 @@
 // Production: remplace AD_UNIT_PATH par ton network ID GAM
 
 import { useEffect, useRef, useState } from 'react'
-
+import { useIsMobile } from '../hooks/useIsMobile'
+import MobileAdSlot from './MobileAdSlot'
 const AD_UNIT_PATH = '/6355419/Travel/Europe'  // ← test Google
 
-export default function AdSlot({ index = 0 }) {
+function DesktopAdSlot({ index = 0 }) {
   const slotId = `groshop-ad-${index}`
   const [hov, setHov] = useState(false)
   const [status, setStatus] = useState('loading') // loading | loaded | empty
@@ -115,4 +116,8 @@ export default function AdSlot({ index = 0 }) {
       </div>
     </div>
   )
+}
+export default function AdSlot(props) {
+  const isMobile = useIsMobile()
+  return isMobile ? <MobileAdSlot /> : <DesktopAdSlot {...props} />
 }

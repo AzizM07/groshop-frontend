@@ -9,6 +9,8 @@ import {
 import { useCart } from "../context/CartContext";
 import { products as productsApi } from "../lib/api";
 import { usePageTracking } from "../hooks/usePageTracking";
+import { useIsMobile } from "../hooks/useIsMobile";
+import MobileProductPage from "../components/MobileProductPage";
 /* ── Police GROSHOP : Fraunces (display) + DM Sans (corps) ── */
 if (typeof document !== "undefined" && !document.getElementById("groshop-fonts")) {
   const l = document.createElement("link");
@@ -614,7 +616,7 @@ const ReviewsSection = ({ reviews, ratingAvg, ratingCount }) => {
 };
 
 // ── Main Page ────────────────────────────────────────────────────
-export default function ProductPage() {
+function DesktopProductPage() {
   const { id } = useParams();
   const navigate = useNavigate();
 
@@ -778,4 +780,8 @@ export default function ProductPage() {
       </div>
     </div>
   );
+}
+export default function ProductPage() {
+  const isMobile = useIsMobile();
+  return isMobile ? <MobileProductPage /> : <DesktopProductPage />;
 }

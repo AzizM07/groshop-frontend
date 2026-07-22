@@ -181,30 +181,14 @@ export default function HomePage() {
       <HeroSearch />
 
       {/* HeroGrid */}
-      <div style={{
-        background: `
-          radial-gradient(ellipse 55% 80% at -5% 50%,  rgba(255,110,30,0.15) 0%, rgba(255,150,60,0.07) 45%, transparent 72%),
-          radial-gradient(ellipse 40% 55% at 106% 85%, rgba(255,120,40,0.10) 0%, transparent 62%),
-          radial-gradient(ellipse 75% 55% at 50%  50%, rgba(255,255,255,0.97) 0%, transparent 68%),
-          #ffffff
-        `,
-      }}>
+      <div >
         <Container style={{ paddingTop: '1rem', paddingBottom: '1rem' }}>
           <HeroGrid />
         </Container>
       </div>
 
       {/* Section "Tendances 48h" — fichier CategorySection.jsx, composant TrendingSection */}
-      <div style={{
-        background: `
-          radial-gradient(ellipse 50% 70% at -5% 50%,  rgba(26, 26, 255, 0.10) 0%, transparent 65%),
-          radial-gradient(ellipse 45% 60% at 106% 10%, rgba(255, 69, 128, 0.10) 0%, transparent 62%),
-          radial-gradient(ellipse 40% 55% at 106% 90%, rgba(107, 53, 255, 0.08) 0%, transparent 58%),
-          radial-gradient(ellipse 35% 50% at 0%  10%,  rgba(255, 69,   0, 0.08) 0%, transparent 55%),
-          radial-gradient(ellipse 70% 55% at 50%  50%, rgba(255,255,255, 0.96) 0%, transparent 68%),
-          #ffffff
-        `,
-      }}>
+      <div >
         <Container style={{ paddingTop: '1rem' }}>
           <CategorySection products={trendingProducts} />
         </Container>
@@ -240,11 +224,28 @@ export default function HomePage() {
           </div>
         )}
 
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(5, 1fr)',
-          gap: '12px',
-        }}>
+        {/* Grille responsive : 6 colonnes en desktop, dégressif selon la largeur d'écran */}
+        <style>{`
+          .groshop-product-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 10px 14px;
+          }
+          @media (max-width: 1280px) {
+            .groshop-product-grid { grid-template-columns: repeat(5, 1fr); }
+          }
+          @media (max-width: 1024px) {
+            .groshop-product-grid { grid-template-columns: repeat(4, 1fr); }
+          }
+          @media (max-width: 768px) {
+            .groshop-product-grid { grid-template-columns: repeat(3, 1fr); gap: 8px 10px; }
+          }
+          @media (max-width: 480px) {
+            .groshop-product-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+          }
+        `}</style>
+
+        <div className="groshop-product-grid">
           {loading
             ? [...Array(30)].map((_, i) => <SkeletonCard key={i} />)
             : products.map((p, i) => (

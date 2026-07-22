@@ -2,85 +2,180 @@
 
 import { useState, useEffect, useRef } from 'react'
 
+// ── Palette ───────────────────────────────────────────────────────────────────
+const C = {
+  orange: '#ff5e20',
+  blue:   '#1a1aff',
+  purple: '#6B35FF',
+  pink:   '#FF4580',
+}
+
 // ── Images ────────────────────────────────────────────────────────────────────
-import bannerLeft from '../assets/banner.png'  // ⬅️ depuis assets
+// Visuels Unsplash choisis pour leur dominante chromatique (licence libre).
+// Pour les héberger toi-même : télécharge-les et remplace par
+//   import heroElectro from '../assets/hero-electro.jpg'
+const U = (id, w) => `https://images.unsplash.com/photo-${id}?w=${w}&q=85&auto=format&fit=crop`
 
 const IMG = {
-  bannerLeft,
-
   slides: [
     {
-      image: 'https://images.unsplash.com/photo-1601924994987-69e26d50dc26?w=900&q=85',
-      tag:   'Nouveautés',
-      title: 'Alimentaire & Épicerie\nGrossiste Tunisie 2025',
-      sub:   '+2 000 références · Prix usine direct',
-      price: 'TND 1.200 / pcs',
-      cta:   'Explorer le catalogue',
-      href:  '/produits',
-    },
-    {
-      image: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=900&q=85',
-      tag:   'Promo −40%',
-      title: 'Mode & Textile\nMeilleurs prix du marché',
-      sub:   'Cartons complets · Livraison Tunisie',
-      price: 'TND 4.200 / pcs',
-      cta:   'Voir les offres mode',
-      href:  '/produits/textile',
-    },
-    {
-      image: 'https://images.unsplash.com/photo-1498049794561-7780e7231661?w=900&q=85',
-      tag:   'Tendance',
-      title: 'High-Tech & Électronique\nStock disponible',
+      // LED bleues et violettes
+      image: U('1546640646-89b557854b23', 1600),
+      tag:   'Électronique',
+      title: 'High-Tech en gros',
       sub:   'Fournisseurs vérifiés · Prix grossiste',
-      price: 'TND 45.000 / pcs',
-      cta:   'Découvrir la sélection',
+      cta:   'Voir le catalogue',
       href:  '/produits/electronique',
+      tint:  [C.blue, C.purple],
+    },
+    {
+      // Particules néon roses et violettes
+      image: U('1563089145-599997674d42', 1600),
+      tag:   'Promo −40%',
+      title: 'Mode & Textile',
+      sub:   'Cartons complets · Livraison Tunisie',
+      cta:   'Voir les offres',
+      href:  '/produits/textile',
+      tint:  [C.purple, C.pink],
+    },
+    {
+      // Fond orange abstrait à vagues
+      image: U('1707324148764-99647364afa3', 1600),
+      tag:   'Nouveautés',
+      title: 'Alimentaire & Épicerie',
+      sub:   '+2 000 références · Prix usine direct',
+      cta:   'Explorer',
+      href:  '/produits',
+      tint:  [C.orange, C.pink],
     },
   ],
 
-  miniBottomLeft:  'https://images.unsplash.com/photo-1498049794561-7780e7231661?w=460&q=85',
-  miniBottomRight: 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=460&q=85',
-  rightTop:    'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=520&q=85',
-  rightBottom: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=520&q=85',
+  cards: [
+    {
+      // Enseigne néon rose
+      image: U('1572314961011-aece24e1cc48', 900),
+      tag:   'Nouveautés',
+      title: 'Beauté & soin',
+      href:  '/produits/beaute',
+      tint:  [C.purple, C.pink],
+    },
+    {
+      // Dégradé orange et rouge ondulé
+      image: U('1530669244764-0909211cd8e8', 900),
+      tag:   'Nouveautés',
+      title: 'Papeterie & bureau',
+      href:  '/produits/papeterie',
+      tint:  [C.orange, C.pink],
+    },
+  ],
 }
+
+function hexA(hex, alpha) {
+  const n = parseInt(hex.slice(1), 16)
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`
+}
+
+// Voile léger : les photos étant déjà dans la palette, il sert uniquement
+// à garantir la lisibilité du texte à gauche.
+const scrim = ([from, to]) =>
+  `linear-gradient(100deg, ${hexA(from, 0.86)} 0%, ${hexA(from, 0.58)} 32%, ${hexA(to, 0.24)} 60%, ${hexA(to, 0)} 100%)`
 
 const S = {
   zone: {
+    position: 'relative',
     borderRadius: '14px',
     overflow: 'hidden',
-    position: 'relative',
     width: '100%',
     height: '100%',
   },
   img: {
+    position: 'absolute',
+    inset: 0,
     width: '100%', height: '100%',
     objectFit: 'cover',
     display: 'block',
-    transition: 'transform 0.5s cubic-bezier(.25,.46,.45,.94)',
+    transition: 'transform 0.6s cubic-bezier(.25,.46,.45,.94)',
+  },
+  veil: {
+    position: 'absolute',
+    inset: 0,
+    pointerEvents: 'none',
   },
 }
 
-function ZoomImg({ src, alt }) {
-  const [hov, setHov] = useState(false)
-  return (
-    <img
-      src={src} alt={alt}
-      style={{ ...S.img, transform: hov ? 'scale(1.05)' : 'scale(1)' }}
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
-    />
-  )
-}
-
 const ArrowRight = () => (
-  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-    <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" />
   </svg>
 )
 
+// ── Carte de la colonne droite ────────────────────────────────────────────────
+function SideCard({ data }) {
+  const [hov, setHov] = useState(false)
+  return (
+    <a
+      href={data.href}
+      style={{ ...S.zone, display: 'block', textDecoration: 'none' }}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+    >
+      <img
+        src={data.image}
+        alt={data.title}
+        style={{ ...S.img, transform: hov ? 'scale(1.06)' : 'scale(1)' }}
+      />
+      <div style={{ ...S.veil, background: scrim(data.tint) }} />
+
+      <div style={{
+        position: 'absolute',
+        left: '26px', top: '50%',
+        transform: 'translateY(-50%)',
+        zIndex: 2,
+        maxWidth: '70%',
+      }}>
+        <div style={{
+          fontSize: '10px',
+          letterSpacing: '1.8px',
+          textTransform: 'uppercase',
+          fontWeight: 600,
+          color: '#fff',
+          opacity: 0.9,
+        }}>
+          {data.tag}
+        </div>
+        <div style={{
+          fontSize: '19px',
+          fontWeight: 700,
+          color: '#fff',
+          letterSpacing: '-0.2px',
+          marginTop: '7px',
+          lineHeight: 1.2,
+          textShadow: '0 1px 12px rgba(0,0,0,.25)',
+        }}>
+          {data.title}
+        </div>
+        <div style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '8px',
+          fontSize: '11.5px',
+          color: '#fff',
+          marginTop: '14px',
+          opacity: hov ? 1 : 0.85,
+          transition: 'opacity .2s',
+        }}>
+          Découvrir <ArrowRight />
+        </div>
+      </div>
+    </a>
+  )
+}
+
+// ── Composant principal ───────────────────────────────────────────────────────
 export default function HeroGrid() {
   const [current, setCurrent] = useState(0)
-  const [anim, setAnim]       = useState(false)
+  const [anim, setAnim] = useState(false)
+  const [hovHero, setHovHero] = useState(false)
   const timer = useRef(null)
 
   const go = (idx) => {
@@ -102,79 +197,161 @@ export default function HeroGrid() {
   return (
     <div style={{
       display: 'grid',
-      gridTemplateColumns: '2fr 4fr 2fr',
-      gridTemplateRows: '340px 145px',
+      gridTemplateColumns: '2fr 1fr',
       gap: '10px',
       width: '100%',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif',
+      height: '540px',
+      fontFamily: "'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif",
     }}>
 
-      {/* ── Bannière gauche depuis assets — sans overlay ── */}
-      <div style={{ gridColumn: '1', gridRow: '1 / 3', ...S.zone }}>
-        <ZoomImg src={IMG.bannerLeft} alt="Parfums et cosmétique grossiste" />
+      {/* ── Hero slider gauche ── */}
+      <div
+        style={S.zone}
+        onMouseEnter={() => setHovHero(true)}
+        onMouseLeave={() => setHovHero(false)}
+      >
+        <img
+          src={slide.image}
+          alt={slide.title}
+          style={{
+            ...S.img,
+            transform: hovHero ? 'scale(1.04)' : 'scale(1)',
+            opacity: anim ? 0 : 1,
+            transition: 'transform .6s cubic-bezier(.25,.46,.45,.94), opacity .2s',
+          }}
+        />
+        <div style={{
+          ...S.veil,
+          background: scrim(slide.tint),
+          opacity: anim ? 0.6 : 1,
+          transition: 'opacity .2s',
+        }} />
+
+        <div style={{
+          position: 'absolute',
+          left: '48px', top: '50%',
+          transform: 'translateY(-50%)',
+          zIndex: 2,
+          maxWidth: '52%',
+          opacity: anim ? 0 : 1,
+          transition: 'opacity .2s',
+        }}>
+          <div style={{
+            fontSize: '11px',
+            letterSpacing: '2.4px',
+            textTransform: 'uppercase',
+            fontWeight: 600,
+            color: '#fff',
+            opacity: 0.85,
+          }}>
+            {slide.tag}
+          </div>
+
+          <h1 style={{
+            fontSize: '40px',
+            fontWeight: 700,
+            color: '#fff',
+            letterSpacing: '-0.8px',
+            lineHeight: 1.12,
+            margin: '10px 0 0 0',
+            textShadow: '0 2px 18px rgba(0,0,0,.22)',
+          }}>
+            {slide.title}
+          </h1>
+
+          <p style={{
+            fontSize: '13.5px',
+            color: 'rgba(255,255,255,.85)',
+            margin: '12px 0 0 0',
+          }}>
+            {slide.sub}
+          </p>
+
+          <a
+            href={slide.href}
+            style={{
+              display: 'inline-block',
+              marginTop: '26px',
+              background: '#fff',
+              color: '#0F1419',
+              fontSize: '11.5px',
+              fontWeight: 700,
+              letterSpacing: '1.6px',
+              textTransform: 'uppercase',
+              padding: '14px 26px',
+              borderRadius: '4px',
+              textDecoration: 'none',
+              transition: 'transform .2s',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)' }}
+          >
+            {slide.cta}
+          </a>
+        </div>
+
+        {/* Pastille de navigation — bas centre */}
+        <div style={{
+          position: 'absolute',
+          bottom: '22px', left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 10,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          background: '#fff',
+          borderRadius: '24px',
+          padding: '9px 16px',
+          boxShadow: '0 4px 16px rgba(0,0,0,.14)',
+        }}>
+          <button
+            onClick={() => go(current - 1)}
+            aria-label="Précédent"
+            style={{ background: 'none', border: 'none', color: '#6B7785', fontSize: '17px', cursor: 'pointer', padding: 0, lineHeight: 1 }}
+          >
+            ‹
+          </button>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {IMG.slides.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => go(i)}
+                aria-label={`Slide ${i + 1}`}
+                style={{
+                  width: i === current ? '18px' : '6px',
+                  height: '6px',
+                  borderRadius: '3px',
+                  background: i === current ? C.orange : '#D3D6DA',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: 0,
+                  transition: 'width .25s, background .2s',
+                }}
+              />
+            ))}
+          </div>
+
+          <button
+            onClick={() => go(current + 1)}
+            aria-label="Suivant"
+            style={{ background: 'none', border: 'none', color: '#6B7785', fontSize: '17px', cursor: 'pointer', padding: 0, lineHeight: 1 }}
+          >
+            ›
+          </button>
+        </div>
       </div>
 
-      {/* ── Slider centre — sans overlay ── */}
+      {/* ── Colonne droite : deux cartes empilées ── */}
       <div style={{
-        gridColumn: '2', gridRow: '1',
-        ...S.zone,
-        opacity: anim ? 0 : 1,
-        transition: 'opacity 0.2s',
+        display: 'grid',
+        gridTemplateRows: '1fr 1fr',
+        gap: '10px',
+        minHeight: 0,
       }}>
-        <img src={slide.image} alt={`Slide ${current + 1}`} style={S.img} />
-
-        {/* Dots */}
-        <div style={{
-          position: 'absolute', bottom: '14px', left: '50%', transform: 'translateX(-50%)',
-          display: 'flex', gap: '5px', zIndex: 10,
-        }}>
-          {IMG.slides.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => go(i)}
-              style={{
-                width: i === current ? '18px' : '6px',
-                height: '6px',
-                borderRadius: '3px',
-                background: i === current ? '#FF4500' : 'rgba(255,255,255,.45)',
-                border: 'none', cursor: 'pointer', padding: 0,
-                transition: 'width .25s, background .2s',
-              }}
-            />
-          ))}
-        </div>
-
-        {/* Nav arrows */}
-        <div style={{
-          position: 'absolute', bottom: '14px', right: '14px', zIndex: 10,
-          display: 'flex', alignItems: 'center', gap: '4px',
-          background: 'rgba(0,0,0,.45)', borderRadius: '20px',
-          padding: '5px 12px', backdropFilter: 'blur(6px)',
-        }}>
-          <button onClick={() => go(current - 1)} style={{ background: 'none', border: 'none', color: '#fff', fontSize: '17px', cursor: 'pointer', padding: '0 2px', lineHeight: 1 }}>‹</button>
-          <span style={{ fontSize: '12px', color: '#fff', fontWeight: 700 }}>{current + 1} / {IMG.slides.length}</span>
-          <button onClick={() => go(current + 1)} style={{ background: 'none', border: 'none', color: '#fff', fontSize: '17px', cursor: 'pointer', padding: '0 2px', lineHeight: 1 }}>›</button>
-        </div>
-      </div>
-
-      {/* ── 2 mini cards bas centre — sans overlay ── */}
-      <div style={{ gridColumn: '2', gridRow: '2', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-        <div style={S.zone}>
-          <ZoomImg src={IMG.miniBottomLeft} alt="Électronique grossiste" />
-        </div>
-        <div style={S.zone}>
-          <ZoomImg src={IMG.miniBottomRight} alt="Beauté grossiste" />
-        </div>
-      </div>
-
-      {/* ── Colonne droite — sans overlay ── */}
-      <div style={{ gridColumn: '3', gridRow: '1 / 3', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        <div style={{ ...S.zone, flex: 1 }}>
-          <ZoomImg src={IMG.rightTop} alt="Alimentaire grossiste" />
-        </div>
-        <div style={{ ...S.zone, flex: 1 }}>
-          <ZoomImg src={IMG.rightBottom} alt="Mode grossiste" />
-        </div>
+        {IMG.cards.map((card, i) => (
+          <SideCard key={i} data={card} />
+        ))}
       </div>
 
     </div>

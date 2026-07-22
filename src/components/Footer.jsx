@@ -11,7 +11,7 @@ import appstoreBadge  from '../assets/socials/applestore.png';
 import playstoreBadge from '../assets/socials/playstore.png';
 
 /**
- * Footer GrosHop — Composant global
+ * Footer GroShop — Composant global
  * Emplacement : src/components/Footer.jsx
  */
 
@@ -40,13 +40,13 @@ const columns = [
     title: "Approvisionnement",
     links: [
       "Demande de devis",
-      "Adhésion GrosHop",
+      "Adhésion GroShop",
       "Conformité fiscale",
-      "Blog GrosHop",
+      "Blog GroShop",
     ],
   },
   {
-    title: "Vendez sur GrosHop",
+    title: "Vendez sur GroShop",
     links: [
       "Commencer à vendre",
       "Centre des vendeurs",
@@ -58,7 +58,7 @@ const columns = [
   {
     title: "Faites notre connaissance",
     links: [
-      "À propos de GrosHop",
+      "À propos de GroShop",
       "Politiques de RSE",
       "Centre de nouvelles",
       "Nous rejoindre | Carrières",
@@ -85,7 +85,7 @@ export default function Footer() {
   return (
     <footer className="w-full bg-white font-sans text-gray-700">
       {/* Liseré orange en haut */}
-      <div className="h-1 w-full bg-[#FF4500]" />
+      <div className="h-1 w-full bg-[#ff5e20]" />
 
       {/* Contenu principal */}
       <div className="mx-auto max-w-7xl px-6 py-10">
@@ -93,9 +93,9 @@ export default function Footer() {
           {/* Bloc marque */}
           <div className="w-full max-w-xs sm:w-auto">
             <h2 className="text-2xl font-extrabold tracking-tight text-gray-900">
-              GROS<span className="text-[#FF4500]">HOP</span> TN
+              GROS<span className="text-[#ff5e20]">HOP</span> TN
             </h2>
-            <p className="mt-1 text-sm font-bold text-[#FF4500]">
+            <p className="mt-1 text-sm font-bold text-[#ff5e20]">
               Votre marketplace en Tunisie
             </p>
             <div className="my-4 h-px w-full bg-gray-200" />
@@ -134,7 +134,7 @@ export default function Footer() {
                   <li key={link}>
                     <a
                       href="#"
-                      className="text-xs text-gray-500 transition-colors hover:text-[#FF4500]"
+                      className="text-xs text-gray-500 transition-colors hover:text-[#ff5e20]"
                     >
                       {link}
                     </a>
@@ -150,9 +150,9 @@ export default function Footer() {
       <div className="border-t border-gray-100">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-4 px-6 py-4">
           <span className="text-sm text-gray-600">
-            Téléchargez l'application mobile GrosHop :{" "}
-            <a href="#" className="font-bold text-gray-900 hover:text-[#FF4500] transition-colors">
-              l'application GrosHop
+            Téléchargez l'application mobile GroShop :{" "}
+            <a href="#" className="font-bold text-gray-900 hover:text-[#ff5e20] transition-colors">
+              l'application GroShop
             </a>
           </span>
 
@@ -198,7 +198,7 @@ export default function Footer() {
             ))}
           </nav>
           <span className="text-xs text-gray-500">
-            © 2025 GrosHop.tn — Tous droits réservés
+            © 2025 GroShop.tn — Tous droits réservés
           </span>
         </div>
       </div>

@@ -26,7 +26,7 @@ export default function AddProductPage() {
   })
   const [images, setImages]         = useState([])   // {tempId, url, is_primary, uploading}
   const [tiers, setTiers]           = useState([])   // {min_qty, max_qty, price_tnd}
-  const [variants, setVariants]     = useState([])   // {name, image_url, uploading}
+  const [choiceGroups, setChoiceGroups] = useState([])  // [{name, variants:[{name, image_url, uploading}]}]
   const [categories, setCategories] = useState([])
   const [errors, setErrors]         = useState({})
   const [submitting, setSubmitting] = useState(false)
@@ -72,21 +72,39 @@ export default function AddProductPage() {
   const setPrimary = (tempId) =>
     setImages((prev) => prev.map((im) => ({ ...im, is_primary: im.tempId === tempId })))
 
-  /* ── Variantes ── */
-  const addVariant = () => setVariants((v) => [...v, { name: '', image_url: '', uploading: false }])
-  const setVariant = (i, k, val) => setVariants((v) => v.map((x, idx) => (idx === i ? { ...x, [k]: val } : x)))
-  const removeVariant = (i) => setVariants((v) => v.filter((_, idx) => idx !== i))
-  async function handleVariantFile(i, file) {
-    setVariant(i, 'uploading', true)
-    try {
-      const { url } = await uploadFile(UPLOAD_ENDPOINT, file)
-      setVariants((v) => v.map((x, idx) => (idx === i ? { ...x, image_url: url, uploading: false } : x)))
-    } catch (e) {
-      setVariant(i, 'uploading', false)
-      alert(e.message)
-    }
-  }
+/* ── Groupes de choix (max 5) + variantes (illimitées) ── */
+const addGroup = () =>
+  setChoiceGroups((g) => (g.length >= 5 ? g : [...g, { name: '', variants: [] }]))
 
+const removeGroup = (gi) =>
+  setChoiceGroups((g) => g.filter((_, i) => i !== gi))
+
+const setGroupName = (gi, val) =>
+  setChoiceGroups((g) => g.map((x, i) => (i === gi ? { ...x, name: val } : x)))
+
+const addVariant = (gi) =>
+  setChoiceGroups((g) => g.map((x, i) =>
+    i === gi ? { ...x, variants: [...x.variants, { name: '', image_url: '', uploading: false }] } : x))
+
+const setVariant = (gi, vi, k, val) =>
+  setChoiceGroups((g) => g.map((x, i) =>
+    i === gi ? { ...x, variants: x.variants.map((v, j) => (j === vi ? { ...v, [k]: val } : v)) } : x))
+
+const removeVariant = (gi, vi) =>
+  setChoiceGroups((g) => g.map((x, i) =>
+    i === gi ? { ...x, variants: x.variants.filter((_, j) => j !== vi) } : x))
+
+async function handleVariantFile(gi, vi, file) {
+  setVariant(gi, vi, 'uploading', true)
+  try {
+    const { url } = await uploadFile(UPLOAD_ENDPOINT, file)
+    setChoiceGroups((g) => g.map((x, i) =>
+      i === gi ? { ...x, variants: x.variants.map((v, j) => (j === vi ? { ...v, image_url: url, uploading: false } : v)) } : x))
+  } catch (e) {
+    setVariant(gi, vi, 'uploading', false)
+    alert(e.message)
+  }
+}
   /* ── Tranches de prix ── */
   const addTier = () => setTiers((t) => [...t, { min_qty: '', max_qty: '', price_tnd: '' }])
   const setTier = (i, k, val) => setTiers((t) => t.map((x, idx) => (idx === i ? { ...x, [k]: val } : x)))
@@ -121,9 +139,15 @@ export default function AddProductPage() {
       price_tiers: tiers
         .filter((t) => t.min_qty && t.price_tnd)
         .map((t) => ({ min_qty: Number(t.min_qty), max_qty: t.max_qty ? Number(t.max_qty) : null, price_tnd: Number(t.price_tnd) })),
-      variants: variants
-        .filter((v) => v.name.trim())
-        .map((v, i) => ({ name: v.name.trim(), image_url: v.image_url || '', sort_order: i })),
+      choice_groups: choiceGroups
+  .filter((g) => g.name.trim())
+  .map((g, gi) => ({
+    name: g.name.trim(),
+    sort_order: gi,
+    variants: g.variants
+      .filter((v) => v.name.trim())
+      .map((v, vi) => ({ name: v.name.trim(), image_url: v.image_url || '', sort_order: vi })),
+  })),
     }
 
     try {
@@ -334,27 +358,50 @@ export default function AddProductPage() {
             </Field>
           </section>
 
-          {/* VARIANTES */}
-          <section style={S.card}>
-            <SectionTitle icon={<Layers size={18} />} title="Variantes" />
-            {variants.map((v, i) => (
-              <div key={i} style={S.variantRow}>
-                <label style={S.variantImg} className="ap-drop">
-                  <input type="file" accept="image/*" style={{ display: 'none' }}
-                    onChange={(e) => { if (e.target.files[0]) handleVariantFile(i, e.target.files[0]); e.target.value = '' }} />
-                  {v.uploading
-                    ? <Loader2 size={16} className="ap-spin" color="#9aa3ae" />
-                    : v.image_url
-                      ? <img src={v.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 }} />
-                      : <Plus size={16} color="#c2c8d0" />}
-                </label>
-                <input style={{ ...S.input, flex: 1 }} className="ap-in" placeholder="Ex : Noir, XL…"
-                  value={v.name} onChange={(e) => setVariant(i, 'name', e.target.value)} />
-                <button type="button" style={S.iconDanger} onClick={() => removeVariant(i)}><Trash2 size={16} /></button>
-              </div>
-            ))}
-            <button style={S.addBtn} onClick={addVariant} type="button"><Plus size={15} /> Ajouter une variante</button>
-          </section>
+{/* CHOIX & VARIANTES */}
+<section style={S.card}>
+  <SectionTitle icon={<Layers size={18} />} title="Choix & variantes" />
+  <p style={{ fontSize: 12, color: '#9aa3ae', margin: '-8px 0 16px', lineHeight: 1.5 }}>
+    Jusqu'à 5 groupes (ex : Couleur, Taille). Variantes illimitées par groupe.
+  </p>
+
+  {choiceGroups.map((g, gi) => (
+    <div key={gi} style={{ border: '1px solid #ECEEF2', borderRadius: 12, padding: 14, marginBottom: 12 }}>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
+        <input style={{ ...S.input, flex: 1 }} className="ap-in" placeholder="Nom du choix (ex : Couleur)"
+          value={g.name} onChange={(e) => setGroupName(gi, e.target.value)} />
+        <button type="button" style={S.iconDanger} onClick={() => removeGroup(gi)}><Trash2 size={16} /></button>
+      </div>
+
+      {g.variants.map((v, vi) => (
+        <div key={vi} style={S.variantRow}>
+          <label style={S.variantImg} className="ap-drop">
+            <input type="file" accept="image/*" style={{ display: 'none' }}
+              onChange={(e) => { if (e.target.files[0]) handleVariantFile(gi, vi, e.target.files[0]); e.target.value = '' }} />
+            {v.uploading
+              ? <Loader2 size={16} className="ap-spin" color="#9aa3ae" />
+              : v.image_url
+                ? <img src={v.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 }} />
+                : <Plus size={16} color="#c2c8d0" />}
+          </label>
+          <input style={{ ...S.input, flex: 1 }} className="ap-in" placeholder="Ex : Rose, XL…"
+            value={v.name} onChange={(e) => setVariant(gi, vi, 'name', e.target.value)} />
+          <button type="button" style={S.iconDanger} onClick={() => removeVariant(gi, vi)}><Trash2 size={16} /></button>
+        </div>
+      ))}
+
+      <button style={S.addBtn} onClick={() => addVariant(gi)} type="button">
+        <Plus size={15} /> Ajouter une variante
+      </button>
+    </div>
+  ))}
+
+  <button type="button" disabled={choiceGroups.length >= 5}
+    style={{ ...S.addBtn, opacity: choiceGroups.length >= 5 ? 0.5 : 1, cursor: choiceGroups.length >= 5 ? 'not-allowed' : 'pointer' }}
+    onClick={choiceGroups.length < 5 ? addGroup : undefined}>
+    <Plus size={15} /> Ajouter un choix ({choiceGroups.length}/5)
+  </button>
+</section>
 
           {/* STATUT + ACTIONS */}
           <section style={S.card}>

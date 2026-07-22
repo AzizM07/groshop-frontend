@@ -17,19 +17,6 @@ const BANNERS = [
     tagBg: 'rgba(255,255,255,0.2)',
   },
   {
-    id: 2,
-    bg: 'linear-gradient(135deg, #FF4500 0%, #FF8C00 60%, #FFD700 100%)',
-    tag: 'TOP VENTES',
-    title: 'TEXTILE\n& MODE',
-    sub: 'T-shirts, jeans, robes — directement du fabricant',
-    cta: 'Voir les offres',
-    ctaHref: '/categorie/1',
-    
-    deco: ['#ffffff22', '#ffffff11'],
-    tagColor: '#fff',
-    tagBg: 'rgba(255,255,255,0.25)',
-  },
-  {
   id: 3,
   bg: 'linear-gradient(135deg, #1a1aff 0%, #6B35FF 50%, #FF4580 100%)',
   tag: 'GROSHOP',

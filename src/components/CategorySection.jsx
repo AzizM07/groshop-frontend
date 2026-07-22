@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useIsMobile } from '../hooks/useIsMobile';
 import MobileTrending from './MobileTrending';
+
 const DesktopTrending = ({ products = [] }) => {
   const [activeCategory, setActiveCategory] = useState('Tout');
   const [hoveredCard, setHoveredCard] = useState(null);
@@ -35,89 +36,58 @@ const DesktopTrending = ({ products = [] }) => {
     },
     container: { maxWidth: '1400px', margin: '0 auto' },
 
-    // ═══════════ HEADER (option B) ═══════════
+    // ═══════════ HEADER — centré, minimal ═══════════
     header: {
-      position: 'relative',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      marginBottom: '28px',
-      minHeight: '80px',
-      overflow: 'hidden',
+      textAlign: 'center',
+      marginBottom: '26px',
     },
-    headerLeft: { display: 'flex', alignItems: 'center', gap: '18px', zIndex: 2, position: 'relative' },
-    titleAccent: {
-      width: '5px', height: '64px',
-      background: 'linear-gradient(135deg, #1a1aff, #6B35FF, #FF4580)',
-      borderRadius: '4px',
-      flexShrink: 0,
-    },
-    clockBadge: {
-      display: 'inline-flex', alignItems: 'center', gap: '6px',
-      background: 'rgba(107,53,255,.08)',
-      color: '#6B35FF',
-      fontSize: '11px', fontWeight: 700,
-      padding: '5px 11px',
-      borderRadius: '20px',
-      marginBottom: '10px',
-      width: 'fit-content',
+    eyebrow: {
+      fontSize: '11px',
+      fontWeight: 500,
+      letterSpacing: '2.4px',
+      textTransform: 'uppercase',
+      color: '#9AA3AE',
+      margin: '0 0 10px 0',
     },
     title: {
       fontFamily: "'DM Sans', sans-serif",
-      fontSize: '36px',
-      fontWeight: 800,
+      fontSize: '42px',
+      fontWeight: 700,
       color: '#0F1419',
-      letterSpacing: '-.5px',
+      letterSpacing: '-1px',
       margin: 0,
       lineHeight: 1.1,
     },
-    titleNum: { color: '#FF4500' },
+    titleNum: { color: '#ff5e20' },
     subtitle: {
-      fontSize: '13px',
+      fontSize: '13.5px',
       color: '#6B7785',
-      margin: '8px 0 0 0',
+      margin: '10px 0 0 0',
       fontWeight: 400,
     },
-    subAccent: {
-      position: 'relative',
-      display: 'inline-block',
-      color: '#0F1419',
-      fontWeight: 600,
-    },
-    subAccentBg: {
-      position: 'absolute',
-      bottom: '2px',
-      left: 0,
-      width: '100%',
-      height: '7px',
-      background: 'linear-gradient(135deg, #1a1aff, #6B35FF, #FF4580)',
-      opacity: 0.22,
-      borderRadius: '2px',
-      zIndex: -1,
-    },
-    ghostText: {
-      position: 'absolute', right: 0, top: '50%',
-      transform: 'translateY(-50%)',
-      fontSize: '80px', fontWeight: 900,
-      color: 'transparent',
-      WebkitTextStroke: '1.5px rgba(107, 53, 255, 0.13)',
-      letterSpacing: '3px',
-      pointerEvents: 'none', userSelect: 'none',
-      zIndex: 1, whiteSpace: 'nowrap',
-    },
 
-    tabsRow: { position: 'relative', display: 'flex', alignItems: 'center', marginBottom: '32px', gap: '20px' },
-    divider: { flex: 1, height: '1px', background: 'linear-gradient(90deg, transparent, #E8EAED 50%, transparent)' },
-    tabs: { display: 'flex', gap: '22px', flexShrink: 0, flexWrap: 'wrap' },
+    // ═══════════ TABS — centrés ═══════════
+    tabsRow: {
+      borderTop: '1px solid #EDF0F2',
+      paddingTop: '16px',
+      marginBottom: '32px',
+    },
+    tabs: {
+      display: 'flex',
+      justifyContent: 'center',
+      flexWrap: 'wrap',
+      gap: '22px',
+    },
     tab: (active) => ({
       background: 'none', border: 'none',
-      fontSize: '12px',
-      fontWeight: active ? 700 : 600,
-      color: active ? '#FF4500' : '#9AA3AE',
-      cursor: 'pointer', padding: '6px 0',
+      fontSize: '11.5px',
+      fontWeight: active ? 700 : 500,
+      color: active ? '#ff5e20' : '#9AA3AE',
+      cursor: 'pointer',
+      padding: '0 0 6px 0',
       letterSpacing: '1px',
       transition: 'all 0.2s',
-      borderBottom: active ? '2px solid #FF4500' : '2px solid transparent',
+      borderBottom: active ? '2px solid #ff5e20' : '2px solid transparent',
       textTransform: 'uppercase',
       fontFamily: 'inherit',
     }),
@@ -229,7 +199,7 @@ const DesktopTrending = ({ products = [] }) => {
     trendingBadge: {
       position: 'absolute',
       top: '10px', left: '10px',
-      background: '#FF4500',
+      background: '#ff5e20',
       color: '#fff',
       padding: '4px 9px',
       borderRadius: '4px',
@@ -269,7 +239,7 @@ const DesktopTrending = ({ products = [] }) => {
     },
     newPrice: { fontSize: '19px', fontWeight: 800, color: '#0F1419', lineHeight: 1 },
     oldPrice: { fontSize: '12px', color: '#9AA3AE', textDecoration: 'line-through' },
-    discountTag: { fontSize: '12px', color: '#FF4500', fontWeight: 700 },
+    discountTag: { fontSize: '12px', color: '#ff5e20', fontWeight: 700 },
     ratingRow: {
       display: 'flex',
       alignItems: 'center',
@@ -290,36 +260,19 @@ const DesktopTrending = ({ products = [] }) => {
           .trending-scroll::-webkit-scrollbar { display: none; }
         `}</style>
 
-        {/* === HEADER — option B === */}
+        {/* === HEADER — centré minimal === */}
         <div style={styles.header}>
-          <div style={styles.headerLeft}>
-            <div style={styles.titleAccent} />
-            <div>
-              <div style={styles.clockBadge}>
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                  <circle cx="12" cy="12" r="10"/>
-                  <polyline points="12 6 12 12 16 14"/>
-                </svg>
-                Actualisé toutes les heures
-              </div>
-              <h2 style={styles.title}>
-                TENDANCES DES <span style={styles.titleNum}>48H</span>
-              </h2>
-              <p style={styles.subtitle}>
-                Produits les plus commandés{' '}
-                <span style={styles.subAccent}>
-                  cette semaine
-                  <span style={styles.subAccentBg}></span>
-                </span>
-              </p>
-            </div>
-          </div>
-          <div style={styles.ghostText}>TENDANCES</div>
+          <p style={styles.eyebrow}>Actualisé toutes les heures</p>
+          <h2 style={styles.title}>
+            Tendances des <span style={styles.titleNum}>48H</span>
+          </h2>
+          <p style={styles.subtitle}>
+            Produits les plus commandés cette semaine
+          </p>
         </div>
 
         {/* === TABS === */}
         <div style={styles.tabsRow}>
-          <div style={styles.divider} />
           <div style={styles.tabs}>
             {categories.map(cat => (
               <button
@@ -442,8 +395,8 @@ const DesktopTrending = ({ products = [] }) => {
                           <div style={styles.starsWrap}>
                             {[1,2,3,4,5].map(star => (
                               <svg key={star} width="13" height="13" viewBox="0 0 24 24"
-                                fill={star <= Math.round(product.rating) ? '#FF4500' : '#E8EAED'}
-                                stroke={star <= Math.round(product.rating) ? '#FF4500' : '#E8EAED'}
+                                fill={star <= Math.round(product.rating) ? '#ff5e20' : '#E8EAED'}
+                                stroke={star <= Math.round(product.rating) ? '#ff5e20' : '#E8EAED'}
                                 strokeWidth="1">
                                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
                               </svg>

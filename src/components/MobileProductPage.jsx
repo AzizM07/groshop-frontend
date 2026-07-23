@@ -2,9 +2,9 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import {
-  ArrowLeft, Share2, Heart, Star, Truck, MapPin, ChevronDown, ChevronRight,
+  Star, Truck, MapPin, ChevronDown, ChevronRight,
   Minus, Plus, ShoppingCart, MessageCircle, Store, BadgeCheck, Check,
-  ShieldCheck, RotateCcw, Info,
+  ShieldCheck, RotateCcw, Heart, Share2,
 } from 'lucide-react'
 import { useCart } from '../context/CartContext'
 import { products as productsApi } from '../lib/api'
@@ -91,12 +91,12 @@ export default function MobileProductPage() {
   const share = () => { navigator.clipboard?.writeText(window.location.href); setCopied(true); setTimeout(() => setCopied(false), 1800) }
 
   if (loading) {
-    return <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: BG }}>
+    return <div style={{ minHeight: '70dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: BG }}>
       <div style={{ width: 30, height: 30, border: `4px solid ${ORANGE}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'gs-spin .8s linear infinite' }} />
     </div>
   }
   if (error || !product) {
-    return <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, background: BG, fontFamily: FONT }}>
+    return <div style={{ minHeight: '70dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, background: BG, fontFamily: FONT }}>
       <span style={{ color: MUTE, fontSize: 14 }}>{error || 'Produit introuvable.'}</span>
       <button onClick={() => navigate('/')} style={{ background: 'none', border: 'none', color: ORANGE, fontWeight: 700, cursor: 'pointer' }}>Retour à l'accueil</button>
     </div>
@@ -140,15 +140,10 @@ export default function MobileProductPage() {
   }
 
   return (
-    <div style={{ background: BG, minHeight: '100dvh', fontFamily: FONT, paddingBottom: 84 }}>
-
-      {/* Top bar */}
-      <div style={{ position: 'sticky', top: 0, zIndex: 50, background: '#fff', borderBottom: `1px solid #F0F0F0`, height: 52, display: 'flex', alignItems: 'center', padding: '0 12px', gap: 8 }}>
-        <button onClick={() => navigate(-1)} style={{ background: 'none', border: 'none', padding: 4, cursor: 'pointer', display: 'flex', color: INK }}><ArrowLeft size={22} /></button>
-        <div style={{ flex: 1 }} />
-        <button onClick={share} style={{ background: 'none', border: 'none', padding: 4, cursor: 'pointer', display: 'flex', color: INK }}>{copied ? <Check size={20} color="#0F9D58" /> : <Share2 size={20} />}</button>
-        <button onClick={toggleWishlist} style={{ background: 'none', border: 'none', padding: 4, cursor: 'pointer', display: 'flex', color: wishlisted ? ORANGE : INK }}><Heart size={21} fill={wishlisted ? ORANGE : 'none'} /></button>
-      </div>
+    /* Pas de barre supérieure ici : MobileHeader gère retour, menu, compte et
+       panier dans sa variante « produit ». Le cœur et le partage vivent sur
+       l'image, comme sur les fiches Cdiscount. */
+    <div style={{ background: BG, minHeight: '100dvh', fontFamily: FONT, paddingBottom: 'calc(78px + env(safe-area-inset-bottom))' }}>
 
       <div style={{ padding: '10px 10px 0' }}>
 
@@ -179,8 +174,8 @@ export default function MobileProductPage() {
 
             {/* Cœur + partage sur l'image */}
             <div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <button onClick={toggleWishlist} style={circBtn}><Heart size={19} fill={wishlisted ? ORANGE : 'none'} color={wishlisted ? ORANGE : INK} /></button>
-              <button onClick={share} style={circBtn}>{copied ? <Check size={18} color={GREEN} /> : <Share2 size={17} color={INK} />}</button>
+              <button onClick={toggleWishlist} aria-label="Favori" style={circBtn}><Heart size={19} fill={wishlisted ? ORANGE : 'none'} color={wishlisted ? ORANGE : INK} /></button>
+              <button onClick={share} aria-label="Partager" style={circBtn}>{copied ? <Check size={18} color={GREEN} /> : <Share2 size={17} color={INK} />}</button>
             </div>
 
             {/* Indicateur type « pilule » */}
@@ -281,7 +276,7 @@ export default function MobileProductPage() {
               </div>
             )}
 
-            {/* Groupes de choix (Couleur, Taille…) — pastilles bordées façon Cdiscount */}
+            {/* Groupes de choix (Couleur, Taille…) */}
             {p.choice_groups?.length > 0 && p.choice_groups.map(g => (
               <div key={g.id} style={{ marginTop: 20 }}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: INK, marginBottom: 10 }}>
@@ -465,14 +460,14 @@ export default function MobileProductPage() {
           </div>
         )}
 
-        {/* ── Produits similaires ── */}
+        {/* ── Rangées produits ── */}
         {similar.length > 0 && <ScrollRow title="Produits similaires" items={similar} navigate={navigate} sponsored />}
         {reco.length > 0 && <ScrollRow title="Nos clients ont apprécié" items={reco} navigate={navigate} />}
       </div>
 
-      {/* Barre d'action fixe */}
-      <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 60, background: '#fff', borderTop: `1px solid ${LINE}`, display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px calc(10px + env(safe-area-inset-bottom))' }}>
-        <button style={{ flexShrink: 0, width: 50, height: 48, borderRadius: 12, border: `1.5px solid ${ORANGE}`, background: '#fff', color: ORANGE, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><MessageCircle size={20} /></button>
+      {/* Barre d'action fixe — seule en bas, la nav est masquée sur cette route */}
+      <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 1100, background: '#fff', borderTop: `1px solid ${LINE}`, boxShadow: '0 -2px 12px rgba(0,0,0,.06)', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px calc(10px + env(safe-area-inset-bottom))' }}>
+        <button aria-label="Contacter le fournisseur" style={{ flexShrink: 0, width: 50, height: 48, borderRadius: 12, border: `1.5px solid ${ORANGE}`, background: '#fff', color: ORANGE, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><MessageCircle size={20} /></button>
         <button onClick={doOrder} disabled={!qtyValid || adding === p.id}
           style={{ flex: 1, height: 48, borderRadius: 12, border: 'none', color: '#fff', fontSize: 15, fontWeight: 800, cursor: qtyValid ? 'pointer' : 'default', opacity: (!qtyValid || adding === p.id) ? .6 : 1, background: added ? '#0F9D58' : `linear-gradient(135deg,${ORANGE2},${ORANGE})`, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
           <ShoppingCart size={18} /> {adding === p.id ? 'Ajout…' : added ? '✓ Ajouté' : 'Ajouter au panier'}

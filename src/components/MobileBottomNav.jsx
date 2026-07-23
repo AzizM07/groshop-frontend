@@ -1,11 +1,15 @@
 // src/components/MobileBottomNav.jsx
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, matchPath } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'  // ⚠️ ajuste si ton hook s'appelle autrement
 
 const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
 const ACTIVE = '#FF4500'
 const IDLE   = '#6B7785'
+
+/* Routes où la nav du bas s'efface : la page a sa propre barre d'action
+   fixe (« Ajouter au panier »), qui doit rester seule et visible. */
+const HIDDEN_ROUTES = ['/produit/:id', '/panier/checkout']
 
 const Icon = {
   home: (c) => <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9.5 12 3l9 6.5"/><path d="M5 10v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V10"/></svg>,
@@ -21,6 +25,11 @@ export default function MobileBottomNav() {
 
   const cart = useCart()
   const cartCount = cart?.items?.length ?? cart?.count ?? 0   // ⚠️ adapte à l'API de ton CartContext
+
+  /* Le hook useLocation est appelé avant ce retour : l'ordre des hooks
+     reste stable d'un rendu à l'autre, même quand la nav disparaît. */
+  const hidden = HIDDEN_ROUTES.some(pattern => matchPath(pattern, pathname))
+  if (hidden) return null
 
   const tabs = [
     { key: 'home', icon: 'home', label: 'Accueil',    to: '/',                                match: (p) => p === '/' },

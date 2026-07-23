@@ -131,7 +131,7 @@ const AVG_RATING = 4.8
 // ═══════════════════════════════════════════════════════════════════
 // PAGE
 // ═══════════════════════════════════════════════════════════════════
-export default function SupplierReviewsPage() {
+export default function DesktopSupplierReviewsPage() {
   const [selectedId, setSelectedId] = useState(REVIEWS[0].id)
   const selected = REVIEWS.find(r => r.id === selectedId)
 

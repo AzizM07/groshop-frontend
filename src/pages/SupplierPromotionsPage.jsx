@@ -1,6 +1,12 @@
-// pages/SupplierPromotionsPage.jsx — GROSHOP.tn
-import SupplierComingSoon from '../components/supplier/SupplierComingSoon'
+// pages/SupplierReviewsPage.jsx — GROSHOP.tn
+// ⚠️ Renomme ton fichier actuel en DesktopSupplierReviewsPage.jsx
+// et remplace son export en `export default function DesktopSupplierReviewsPage`.
 
-export default function SupplierPromotionsPage() {
-  return <SupplierComingSoon title="Promotions" message="Bientôt : créer des remises, codes promo et offres spéciales." icon="Tag" />
+import { useIsMobile } from '../hooks/useIsMobile'
+import DesktopSupplierReviewsPage from './DesktopSupplierReviewsPage'
+import MobileSupplierReviews from '../components/supplier/MobileSupplierReviews'
+
+export default function SupplierReviewsPage() {
+  const isMobile = useIsMobile()
+  return isMobile ? <MobileSupplierReviews /> : <DesktopSupplierReviewsPage />
 }

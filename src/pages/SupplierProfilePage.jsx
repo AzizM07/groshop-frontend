@@ -1,8 +1,12 @@
+// pages/SupplierProfilePage.jsx — GROSHOP.tn
+// ⚠️ Renomme ton fichier actuel en DesktopSupplierProfilePage.jsx
+// et remplace son export en `export default function DesktopSupplierProfilePage`.
+
 import { useIsMobile } from '../hooks/useIsMobile'
-import DesktopSupplierMessagesPage from './DesktopSupplierMessagesPage'
-import MobileSupplierMessages from '../components/supplier/MobileSupplierMessages'
+import DesktopSupplierProfilePage from './DesktopSupplierProfilePage'
+import MobileSupplierProfile from '../components/supplier/MobileSupplierProfile'
 
 export default function SupplierProfilePage() {
   const isMobile = useIsMobile()
-  return isMobile ? <MobileSupplierMessages /> : <DesktopSupplierMessagesPage />
+  return isMobile ? <MobileSupplierProfile /> : <DesktopSupplierProfilePage />
 }

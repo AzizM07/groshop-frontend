@@ -304,8 +304,7 @@ function DesktopProductPage() {
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, color: MUTE, marginTop: 3 }}><MapPin size={12} />{p.supplier_city || 'Tunisie'}{p.supplier_wilaya ? `, ${p.supplier_wilaya}` : ''}</div>
                   </div>
-                  <a href={`/fournisseur/${p.supplier_slug}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 16px', borderRadius: 12, border: `1px solid ${LINE}`, fontSize: 13.5, fontWeight: 600, color: INK, textDecoration: 'none', whiteSpace: 'nowrap' }}><Store size={16} /> Boutique</a>
-                  <button style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 16px', borderRadius: 12, border: 'none', background: ORANGE, color: '#fff', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}><MessageCircle size={16} /> Contacter</button>
+                  <Link to={`/fournisseur/${p.supplier_slug}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 16px', borderRadius: 12, border: `1px solid ${LINE}`, fontSize: 13.5, fontWeight: 600, color: INK, textDecoration: 'none', whiteSpace: 'nowrap' }}><Store size={16} /> Boutique</Link>                  <button style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 16px', borderRadius: 12, border: 'none', background: ORANGE, color: '#fff', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}><MessageCircle size={16} /> Contacter</button>
                 </div>
                 <div style={{ display: 'flex', marginTop: 14, borderRadius: 12, background: '#FAFBFC', border: `1px solid ${LINE}` }}>
                   <Stat label="Note boutique" value={p.supplier_rating ? `${toNum(p.supplier_rating).toFixed(1)}/5` : '—'} extra={p.supplier_review_count ? `(${p.supplier_review_count})` : ''} />

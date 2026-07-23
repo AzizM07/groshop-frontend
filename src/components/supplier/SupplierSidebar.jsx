@@ -1,4 +1,4 @@
-// components/supplier/SupplierSidebar.jsx — GROSHOP.tn (clair, orange unique #FF4500)
+// components/supplier/SupplierSidebar.jsx — GROSHOP.tn (clair, orange unique #ff5e20)
 
 import { NavLink } from 'react-router-dom'
 import * as Icons from 'lucide-react'
@@ -27,7 +27,7 @@ if (typeof document !== 'undefined' && !document.getElementById('gs-supplier-sid
       color: #0F1419;
     }
     .gs-side-item.active {
-      color: #ff5e00;
+      color: #ff5e20;
     }
     .gs-side-item.active::before {
       content: '';
@@ -36,13 +36,13 @@ if (typeof document !== 'undefined' && !document.getElementById('gs-supplier-sid
       top: 7px;
       bottom: 7px;
       width: 3px;
-      background: #ff5e00;
+      background: #ff5e20;
     }
 
     .gs-side-badge {
       margin-left: auto;
-      background: #FFEEE6;
-      color: #ff5e00;
+      background: rgba(255, 94, 32, 0.12);
+      color: #ff5e20;
       font-size: 10px;
       font-weight: 600;
       padding: 1px 7px;
@@ -96,6 +96,8 @@ const SIDEBAR_W     = 240
 const SIDEBAR_PAD_X = 20
 const LOGO_W        = 200
 const LOGO_H        = 52
+
+const ORANGE = '#ff5e20'
 
 export default function SupplierSidebar() {
   return (
@@ -179,7 +181,7 @@ export default function SupplierSidebar() {
 
       {/* ── Carte "Passer à Pro" ── */}
       <div style={{
-        background: '#ff5e00',
+        background: ORANGE,
         borderRadius: 14,
         padding: '14px',
       }}>

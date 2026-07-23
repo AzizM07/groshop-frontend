@@ -1,6 +1,7 @@
 // src/components/supplier/MobileSupplierDashboard.jsx — GROSHOP.tn
 // Version téléphone du dashboard fournisseur, layout SellRecord.
-// Mêmes sources que la version desktop :
+// La topbar et la nav basse vivent dans SupplierDashboardLayout,
+// ce fichier ne rend que le contenu de la page.
 //   /orders/supplier/            → CA, commandes, clients, activité récente
 //   /products/mine/              → produits actifs
 //   /analytics/supplier/stats/   → visiteurs, vues produits
@@ -14,7 +15,7 @@ import { orders as ordersApi, products as productsApi, analytics as analyticsApi
 const ORANGE      = '#ff5e20'
 const ORANGE_TINT = 'rgba(255, 94, 32, .10)'
 
-const INK='#0F1419', MUTE='#6B7280', FAINT='#9AA3AE', LINE='#F0EDE5', BG='#F7F6F3'
+const INK='#0F1419', MUTE='#6B7280', FAINT='#9AA3AE', LINE='#F0EDE5'
 const GREEN='#059669', RED='#DC2626'
 const FONT='"DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
 
@@ -66,9 +67,7 @@ export default function MobileSupplierDashboard() {
   }, [])
 
   return (
-    <div style={{ background: BG, minHeight: '100dvh', fontFamily: FONT, padding: '14px 14px 0', boxSizing: 'border-box' }}>
-      <TopBar />
-
+    <div style={{ fontFamily: FONT }}>
       <h1 style={{ fontSize: 26, fontWeight: 800, color: INK, letterSpacing: '-0.03em', margin: '0 0 4px' }}>
         Dashboard
       </h1>
@@ -82,41 +81,6 @@ export default function MobileSupplierDashboard() {
       <RecentActivity subOrders={subOrders} loading={loadOrders} />
     </div>
   )
-}
-
-// ═══════════════════════════════════════════════════════════════════
-function TopBar() {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
-      <Link to="/" style={{ flex: 1, minWidth: 0, textDecoration: 'none' }}>
-        <span style={{ fontSize: 16, fontWeight: 800, color: INK, letterSpacing: '-0.02em' }}>
-          GRO<span style={{ color: ORANGE }}>SHOP</span>
-        </span>
-      </Link>
-
-      <Link to="/supplier/messages" aria-label="Messages" style={iconBtn}>
-        <Icons.MessageCircle size={16} color={MUTE} strokeWidth={2} />
-      </Link>
-
-      <Link to="/supplier/orders" aria-label="Notifications" style={{ ...iconBtn, position: 'relative' }}>
-        <Icons.Bell size={16} color={MUTE} strokeWidth={2} />
-        <span style={{ position: 'absolute', top: 6, right: 7, width: 6, height: 6, borderRadius: '50%', background: ORANGE }} />
-      </Link>
-
-      <Link to="/supplier/profile" aria-label="Profil" style={{
-        width: 34, height: 34, borderRadius: '50%', background: ORANGE,
-        color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 13, fontWeight: 700, textDecoration: 'none', flexShrink: 0,
-      }}>
-        <Icons.User size={17} strokeWidth={2.2} />
-      </Link>
-    </div>
-  )
-}
-const iconBtn = {
-  width: 32, height: 32, borderRadius: '50%', background: '#fff',
-  display: 'flex', alignItems: 'center', justifyContent: 'center',
-  flexShrink: 0, textDecoration: 'none',
 }
 
 // ═══════════════════════════════════════════════════════════════════

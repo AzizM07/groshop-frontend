@@ -1,5 +1,5 @@
 // pages/SupplierDashboardPage.jsx — GROSHOP.tn
-// Style Donezo — 100% connecté au backend.
+// Style Donezo (desktop) / SellRecord (mobile) — 100% connecté au backend.
 //   /orders/supplier/            → CA, commandes, clients, activité récente
 //   /products/mine/              → produits actifs
 //   /analytics/supplier/stats/   → visiteurs, vues produits (séries journalières)
@@ -8,6 +8,8 @@ import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import * as Icons from 'lucide-react'
 import { orders as ordersApi, products as productsApi, analytics as analyticsApi } from '../lib/api'
+import { useIsMobile } from '../hooks/useIsMobile'
+import MobileSupplierDashboard from '../components/supplier/MobileSupplierDashboard'
 import './SupplierDashboardPage.css'
 
 const ROW2_HEIGHT = 360
@@ -17,6 +19,10 @@ const ROW3_HEIGHT = 400
 const fmt    = (n) => Number(n || 0).toLocaleString('fr-FR', { maximumFractionDigits: 0 })
 const fmtDec = (n) => Number(n || 0).toLocaleString('fr-FR', { maximumFractionDigits: 3 })
 const DAY_LABELS = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam']
+
+/* Seule teinte orange du projet. */
+const ORANGE      = '#ff5e20'
+const ORANGE_TINT = 'rgba(255, 94, 32, .28)'   // courbe secondaire, barres inactives
 
 function pctChange(cur, prev) {
   if (!prev) return cur ? 100 : 0
@@ -38,9 +44,14 @@ if (typeof document !== 'undefined' && !document.getElementById('gs-dash-pulse')
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// PAGE
+// PAGE — aiguillage mobile / desktop
 // ═══════════════════════════════════════════════════════════════════
 export default function SupplierDashboardPage() {
+  const isMobile = useIsMobile()
+  return isMobile ? <MobileSupplierDashboard /> : <DesktopSupplierDashboard />
+}
+
+function DesktopSupplierDashboard() {
   const [subOrders, setSubOrders] = useState([])
   const [prods, setProds]         = useState([])
   const [stats, setStats]         = useState(null)
@@ -174,7 +185,7 @@ function KPIRow({ subOrders, prods, loadOrders, loadProds }) {
 function KPICard({ label, value, unit, trend, trendUp, subtitle, filled = false, loading }) {
   const p = filled
     ? {
-        cardBg: '#ff5e00', cardBorder: 'none', cardShadow: '0 12px 28px -12px rgba(255, 69, 0, 0.5)',
+        cardBg: ORANGE, cardBorder: 'none', cardShadow: '0 12px 28px -12px rgba(255, 94, 32, 0.5)',
         labelColor: 'rgba(255,255,255,0.85)', valueColor: '#fff', unitColor: 'rgba(255,255,255,0.75)',
         arrowBg: 'rgba(255,255,255,0.18)', arrowColor: '#fff',
         trendColor: trendUp ? '#ffffff' : '#FECACA',
@@ -371,9 +382,9 @@ function CustomerGrowthChart({ subOrders, loading }) {
     const tipX = goLeft ? sel.x - tipGap - tipW : sel.x + tipGap
     return (
       <g style={{ pointerEvents: 'none' }}>
-        <line x1={sel.x} y1={sel.y} x2={sel.x} y2={baselineY + 8} stroke="#FF4500" strokeWidth="1.5" strokeDasharray="3 3" />
-        <circle cx={sel.x} cy={sel.y} r="10" fill="#FF4500" opacity="0.22" />
-        <circle cx={sel.x} cy={sel.y} r="5" fill="#FF4500" stroke="#fff" strokeWidth="2.5" />
+        <line x1={sel.x} y1={sel.y} x2={sel.x} y2={baselineY + 8} stroke={ORANGE} strokeWidth="1.5" strokeDasharray="3 3" />
+        <circle cx={sel.x} cy={sel.y} r="10" fill={ORANGE} opacity="0.22" />
+        <circle cx={sel.x} cy={sel.y} r="5" fill={ORANGE} stroke="#fff" strokeWidth="2.5" />
         <g transform={`translate(${tipX}, ${sel.y - 2})`}>
           <rect x="0" y="-13" width={tipW} height="26" rx="13" fill="#0F1419" />
           <text x={tipW / 2} y="4" textAnchor="middle" fontSize="11" fill="#fff" fontWeight="600" fontFamily="DM Sans">
@@ -431,8 +442,8 @@ function CustomerGrowthChart({ subOrders, loading }) {
              onMouseMove={handleMouseMove} onMouseLeave={() => setHoveredIndex(null)}>
           <defs>
             <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#FF4500" stopOpacity="0.20" />
-              <stop offset="100%" stopColor="#FF4500" stopOpacity="0" />
+              <stop offset="0%" stopColor={ORANGE} stopOpacity="0.20" />
+              <stop offset="100%" stopColor={ORANGE} stopOpacity="0" />
             </linearGradient>
           </defs>
 
@@ -452,8 +463,8 @@ function CustomerGrowthChart({ subOrders, loading }) {
           <rect x={padding.left} y={padding.top} width={chartW} height={chartH} fill="transparent" />
 
           <path d={areaPath} fill="url(#areaGrad)" style={{ pointerEvents: 'none' }} />
-          <path d={secondaryPath} stroke="#FFB088" strokeWidth="2" fill="none" strokeLinecap="round" style={{ pointerEvents: 'none' }} />
-          <path d={primaryPath} stroke="#FF4500" strokeWidth="2.5" fill="none" strokeLinecap="round" style={{ pointerEvents: 'none' }} />
+          <path d={secondaryPath} stroke={ORANGE_TINT} strokeWidth="2" fill="none" strokeLinecap="round" style={{ pointerEvents: 'none' }} />
+          <path d={primaryPath} stroke={ORANGE} strokeWidth="2.5" fill="none" strokeLinecap="round" style={{ pointerEvents: 'none' }} />
 
           {renderHoverIndicator()}
 
@@ -534,7 +545,7 @@ function VisitorsChart({ stats, loading }) {
         </div>
         <Link to="/supplier/stats" style={{
           background: 'transparent', border: 'none',
-          fontSize: 12, color: '#FF4500', fontWeight: 600, cursor: 'pointer',
+          fontSize: 12, color: ORANGE, fontWeight: 600, cursor: 'pointer',
           fontFamily: 'inherit', textDecoration: 'none',
           display: 'inline-flex', alignItems: 'center', gap: 3,
         }}>
@@ -563,7 +574,7 @@ function VisitorsChart({ stats, loading }) {
                  style={{ cursor: 'pointer' }}>
                 <rect x={x - 6} y={padding.top} width={barWidth + 12} height={chartH} fill="transparent" />
                 <rect x={x} y={y} width={barWidth} height={height} rx={10}
-                      fill={isHovered ? '#FF4500' : '#FFCFB8'} style={{ transition: 'fill 0.15s' }} />
+                      fill={isHovered ? ORANGE : ORANGE_TINT} style={{ transition: 'fill 0.15s' }} />
 
                 {isHovered && (
                   <g style={{ pointerEvents: 'none' }}>
@@ -630,11 +641,11 @@ function ProductViewsChart({ stats, loading }) {
         <SectionTitle icon={Icons.Eye} title="Vues produits" />
         <div style={{ display: 'flex', gap: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#6B7280' }}>
-            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#FF4500' }} />
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: ORANGE }} />
             Cette sem.
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#6B7280' }}>
-            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#FFCFB8' }} />
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: ORANGE_TINT }} />
             Sem. dern.
           </div>
         </div>
@@ -669,8 +680,8 @@ function ProductViewsChart({ stats, loading }) {
 
             return (
               <g key={i}>
-                <rect x={x1} y={padding.top + chartH - h1} width={barWidth} height={h1} rx={4} fill="#FF4500" />
-                <rect x={x2} y={padding.top + chartH - h2} width={barWidth} height={h2} rx={4} fill="#FFCFB8" />
+                <rect x={x1} y={padding.top + chartH - h1} width={barWidth} height={h1} rx={4} fill={ORANGE} />
+                <rect x={x2} y={padding.top + chartH - h2} width={barWidth} height={h2} rx={4} fill={ORANGE_TINT} />
                 <text x={groupCenter} y={H - 10} textAnchor="middle"
                       fontSize="10.5" fill="#9AA3AE" fontFamily="DM Sans" fontWeight="500">
                   {d.day}

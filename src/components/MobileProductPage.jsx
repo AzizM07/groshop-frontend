@@ -10,7 +10,14 @@ import { useCart } from '../context/CartContext'
 import { products as productsApi } from '../lib/api'
 import { usePageTracking } from '../hooks/usePageTracking'
 
-const ORANGE='#FF4500', ORANGE2='#FF7A45', INK='#0F1419', SUB='#3D4853', MUTE='#6B7785', FAINT='#9AA3AE', LINE='#ECEEF1', BG='#F0F0F0', GREEN='#0E9F6E'
+/* Seule teinte orange du projet : #ff5e20.
+   Les variations passent par une opacité de cette même couleur,
+   jamais par un autre code hexadécimal. */
+const ORANGE      = '#ff5e20'
+const ORANGE_TINT = 'rgba(255, 94, 32, .12)'   // fond de palier actif, avatars, pastilles
+const ORANGE_FILM = 'rgba(255, 94, 32, .08)'   // fond très léger (logo fournisseur)
+
+const INK='#0F1419', SUB='#3D4853', MUTE='#6B7785', FAINT='#9AA3AE', LINE='#ECEEF1', BG='#F0F0F0', GREEN='#0E9F6E'
 const FONT='-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
 
 const toNum = (v) => { if (v == null) return 0; const n = parseFloat(v); return isNaN(n) ? 0 : n }
@@ -222,7 +229,7 @@ export default function MobileProductPage() {
             {(oldPrice > unitPrice || p.badge_flash || p.badge_choice || p.brand) && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 14 }}>
                 {oldPrice > unitPrice && <Badge bg={ORANGE} color="#fff">Promo</Badge>}
-                {p.badge_flash && <Badge bg="#FFEDE4" color={ORANGE}>Soldes</Badge>}
+                {p.badge_flash && <Badge bg={ORANGE_TINT} color={ORANGE}>Soldes</Badge>}
                 {p.badge_choice && <Badge bg="#FFD000" color="#2E2E2E">Choice</Badge>}
                 {p.brand && <Badge bg="#EEF0FA" color="#1B1B4B">Marque {p.brand}</Badge>}
               </div>
@@ -243,7 +250,7 @@ export default function MobileProductPage() {
             {savePct > 0 && basePrice !== unitPrice && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
                 <span style={{ fontSize: 13, color: FAINT, textDecoration: 'line-through' }}>{fmtDT(basePrice)}</span>
-                <span style={{ fontSize: 11, fontWeight: 800, color: '#fff', background: `linear-gradient(135deg,${ORANGE2},${ORANGE})`, padding: '3px 8px', borderRadius: 10 }}>Économisez {savePct}%</span>
+                <span style={{ fontSize: 11, fontWeight: 800, color: '#fff', background: ORANGE, padding: '3px 8px', borderRadius: 10 }}>Économisez {savePct}%</span>
               </div>
             )}
 
@@ -262,13 +269,13 @@ export default function MobileProductPage() {
                     const ts = basePrice > 0 && tp < basePrice ? Math.round((1 - tp / basePrice) * 100) : 0
                     return (
                       <button key={t.id || i} onClick={() => setQty(String(t.min_qty))}
-                        style={{ position: 'relative', textAlign: 'left', cursor: 'pointer', background: active ? '#FFEEDD' : '#fff', borderRadius: 14, padding: '10px 12px', border: `${active ? 2 : 1}px solid ${active ? ORANGE : '#EEE'}` }}>
+                        style={{ position: 'relative', textAlign: 'left', cursor: 'pointer', background: active ? ORANGE_TINT : '#fff', borderRadius: 14, padding: '10px 12px', border: `${active ? 2 : 1}px solid ${active ? ORANGE : '#EEE'}` }}>
                         <div style={{ display: 'flex', alignItems: 'baseline', gap: 2 }}>
                           <span style={{ fontSize: 16, fontWeight: 900, color: INK }}>{fmtNum(tp)}</span>
                           <span style={{ fontSize: 10, fontWeight: 700, color: INK }}>TND</span>
                         </div>
                         <div style={{ fontSize: 11, color: FAINT, marginTop: 3 }}>{label}</div>
-                        {ts > 0 && <span style={{ position: 'absolute', top: -2, right: -2, background: active ? ORANGE : '#FFEEDD', color: active ? '#fff' : ORANGE, fontSize: 9, fontWeight: 800, padding: '1px 5px', borderRadius: 6 }}>-{ts}%</span>}
+                        {ts > 0 && <span style={{ position: 'absolute', top: -2, right: -2, background: active ? ORANGE : ORANGE_TINT, color: active ? '#fff' : ORANGE, fontSize: 9, fontWeight: 800, padding: '1px 5px', borderRadius: 6 }}>-{ts}%</span>}
                       </button>
                     )
                   })}
@@ -411,7 +418,7 @@ export default function MobileProductPage() {
                   {reviews.slice(0, 5).map(r => (
                     <div key={r.id} style={{ borderTop: `1px solid ${LINE}`, paddingTop: 14 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div style={{ width: 34, height: 34, borderRadius: '50%', background: `linear-gradient(135deg,${ORANGE2},${ORANGE})`, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14 }}>{(r.reviewer_name || '?')[0]?.toUpperCase()}</div>
+                        <div style={{ width: 34, height: 34, borderRadius: '50%', background: ORANGE, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14 }}>{(r.reviewer_name || '?')[0]?.toUpperCase()}</div>
                         <div>
                           <div style={{ fontSize: 13, fontWeight: 700, color: INK }}>{r.reviewer_name}</div>
                           <span style={{ display: 'inline-flex', gap: 1 }}>{[1,2,3,4,5].map(s => <Star key={s} size={11} fill={s <= Math.round(r.rating) ? '#FFB800' : '#E5E7EB'} stroke="none" />)}</span>
@@ -442,7 +449,7 @@ export default function MobileProductPage() {
         {p.supplier_name && (
           <div style={{ background: '#fff', borderRadius: 18, padding: 16, marginTop: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ width: 52, height: 52, borderRadius: 14, background: '#FFF1EA', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+              <div style={{ width: 52, height: 52, borderRadius: 14, background: ORANGE_FILM, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                 {p.supplier_logo ? <img src={p.supplier_logo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 22, fontWeight: 700, color: ORANGE }}>{(p.supplier_name || '?')[0]}</span>}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -469,7 +476,7 @@ export default function MobileProductPage() {
       <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 1100, background: '#fff', borderTop: `1px solid ${LINE}`, boxShadow: '0 -2px 12px rgba(0,0,0,.06)', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px calc(10px + env(safe-area-inset-bottom))' }}>
         <button aria-label="Contacter le fournisseur" style={{ flexShrink: 0, width: 50, height: 48, borderRadius: 12, border: `1.5px solid ${ORANGE}`, background: '#fff', color: ORANGE, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><MessageCircle size={20} /></button>
         <button onClick={doOrder} disabled={!qtyValid || adding === p.id}
-          style={{ flex: 1, height: 48, borderRadius: 12, border: 'none', color: '#fff', fontSize: 15, fontWeight: 800, cursor: qtyValid ? 'pointer' : 'default', opacity: (!qtyValid || adding === p.id) ? .6 : 1, background: added ? '#0F9D58' : `linear-gradient(135deg,${ORANGE2},${ORANGE})`, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+          style={{ flex: 1, height: 48, borderRadius: 12, border: 'none', color: '#fff', fontSize: 15, fontWeight: 800, cursor: qtyValid ? 'pointer' : 'default', opacity: (!qtyValid || adding === p.id) ? .6 : 1, background: added ? GREEN : ORANGE, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
           <ShoppingCart size={18} /> {adding === p.id ? 'Ajout…' : added ? '✓ Ajouté' : 'Ajouter au panier'}
         </button>
       </div>

@@ -8,7 +8,11 @@ import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
 
 const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
-const ORANGE = '#FF4500'
+
+/* Seule teinte orange du projet. Toute variation passe par une opacité
+   de cette même couleur, jamais par un autre code hexadécimal. */
+const ORANGE = '#ff5e20'
+const ORANGE_SOFT = 'rgba(255, 94, 32, .07)'   // fond de ligne survolée
 
 /* Routes qui déclenchent la variante « produit » du header
    (bandeau orange, retour + menu + logo + compte + panier). */
@@ -71,7 +75,7 @@ export default function MobileHeader() {
         </button>
 
         <button type="submit" aria-label="Rechercher"
-          style={{ flexShrink: 0, width: 30, height: 30, borderRadius: '50%', border: 'none', background: `linear-gradient(135deg, #FF8A3D, ${ORANGE})`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+          style={{ flexShrink: 0, width: 30, height: 30, borderRadius: '50%', border: 'none', background: ORANGE, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round">
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
@@ -96,7 +100,7 @@ export default function MobileHeader() {
                 onMouseDown={e => e.preventDefault()}
                 onClick={() => goToSearch(s.text)}
                 onMouseEnter={() => setActiveIndex(i)}
-                style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 16px', cursor: 'pointer', background: active ? '#FFF4F0' : 'transparent' }}>
+                style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 16px', cursor: 'pointer', background: active ? ORANGE_SOFT : 'transparent' }}>
                 {s.type === 'recent' ? (
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
                 ) : (

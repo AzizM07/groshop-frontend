@@ -4,7 +4,9 @@ import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'  // ⚠️ ajuste si ton hook s'appelle autrement
 
 const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
-const ACTIVE = '#FF4500'
+
+/* Seule teinte orange du projet. */
+const ACTIVE = '#ff5e20'
 const IDLE   = '#6B7785'
 
 /* Routes où la nav du bas s'efface : la page a sa propre barre d'action
@@ -56,7 +58,7 @@ export default function MobileBottomNav() {
               <span style={{ position: 'relative', display: 'flex' }}>
                 {Icon[t.icon](color)}
                 {t.badge > 0 && (
-                  <span style={{ position: 'absolute', top: -5, right: -8, minWidth: 16, height: 16, padding: '0 4px', boxSizing: 'border-box', background: '#FF4500', color: '#fff', fontSize: 10, fontWeight: 700, borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span style={{ position: 'absolute', top: -5, right: -8, minWidth: 16, height: 16, padding: '0 4px', boxSizing: 'border-box', background: ACTIVE, color: '#fff', fontSize: 10, fontWeight: 700, borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     {t.badge > 99 ? '99+' : t.badge}
                   </span>
                 )}

@@ -13,7 +13,7 @@ import { Fragment } from 'react'
 import { usePageTracking } from '../hooks/usePageTracking'
 import { useIsMobile } from '../hooks/useIsMobile'
 import MobileHome from './MobileHome'
-
+import PopularCategories from '../components/PopularCategories'
 // ── Paramètres globaux layout ───────────────────────────────────
 const LAYOUT = {
   maxWidth: '1500px',
@@ -179,6 +179,10 @@ export default function HomePage() {
 
       {/* Hero search */}
       <HeroSearch />
+      {/* Catégories populaires */}
+<Container style={{ paddingTop: '.5rem' }}>
+  <PopularCategories />
+</Container>
 
       {/* HeroGrid */}
       <div >

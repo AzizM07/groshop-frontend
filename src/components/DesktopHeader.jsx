@@ -8,7 +8,14 @@ import { DotLottieReact } from '@lottiefiles/dotlottie-react'
 import * as Icons from 'lucide-react'
 import LOGO_SRC from '../assets/logo2.png'
 import { useSearchSuggestions } from './SearchSuggestions'
-import { MessagesDropdown, OrdersDropdown, CartDropdown } from './HeaderDropdowns'
+import {
+  MessagesDropdown,
+  OrdersDropdown,
+  CartDropdown,
+  AddressDropdown,
+  AppDownloadDropdown,
+  LanguageDropdown,
+} from './HeaderDropdowns'
 
 /* Largeur commune des méga-menus : 90% de l'écran, centrés, plafonnés. */
 const MENU_STYLE = {
@@ -37,7 +44,6 @@ if (typeof document !== 'undefined' && !document.getElementById('header-anim')) 
 
     .gh-util svg { width: clamp(23px, 2.2vw, 30px); height: clamp(23px, 2.2vw, 30px); }
 
-    /* Animation d'ouverture : le wrapper fixe ne bouge pas, seul l'enfant glisse. */
     @keyframes ghFade  { from { opacity: 0 } to { opacity: 1 } }
     @keyframes ghSlide { from { transform: translateX(-50%) translateY(-10px) } to { transform: translateX(-50%) translateY(0) } }
     .gh-dd     { animation: ghFade 0.18s ease; }
@@ -93,7 +99,19 @@ function useHoverMenu(delay = 150) {
   const wrapRef  = useRef(null)
   const menuRef  = useRef(null)
 
-  const handleEnter = () => { clearTimeout(timerRef.current); setOpen(true) }
+  // Écoute l'événement global pour fermer ce menu
+  useEffect(() => {
+    const handleClose = () => setOpen(false)
+    window.addEventListener('closeDropdowns', handleClose)
+    return () => window.removeEventListener('closeDropdowns', handleClose)
+  }, [])
+
+  const handleEnter = () => {
+    window.dispatchEvent(new CustomEvent('closeDropdowns'))
+    clearTimeout(timerRef.current)
+    setOpen(true)
+  }
+
   const handleLeave = () => {
     clearTimeout(timerRef.current)
     timerRef.current = setTimeout(() => {
@@ -101,6 +119,7 @@ function useHoverMenu(delay = 150) {
       setOpen(false)
     }, delay)
   }
+
   useEffect(() => () => clearTimeout(timerRef.current), [])
 
   return { open, wrapRef, menuRef, handleEnter, handleLeave }
@@ -298,20 +317,12 @@ export default function Header() {
             </div>
           )}
 
-          <div className="gh-delivery" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', marginRight: '6px', cursor: 'pointer', lineHeight: 1.05, flexShrink: 0 }}>
-            <span style={{ fontSize: 'clamp(11px, 0.95vw, 13.5px)', color: '#6B7785', marginBottom: '3px' }}>Adresse de livraison :</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: 'clamp(14px, 1.25vw, 17px)', fontWeight: 700, color: '#0F1419' }}>
-              <span style={{ fontSize: 'clamp(16px, 1.4vw, 20px)' }}>🇹🇳</span>TN
-            </span>
-          </div>
-
+          {/* ── ORDRE : App → Adresse → Langue (modifiable) ── */}
+          <AppDownloadDropdown />
           <Divider />
-
-          <button className="gh-lang" style={{ display: 'flex', alignItems: 'center', gap: '7px', background: 'none', border: 'none', cursor: 'pointer', padding: '0 14px', fontSize: 'clamp(13.5px, 1.15vw, 16.5px)', color: '#0F1419', flexShrink: 0 }}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="#3D4853" strokeWidth="1.8" style={{ width: 'clamp(17px, 1.5vw, 21px)', height: 'clamp(17px, 1.5vw, 21px)', flexShrink: 0 }}><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"/></svg>
-            <span className="gh-lang-text">Français-TND</span>
-            <svg viewBox="0 0 24 24" fill="none" stroke="#6B7785" strokeWidth="2.5" style={{ width: 'clamp(11px, 1vw, 14px)', height: 'clamp(11px, 1vw, 14px)', flexShrink: 0 }}><polyline points="6 9 12 15 18 9"/></svg>
-          </button>
+          <AddressDropdown />
+          <Divider />
+          <LanguageDropdown />
 
           {user ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(12px, 1.7vw, 24px)', marginLeft: 'clamp(12px, 1.8vw, 26px)', flexShrink: 0 }}>

@@ -136,6 +136,13 @@ export const auth = {
 
 // ── Products ──────────────────────────────────────────────────────
 
+// Cache module-level pour /products/categories/ — évite les fetchs doublés
+// entre Header (mega menu) et PopularCategories (homepage). Les appels
+// concurrents partagent la même Promise en flight, les appels ultérieurs
+// retournent directement les données mises en cache.
+let _productsCategoriesCache   = null
+let _productsCategoriesPromise = null
+
 export const products = {
 
   async list(params = {}) {
@@ -167,9 +174,41 @@ export const products = {
   async recommendations(id) {
     return request(`/products/${id}/recommendations/`)
   },
+
+  // Cachée en mémoire pour la durée de la session. Un seul fetch réseau
+  // même si plusieurs composants (Header, PopularCategories, …) l'appellent
+  // au chargement de la page.
   async categories() {
-    return request('/products/categories/')
+    if (_productsCategoriesCache)   return _productsCategoriesCache
+    if (_productsCategoriesPromise) return _productsCategoriesPromise
+
+    _productsCategoriesPromise = request('/products/categories/')
+      .then(data => {
+        _productsCategoriesCache   = data
+        _productsCategoriesPromise = null
+        return data
+      })
+      .catch(err => {
+        _productsCategoriesPromise = null   // permet de re-tenter au prochain appel
+        throw err
+      })
+
+    return _productsCategoriesPromise
   },
+
+  // Lecture synchrone du cache — retourne les données si déjà chargées,
+  // sinon null. Utile pour initialiser un state React sans flash de loading.
+  categoriesCached() {
+    return _productsCategoriesCache
+  },
+
+  // Vide le cache et force un refetch au prochain appel de categories().
+  // À utiliser après une modif admin des catégories.
+  categoriesInvalidate() {
+    _productsCategoriesCache   = null
+    _productsCategoriesPromise = null
+  },
+
   async create(data) {
     return request('/products/create/', {
       method: 'POST',
@@ -361,4 +400,12 @@ export const store = {
   async clearRecentSearches() {
     return request('/store/recent-searches/clear/', { method: 'POST' })
   },
+}
+
+export const addresses = {
+  list:       ()          => request('/api/users/addresses/'),
+  create:     (data)      => request('/api/users/addresses/', { method: 'POST', body: JSON.stringify(data) }),
+  update:     (id, data)  => request(`/api/users/addresses/${id}/`, { method: 'PATCH', body: JSON.stringify(data) }),
+  remove:     (id)        => request(`/api/users/addresses/${id}/`, { method: 'DELETE' }),
+  setDefault: (id)        => request(`/api/users/addresses/${id}/default/`, { method: 'POST' }),
 }

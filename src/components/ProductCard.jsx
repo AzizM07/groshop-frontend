@@ -1,11 +1,12 @@
 // ProductCard.jsx — GROSHOP.tn
 // Style B2B wholesale (Alibaba-like) :
-// image plein cadre arrondie · prix simple · quantité min ·
+// image plein cadre arrondie · prix simple · étoiles · quantité min ·
 // fournisseur · Verified + médailles + années + drapeau · bouton Commander.
 // Card "invisible" : pas de bordure, pas d'ombre, pas de bg différent de la page.
 // Compact : pensée pour 6 colonnes par ligne en desktop.
 
 import { useState } from 'react'
+import { Star } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useCart } from '../context/CartContext'
 import { useIsMobile } from '../hooks/useIsMobile'
@@ -21,6 +22,17 @@ const GREEN  = '#0F9D58'
 function fmtPrice(p) {
   const f = n => n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   return Array.isArray(p) ? `${f(p[0])}–${f(p[1])}` : f(p)
+}
+
+// ── Étoiles (pleines/vides selon l'arrondi) ──
+function Stars({ value = 0, size = 15 }) {
+  return (
+    <span style={{ display: 'inline-flex', gap: 1, flexShrink: 0 }}>
+      {[1, 2, 3, 4, 5].map(s => (
+        <Star key={s} size={size} fill={s <= Math.round(value) ? '#FFB800' : '#E3E6EA'} stroke="none" />
+      ))}
+    </span>
+  )
 }
 
 function DesktopProductCard({ product, onOrder }) {
@@ -46,7 +58,6 @@ function DesktopProductCard({ product, onOrder }) {
     verified       = false,
     medals         = 0,
     years          = null,
-    flag           = '🇹🇳',
   } = product || {}
 
   const busy = adding === id
@@ -144,6 +155,21 @@ function DesktopProductCard({ product, onOrder }) {
           )}
         </div>
 
+        {/* Étoiles — juste sous le prix, taille liée à la card */}
+        {rating != null && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <Stars value={rating} size={13} />
+            <span style={{ fontSize: 'clamp(10.5px, 0.9vw, 11.5px)', fontWeight: 600, color: INK, lineHeight: 1 }}>
+              {rating.toFixed(1)}
+            </span>
+            {reviewCount != null && reviewCount > 0 && (
+              <span style={{ fontSize: 'clamp(10px, 0.85vw, 11px)', color: MUTE, lineHeight: 1 }}>
+                ({reviewCount})
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Quantité min. (MOQ) — en noir */}
         {moq && (
           <div style={{ fontSize: '11.5px', color: INK }}>
@@ -154,30 +180,28 @@ function DesktopProductCard({ product, onOrder }) {
           </div>
         )}
 
-        {/* Note produit (sans MOQ affiché) */}
-        {!moq && (rating || soldCount) && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap', fontSize: '11.5px', color: MUTE }}>
-            {rating && <span style={{ fontWeight: 600, color: INK }}>★ {rating.toFixed(1)}</span>}
-            {soldCount != null && (
-              <span>{soldCount >= 1000 ? (soldCount / 1000).toFixed(1) + 'k' : soldCount} vendus</span>
-            )}
-            {reviewCount != null && reviewCount > 0 && <span>({reviewCount} avis)</span>}
+        {/* Ventes (sans MOQ affiché — la note est déjà montrée au-dessus) */}
+        {!moq && soldCount != null && (
+          <div style={{ fontSize: '11.5px', color: MUTE }}>
+            {soldCount >= 1000 ? (soldCount / 1000).toFixed(1) + 'k' : soldCount} vendus
           </div>
         )}
 
-        {/* Fournisseur (lien) */}
-        {supplier && (
-          <div style={{
-            fontSize: '11.5px', color: MUTE,
-            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-          }}>{supplier}</div>
-        )}
-
-        {/* Verified · médailles (notation boutique) · années · drapeau */}
-        {(verified || medals > 0 || years || flag) && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', flexWrap: 'wrap' }}>
+        {/* Fournisseur + Verified · médailles · années · drapeau — un seul flux flex.
+            Chaque élément (nom fournisseur inclus) ne prend QUE sa largeur réelle,
+            donc ça remplit ligne 1 au max avant de passer à la ligne 2, peu importe
+            l'ordre : 5 éléments peuvent tenir sur 2 lignes, 6 sur 3, etc. */}
+        {(supplier || verified || medals > 0 || years) && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', flexWrap: 'wrap', rowGap: '2px' }}>
+            {supplier && (
+              <span style={{
+                color: MUTE, fontSize: '11.5px',
+                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                maxWidth: '55%', flexShrink: 1, minWidth: 0,
+              }}>{supplier}</span>
+            )}
             {verified && (
-              <span style={{ display: 'flex', alignItems: 'center', gap: '2px', color: BLUE, fontWeight: 700 }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '2px', color: BLUE, fontWeight: 700, flexShrink: 0 }}>
                 <svg width="11" height="11" viewBox="0 0 24 24" fill={BLUE} stroke="none">
                   <path d="M12 1l2.4 2.4 3.3-.5.6 3.3L21 9l-1.7 2.9 1.7 2.9-2.7 1.3-.6 3.3-3.3-.5L12 23l-2.4-2.4-3.3.5-.6-3.3L3 14.9 4.7 12 3 9.1l2.7-1.3.6-3.3 3.3.5z" />
                   <polyline points="8.5 12 11 14.5 15.5 9.5" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -186,7 +210,7 @@ function DesktopProductCard({ product, onOrder }) {
               </span>
             )}
             {medals > 0 && (
-              <span style={{ display: 'flex', gap: '1px' }} title="Notation boutique">
+              <span style={{ display: 'flex', gap: '1px', flexShrink: 0 }} title="Notation boutique">
                 {Array.from({ length: medals }).map((_, i) => (
                   <svg key={i} width="9" height="9" viewBox="0 0 24 24" fill={ORANGE}>
                     <rect x="12" y="2" width="14" height="14" rx="2" transform="rotate(45 12 12)" />
@@ -194,8 +218,7 @@ function DesktopProductCard({ product, onOrder }) {
                 ))}
               </span>
             )}
-            {years && <span style={{ color: MUTE }}>{years} ans</span>}
-            {flag && <span style={{ fontSize: '11px' }}>{flag}</span>}
+            {years && <span style={{ color: MUTE, flexShrink: 0 }}>{years} ans</span>}
           </div>
         )}
 

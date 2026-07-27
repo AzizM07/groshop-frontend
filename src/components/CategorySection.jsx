@@ -1,6 +1,18 @@
 import React, { useState, useRef } from 'react';
+import { Star } from 'lucide-react';
 import { useIsMobile } from '../hooks/useIsMobile';
 import MobileTrending from './MobileTrending';
+
+// ── Étoiles (pleines/vides selon l'arrondi) ──
+function Stars({ value = 0, size = 13 }) {
+  return (
+    <span style={{ display: 'inline-flex', gap: 1 }}>
+      {[1, 2, 3, 4, 5].map(s => (
+        <Star key={s} size={size} fill={s <= Math.round(value) ? '#FFB800' : '#E3E6EA'} stroke="none" />
+      ))}
+    </span>
+  )
+}
 
 const DesktopTrending = ({ products = [] }) => {
   const [activeCategory, setActiveCategory] = useState('Tout');
@@ -246,7 +258,6 @@ const DesktopTrending = ({ products = [] }) => {
       gap: '5px',
       flexWrap: 'wrap',
     },
-    starsWrap: { display: 'flex', gap: '1px' },
     ratingValue: { fontSize: '12px', color: '#6B7785', fontWeight: 600 },
     reviewsCount: { fontSize: '12px', color: '#9AA3AE' },
   };
@@ -392,16 +403,7 @@ const DesktopTrending = ({ products = [] }) => {
                         </div>
 
                         <div style={styles.ratingRow}>
-                          <div style={styles.starsWrap}>
-                            {[1,2,3,4,5].map(star => (
-                              <svg key={star} width="13" height="13" viewBox="0 0 24 24"
-                                fill={star <= Math.round(product.rating) ? '#ff5e20' : '#E8EAED'}
-                                stroke={star <= Math.round(product.rating) ? '#ff5e20' : '#E8EAED'}
-                                strokeWidth="1">
-                                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-                              </svg>
-                            ))}
-                          </div>
+                          <Stars value={product.rating} size={13} />
                           <span style={styles.ratingValue}>{Number(product.rating).toFixed(1)}</span>
                           <span style={styles.reviewsCount}>
                             · {product.reviews >= 1000 ? (product.reviews / 1000).toFixed(1) + 'k' : product.reviews} avis

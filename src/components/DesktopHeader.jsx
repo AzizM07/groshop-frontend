@@ -317,13 +317,16 @@ export default function Header() {
             </div>
           )}
 
-          {/* ── ORDRE : App → Adresse → Langue (modifiable) ── */}
-          <AppDownloadDropdown />
-          <Divider />
-          <AddressDropdown />
-          <Divider />
-          <LanguageDropdown />
-
+{/* ── ORDRE : App (caché si recherche visible) → Adresse → Langue ── */}
+{!showSearch && (
+  <>
+    <AppDownloadDropdown />
+    <Divider />
+  </>
+)}
+<AddressDropdown />
+<Divider />
+<LanguageDropdown />
           {user ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(12px, 1.7vw, 24px)', marginLeft: 'clamp(12px, 1.8vw, 26px)', flexShrink: 0 }}>
               <MessagesDropdown />
@@ -409,9 +412,21 @@ function AccountMenu({ signOut }) {
 }
 
 function CatIcon({ name, size = 18, color = 'currentColor' }) {
-  const Icon = Icons[name]
-  if (!Icon) return <Icons.Grid size={size} color={color} />
-  return <Icon size={size} color={color} strokeWidth={1.6} />
+  // Si c'est une URL d'image
+  if (typeof name === 'string' && (name.startsWith('http') || name.startsWith('//') || /\.(png|jpe?g|gif|svg|webp|ico)$/i.test(name))) {
+    return (
+      <img
+        src={name}
+        alt="icône catégorie"
+        style={{ width: size, height: size, objectFit: 'contain', display: 'block' }}
+        onError={(e) => { e.currentTarget.style.display = 'none' }}
+      />
+    );
+  }
+  // Sinon, on essaie Lucide
+  const Icon = Icons[name];
+  if (!Icon) return <Icons.Grid size={size} color={color} />;
+  return <Icon size={size} color={color} strokeWidth={1.6} />;
 }
 
 // ── CategoriesButton ──────────────────────────────────────────────

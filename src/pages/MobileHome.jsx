@@ -4,11 +4,13 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { products as productsApi } from '../lib/api'
 import ProductCard from '../components/ProductCard'
 import CategorySection from '../components/CategorySection'
+import PopularCategories from '../components/PopularCategories'
 import Footer from '../components/Footer'
 import AdSlot from '../components/AdSlot'
-
+import PopularCategoriesMobile from '../components/PopularCategoriesMobile'
 const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
 const HEADER_H = 56  // hauteur du MobileHeader fixe — les onglets se collent dessous
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 /* ══════════════ Onglets sticky sous la barre de recherche ══════════════ */
 function StickyTabs({ cats }) {
@@ -42,6 +44,63 @@ function StickyTabs({ cats }) {
           </Link>
         )
       })}
+    </div>
+  )
+}
+
+/* ══════════════ HeroGrid — version mobile (slider d'images) ══════════════ */
+// Prend les mêmes images que le HeroGrid desktop : bannières des zones
+// hero_slider + side_card (via /api/banners/active/). Aucun fallback codé en dur.
+function MobileHeroGrid() {
+  const [slides, setSlides] = useState([])
+  const [i, setI] = useState(0)
+
+  useEffect(() => {
+    let alive = true
+    fetch(`${API_BASE}/api/banners/active/`)
+      .then(r => (r.ok ? r.json() : []))
+      .then(data => {
+        const list = Array.isArray(data) ? data : (data.results || [])
+        const order = { hero_slider: 0, side_card: 1 }
+        const banners = list
+          .filter(b => (b.zone === 'hero_slider' || b.zone === 'side_card') && b.is_active)
+          .sort((a, b) => (order[a.zone] - order[b.zone]) || (a.position - b.position))
+        const out = []
+        banners.forEach(b => {
+          const imgs = (b.images && b.images.length ? b.images : [b.image_url]).filter(Boolean)
+          imgs.forEach(url => out.push({ url, link: b.link || '', title: b.title || '' }))
+        })
+        if (alive) { setSlides(out); setI(0) }
+      })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [])
+
+  useEffect(() => {
+    if (slides.length <= 1) return
+    const t = setInterval(() => setI(p => (p + 1) % slides.length), 4500)
+    return () => clearInterval(t)
+  }, [slides.length])
+
+  if (!slides.length) return null
+  const s = slides[i % slides.length]
+
+  const inner = (
+    <div style={{ position: 'relative', height: 180 }}>
+      <img src={s.url} alt={s.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+      {slides.length > 1 && (
+        <div style={{ position: 'absolute', bottom: 10, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 5 }}>
+          {slides.map((_, k) => (
+            <span key={k} style={{ width: k === i ? 16 : 6, height: 6, borderRadius: 3, background: k === i ? '#FF4500' : 'rgba(255,255,255,.7)', transition: 'width .25s' }} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+
+  return (
+    <div style={{ margin: '10px 12px 0', borderRadius: 14, overflow: 'hidden' }}>
+      {s.link ? <a href={s.link} style={{ display: 'block', textDecoration: 'none' }}>{inner}</a> : inner}
     </div>
   )
 }
@@ -132,10 +191,11 @@ function SubIcon({ label, img, emoji, active, heart, onClick }) {
 function FilterChip({ label, active, onClick }) {
   return (
     <button onClick={onClick} style={{
-      flexShrink: 0, whiteSpace: 'nowrap', cursor: 'pointer', border: 'none',
-      fontSize: 14, fontWeight: active ? 700 : 500,
+      flexShrink: 0, whiteSpace: 'nowrap', cursor: 'pointer',
+      fontSize: 14, fontWeight: active ? 700 : 600,
       color: active ? '#fff' : '#3D4853',
-      background: active ? '#0F1419' : '#F0F1F3',
+      background: active ? '#FF4500' : '#fff',
+      border: active ? '1px solid #FF4500' : '1px solid #E5E7EB',
       padding: '9px 18px', borderRadius: 24,
     }}>{label}</button>
   )
@@ -167,45 +227,26 @@ function Shortcuts() {
   )
 }
 
-const SLIDES = [
-  { image: 'https://images.unsplash.com/photo-1601924994987-69e26d50dc26?w=800&q=80', tag: 'Nouveautés', title: 'Grossiste Tunisie 2025',     href: '/produits' },
-  { image: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&q=80', tag: 'Promo −40%',  title: 'Mode & Textile',           href: '/produits/textile' },
-  { image: 'https://images.unsplash.com/photo-1498049794561-7780e7231661?w=800&q=80', tag: 'Tendance',    title: 'High-Tech & Électronique', href: '/produits/electronique' },
-]
-function MobileHero() {
-  const [i, setI] = useState(0)
-  useEffect(() => {
-    const t = setInterval(() => setI(p => (p + 1) % SLIDES.length), 4500)
-    return () => clearInterval(t)
-  }, [])
-  const s = SLIDES[i]
-  return (
-    <a href={s.href} style={{ display: 'block', margin: '10px 12px 0', borderRadius: 14, overflow: 'hidden', position: 'relative', textDecoration: 'none' }}>
-      <div style={{ position: 'relative', height: 150 }}>
-        <img src={s.image} alt={s.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, rgba(0,0,0,.5), transparent 70%)' }} />
-        <div style={{ position: 'absolute', left: 16, top: 0, bottom: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-          <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: '#FF4500', padding: '3px 9px', borderRadius: 20, width: 'fit-content' }}>{s.tag}</span>
-          <span style={{ fontSize: 16, fontWeight: 800, color: '#fff', marginTop: 8, maxWidth: 200, lineHeight: 1.25 }}>{s.title}</span>
-        </div>
-        <div style={{ position: 'absolute', bottom: 10, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 5 }}>
-          {SLIDES.map((_, k) => <span key={k} style={{ width: k === i ? 16 : 6, height: 6, borderRadius: 3, background: k === i ? '#FF4500' : 'rgba(255,255,255,.6)', transition: 'width .25s' }} />)}
-        </div>
-      </div>
-    </a>
-  )
-}
-
+/* ── Feed accueil : calqué sur le desktop, sections en version mobile ── */
 function HomeFeed({ items, trending, loading, error, isPersonalized }) {
   return (
     <>
       <Shortcuts />
-      <MobileHero />
+
+      {/* HeroGrid mobile (images du hero) */}
+      <MobileHeroGrid />
+
+      {/* Catégories populaires — comme desktop */}
+      <PopularCategoriesMobile />
+
+      {/* Tendances 48h — CategorySection choisit la variante mobile via useIsMobile */}
       {trending.length > 0 && (
-  <div style={{ padding: '14px 0 0' }}>
-    <CategorySection products={trending} />
-  </div>
-)}
+        <div style={{ padding: '8px 0 0' }}>
+          <CategorySection products={trending} />
+        </div>
+      )}
+
+      {/* Produits recommandés */}
       <div style={{ padding: '16px 12px 24px' }}>
         <h2 style={{ margin: '0 0 12px', fontSize: 15, fontWeight: 700, color: '#0F1419' }}>
           {isPersonalized ? 'Recommandé pour vous' : 'Produits recommandés'}
@@ -223,6 +264,8 @@ function HomeFeed({ items, trending, loading, error, isPersonalized }) {
           }
         </div>
       </div>
+
+      <Footer />
     </>
   )
 }

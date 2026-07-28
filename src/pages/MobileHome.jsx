@@ -1,5 +1,5 @@
 // src/components/MobileHome.jsx
-import { useState, useEffect, Fragment } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { products as productsApi } from '../lib/api'
 import ProductCard from '../components/ProductCard'
@@ -11,6 +11,50 @@ import PopularCategoriesMobile from '../components/PopularCategoriesMobile'
 const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
 const HEADER_H = 56  // hauteur du MobileHeader fixe — les onglets se collent dessous
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+
+/* ══════════════ Grille MASONRY 2 colonnes (façon Flutter left/right) ══════════════ */
+// Deux colonnes flex INDÉPENDANTES : chaque carte s'empile sous la précédente
+// dans sa colonne, sans s'aligner sur l'autre colonne (pas de rangées CSS).
+// Items répartis en alternance (pair → gauche, impair → droite), pubs insérées
+// tous les 6 produits comme dans ProductsSection.dart.
+function MasonryProducts({ items = [], loading = false, adEvery = 6, gap = 8 }) {
+  // Skeletons pendant le chargement, eux aussi en 2 colonnes
+  if (loading) {
+    const cols = [[], []]
+    for (let i = 0; i < 8; i++) cols[i % 2].push(i)
+    return (
+      <div style={{ display: 'flex', gap, alignItems: 'flex-start' }}>
+        {cols.map((col, c) => (
+          <div key={c} style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap }}>
+            {col.map(i => <SkeletonCard key={i} />)}
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  // 1) flux produits + pubs entrelacées
+  const stream = []
+  items.forEach((p, i) => {
+    stream.push({ kind: 'product', data: p })
+    if (adEvery && (i + 1) % adEvery === 0) stream.push({ kind: 'ad', at: i })
+  })
+  // 2) répartition alternée gauche/droite (comme i % 2 en Flutter)
+  const cols = [[], []]
+  stream.forEach((it, idx) => cols[idx % 2].push(it))
+
+  return (
+    <div style={{ display: 'flex', gap, alignItems: 'flex-start' }}>
+      {cols.map((col, c) => (
+        <div key={c} style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap }}>
+          {col.map(it => it.kind === 'ad'
+            ? <AdSlot key={`ad-${it.at}`} index={it.at} />
+            : <ProductCard key={it.data.id} product={it.data} />)}
+        </div>
+      ))}
+    </div>
+  )
+}
 
 /* ══════════════ Onglets sticky sous la barre de recherche ══════════════ */
 function StickyTabs({ cats }) {
@@ -148,19 +192,9 @@ function MobileCategory({ cats, catId, items, loading }) {
         ))}
       </div>
 
-      {/* Grille produits */}
+      {/* Grille produits — MASONRY 2 colonnes */}
       <div style={{ padding: '0 12px 24px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          {loading
-            ? [...Array(8)].map((_, i) => <SkeletonCard key={i} />)
-            : items.map((p, i) => (
-                <Fragment key={p.id}>
-                  <ProductCard product={p} />
-                  {(i + 1) % 6 === 0 && <div style={{ gridColumn: '1 / -1' }}><AdSlot index={i} /></div>}
-                </Fragment>
-              ))
-          }
-        </div>
+        <MasonryProducts items={items} loading={loading} />
       </div>
     </div>
   )
@@ -246,23 +280,13 @@ function HomeFeed({ items, trending, loading, error, isPersonalized }) {
         </div>
       )}
 
-      {/* Produits recommandés */}
+      {/* Produits recommandés — MASONRY 2 colonnes */}
       <div style={{ padding: '16px 12px 24px' }}>
         <h2 style={{ margin: '0 0 12px', fontSize: 15, fontWeight: 700, color: '#0F1419' }}>
           {isPersonalized ? 'Recommandé pour vous' : 'Produits recommandés'}
         </h2>
         {error && <div style={{ color: '#D32F2F', fontSize: 13, marginBottom: 12 }}>{error}</div>}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          {loading
-            ? [...Array(8)].map((_, i) => <SkeletonCard key={i} />)
-            : items.map((p, i) => (
-                <Fragment key={p.id}>
-                  <ProductCard product={p} />
-                  {(i + 1) % 6 === 0 && <AdSlot index={i} />}
-                </Fragment>
-              ))
-          }
-        </div>
+        <MasonryProducts items={items} loading={loading} />
       </div>
 
       <Footer />

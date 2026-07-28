@@ -231,7 +231,7 @@ function Shortcuts() {
 function HomeFeed({ items, trending, loading, error, isPersonalized }) {
   return (
     <>
-      <Shortcuts />
+      {/*<Shortcuts />*/}
 
       {/* HeroGrid mobile (images du hero) */}
       <MobileHeroGrid />

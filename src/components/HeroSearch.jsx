@@ -3,10 +3,12 @@
 import { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSearchSuggestions } from './SearchSuggestions'
-import heroBg from '../assets/hero-bg1.png'   // ⬅️ ton image ici
 
 const ORANGE      = '#ff8820'
 const ORANGE_DEEP = '#ff5e20'
+
+const HERO_BG_ZONE = 'hero_bg'
+const API_BASE = import.meta.env.VITE_API_URL || ''
 
 // Hauteur de la zone
 const HERO_HEIGHT = 'clamp(400px, 0vh, 620px)'
@@ -58,12 +60,28 @@ if (typeof document !== 'undefined' && !document.getElementById('hs-styles')) {
   document.head.appendChild(s)
 }
 
-export default function HeroSearch({ backgroundImage = heroBg }) {
+export default function HeroSearch() {
   const [query, setQuery]     = useState('')
   const [focused, setFocused] = useState(false)
   const [hovered, setHovered] = useState(false)
+  const [bgUrl, setBgUrl]     = useState(null)   // image du fond venue de l'admin
   const navigate = useNavigate()
   const ref = useRef(null)
+
+  // ── Fond du Hero piloté depuis l'admin (zone hero_bg, endpoint public) ──
+  useEffect(() => {
+    let alive = true
+    fetch(`${API_BASE}/api/banners/active/`)
+      .then(r => (r.ok ? r.json() : []))
+      .then(data => {
+        const list = Array.isArray(data) ? data : (data.results || [])
+        const hero = list
+          .find(b => b.zone === HERO_BG_ZONE && b.is_active && b.image_url)
+        if (alive && hero) setBgUrl(hero.image_url)
+      })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [])
 
   /* On mesure la ligne de saisie pour réserver exactement sa hauteur :
      le conteneur des suggestions s'étale par-dessus sans pousser le reste. */
@@ -129,17 +147,19 @@ export default function HeroSearch({ backgroundImage = heroBg }) {
         overflow: 'hidden',
         zIndex: 0,
       }}>
-        <img
-          src={backgroundImage}
-          alt=""
-          aria-hidden="true"
-          style={{
-            width: '100%', height: '100%',
-            objectFit: 'cover',
-            objectPosition: 'center',
-            display: 'block',
-          }}
-        />
+        {bgUrl && (
+          <img
+            src={bgUrl}
+            alt=""
+            aria-hidden="true"
+            style={{
+              width: '100%', height: '100%',
+              objectFit: 'cover',
+              objectPosition: 'center',
+              display: 'block',
+            }}
+          />
+        )}
         {OVERLAY > 0 && (
           <div style={{
             position: 'absolute', inset: 0,

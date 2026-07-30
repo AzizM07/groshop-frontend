@@ -1,4 +1,4 @@
-// src/components/Header.jsx
+// Header.jsx — GROSHOP.tn — wrapper responsive
 import { useIsMobile } from '../hooks/useIsMobile'
 import DesktopHeader from './DesktopHeader'
 import MobileHeader from './MobileHeader'

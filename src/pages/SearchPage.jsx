@@ -2,7 +2,7 @@
 // Résultats de recherche — /search?q=...
 
 import { useState, useEffect, useMemo } from 'react'
-import { useSearchParams, Link } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { products as productsApi } from '../lib/api'
 import { usePageTracking } from '../hooks/usePageTracking'
 import ProductCard from '../components/ProductCard'
@@ -53,9 +53,22 @@ function mapProduct(p) {
     years:          p.years_active || null,
     flag:           '🇹🇳',
     image:          p.primary_image,
+    images:         extractImages(p),          // galerie pour le carrousel
     supplier:       p.supplier_name,
     supplierSlug:   p.supplier_slug,
   }
+}
+
+/* ── Galerie d'images du produit (pour le carrousel de la carte) ──
+   Forme renvoyée par l'API : p.images = [{ url: '...' }, …].
+   ⚠️ Nécessite que l'endpoint de recherche renvoie bien `images`
+      (champ à ajouter dans ProductListSerializer côté Django). */
+function extractImages(p) {
+  const raw = p.images || p.gallery || p.product_images || p.image_urls || []
+  const list = (Array.isArray(raw) ? raw : [])
+    .map(im => (typeof im === 'string' ? im : (im?.image || im?.url || im?.src)))
+    .filter(Boolean)
+  return list.length ? list : null
 }
 
 function SkeletonCard() {
@@ -89,6 +102,7 @@ const SORTS = [
 export default function SearchPage() {
   const [params]  = useSearchParams()
   const query     = params.get('q') || ''
+  const navigate  = useNavigate()
 
   const [results, setResults] = useState([])
   const [total, setTotal]     = useState(0)
@@ -96,9 +110,11 @@ export default function SearchPage() {
   const [error, setError]     = useState(null)
   const [sort, setSort]       = useState('relevance')
   const [category, setCategory] = useState(null)
+  const [banner, setBanner]   = useState(null)
 
   usePageTracking({ pageType: 'search' })
 
+  /* ── Résultats ── */
   useEffect(() => {
     if (!query.trim()) { setResults([]); setTotal(0); setLoading(false); return }
     let alive = true
@@ -114,11 +130,37 @@ export default function SearchPage() {
     return () => { alive = false }
   }, [query])
 
+  /* ── Bannière de la catégorie correspondant au terme recherché ── */
+  useEffect(() => {
+    if (!query.trim() || typeof productsApi.categoryBanner !== 'function') { setBanner(null); return }
+    let alive = true
+    productsApi.categoryBanner(query)
+      .then(d => { if (alive) setBanner(d?.banner || null) })
+      .catch(() => { if (alive) setBanner(null) })
+    return () => { alive = false }
+  }, [query])
+
+  const goBannerLink = () => {
+    const l = banner?.link
+    if (!l) return
+    if (/^https?:\/\//i.test(l)) window.open(l, '_blank', 'noopener')
+    else navigate(l)
+  }
+
   /* ── Catégories présentes dans les résultats ── */
   const categories = useMemo(
     () => [...new Set(results.map(p => p.category_name).filter(Boolean))],
     [results],
   )
+
+  /* ── Onglets de catégories : "Tout" + chaque catégorie, avec son compte ── */
+  const catTabs = useMemo(() => ([
+    { name: null, label: 'Tout', count: results.length },
+    ...categories.map(c => ({
+      name: c, label: c,
+      count: results.filter(p => p.category_name === c).length,
+    })),
+  ]), [results, categories])
 
   /* ── Filtre + tri (côté client — l'API renvoie déjà le top 20) ── */
   const shown = useMemo(() => {
@@ -135,43 +177,47 @@ export default function SearchPage() {
     <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif' }}>
       <Container style={{ paddingTop: '1.5rem', paddingBottom: '3rem' }}>
 
-        {/* ── Fil d'Ariane ── */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#9AA3AE', marginBottom: 14 }}>
-          <Link to="/" style={{ color: '#9AA3AE', textDecoration: 'none' }}>Accueil</Link>
-          <span>›</span>
-          <span style={{ color: '#0F1419', fontWeight: 500 }}>Recherche</span>
-        </div>
+        {/* ── Bannière de catégorie (si le terme matche une catégorie) ── */}
+        {query && banner && <CategoryBanner banner={banner} onClick={goBannerLink} />}
 
-        {/* ── Titre ── */}
-        <div style={{ marginBottom: 20 }}>
-          <h1 style={{ margin: 0, fontSize: 'clamp(18px,2vw,24px)', fontWeight: 700, color: '#0F1419' }}>
-            {query ? <>Résultats pour « <span style={{ color: '#FF4500' }}>{query}</span> »</> : 'Recherche'}
-          </h1>
-          {!loading && query && (
-            <p style={{ margin: '6px 0 0', fontSize: 13.5, color: '#6B7785' }}>
+        {/* ── Nombre de résultats (plus de fil d'Ariane ni de gros titre) ── */}
+        {!loading && query && (
+          <div style={{ marginBottom: 16 }}>
+            <span style={{ fontSize: 16, fontWeight: 700, color: '#0F1419' }}>
               {total} produit{total > 1 ? 's' : ''} trouvé{total > 1 ? 's' : ''}
-              {category && ` · filtré sur ${category}`}
-            </p>
-          )}
-        </div>
+            </span>
+            <span style={{ fontSize: 14, color: '#6B7785' }}> pour « {query} »</span>
+            {category && <span style={{ fontSize: 14, color: '#6B7785' }}> · {category}</span>}
+          </div>
+        )}
 
-        {/* ── Barre de filtres ── */}
+        {/* ── Barre de catégories (une ligne défilable + séparateurs) · Trier par à droite ── */}
         {!loading && results.length > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18, flexWrap: 'wrap' }}>
-            <button onClick={() => setCategory(null)} style={chip(!category)}>Tout ({results.length})</button>
-            {categories.map(c => (
-              <button key={c} onClick={() => setCategory(v => v === c ? null : c)} style={chip(category === c)}>
-                {c} ({results.filter(p => p.category_name === c).length})
-              </button>
-            ))}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18, borderBottom: '1px solid #EEF0F2', paddingBottom: 10 }}>
 
-            <div style={{ flex: 1 }} />
+            {/* Onglets défilables horizontalement */}
+            <div className="gs-cat-strip" style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', overflowX: 'auto' }}>
+              {catTabs.map((c, i) => {
+                const active = category === c.name
+                return (
+                  <div key={c.name ?? 'all'} style={{ display: 'flex', alignItems: 'center' }}>
+                    <button onClick={() => setCategory(c.name)} style={catItem(active)}>
+                      {c.label} <span style={{ color: active ? '#FF4500' : '#9AA3AE', fontWeight: 500 }}>({c.count})</span>
+                    </button>
+                    {i < catTabs.length - 1 && <span style={{ width: 1, height: 16, background: '#E2E5E9', flexShrink: 0 }} />}
+                  </div>
+                )
+              })}
+            </div>
 
-            <label style={{ fontSize: 12.5, color: '#6B7785' }}>Trier par</label>
-            <select value={sort} onChange={e => setSort(e.target.value)}
-              style={{ padding: '8px 14px', border: '1px solid #E8EAED', borderRadius: 999, fontSize: 12.5, fontWeight: 500, color: '#0F1419', background: '#fff', cursor: 'pointer', outline: 'none', fontFamily: 'inherit' }}>
-              {SORTS.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
-            </select>
+            {/* Trier par — épinglé à droite */}
+            <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, paddingLeft: 12, borderLeft: '1px solid #E2E5E9' }}>
+              <label style={{ fontSize: 12.5, color: '#6B7785', whiteSpace: 'nowrap' }}>Trier par</label>
+              <select value={sort} onChange={e => setSort(e.target.value)}
+                style={{ padding: '8px 14px', border: '1px solid #E8EAED', borderRadius: 999, fontSize: 12.5, fontWeight: 500, color: '#0F1419', background: '#fff', cursor: 'pointer', outline: 'none', fontFamily: 'inherit' }}>
+                {SORTS.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+              </select>
+            </div>
           </div>
         )}
 
@@ -192,7 +238,7 @@ export default function SearchPage() {
           />
         ) : (
           <div style={grid} className="gs-search-grid">
-            {shown.map(p => <ProductCard key={p.id} product={mapProduct(p)} />)}
+            {shown.map(p => <ProductCard key={p.id} product={mapProduct(p)} variant="wholesale" />)}
           </div>
         )}
       </Container>
@@ -200,6 +246,8 @@ export default function SearchPage() {
       <Footer />
 
       <style>{`
+        .gs-cat-strip::-webkit-scrollbar { display: none; }
+        .gs-cat-strip { scrollbar-width: none; }
         @media (max-width: 1200px) { .gs-search-grid { grid-template-columns: repeat(4, 1fr) !important; } }
         @media (max-width: 900px)  { .gs-search-grid { grid-template-columns: repeat(3, 1fr) !important; } }
         @media (max-width: 640px)  { .gs-search-grid { grid-template-columns: repeat(2, 1fr) !important; } }
@@ -210,17 +258,36 @@ export default function SearchPage() {
 
 const grid = { display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12 }
 
-const chip = (active) => ({
-  padding: '7px 14px',
-  borderRadius: 999,
-  border: `1px solid ${active ? '#FF4500' : '#E8EAED'}`,
-  background: active ? '#FFF4F0' : '#fff',
-  color: active ? '#FF4500' : '#6B7785',
-  fontSize: 12.5,
-  fontWeight: active ? 600 : 500,
+const catItem = (active) => ({
+  padding: '6px 14px',
+  border: 'none',
+  background: 'none',
+  color: active ? '#FF4500' : '#3D4853',
+  fontSize: 13.5,
+  fontWeight: active ? 700 : 500,
   cursor: 'pointer',
+  whiteSpace: 'nowrap',
   fontFamily: 'inherit',
+  flexShrink: 0,
 })
+
+/* ── Bannière de catégorie : image seule, cliquable ── */
+function CategoryBanner({ banner, onClick }) {
+  if (!banner?.image_url) return null
+  const clickable = !!banner.link
+  return (
+    <div
+      className="gs-cat-banner"
+      onClick={clickable ? onClick : undefined}
+      style={{
+        marginBottom: 18, borderRadius: 12, overflow: 'hidden',
+        border: '1px solid #EEF0F2', cursor: clickable ? 'pointer' : 'default',
+      }}
+    >
+      <img src={banner.image_url} alt="" style={{ width: '100%', height: 'auto', display: 'block' }} />
+    </div>
+  )
+}
 
 function EmptyState({ icon, title, text }) {
   return (

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useSearchSuggestions } from './SearchSuggestions'
+import { useSearchSuggestions, SearchDropdown } from './SearchSuggestions'
 
 const ORANGE      = '#ff8820'
 const ORANGE_DEEP = '#ff5e20'
@@ -10,29 +10,17 @@ const ORANGE_DEEP = '#ff5e20'
 const HERO_BG_ZONE = 'hero_bg'
 const API_BASE = import.meta.env.VITE_API_URL || ''
 
-// Hauteur de la zone
 const HERO_HEIGHT = 'clamp(400px, 0vh, 620px)'
-
-// Voile sombre sur la photo. À 0 : l'image est affichée telle quelle.
 const OVERLAY = 0
-
-// Arrondi des coins. 0 = bord à bord, pleine largeur écran.
 const RADIUS = '0px'
-
-// Halo lumineux derrière la barre — la détache du fond orange
 const SHOW_HALO = true
-
-// Lévitation lente de la barre
 const FLOAT = true
-
-// Tags de recherche rapide sous la barre
 const SHOW_TAGS = false
 
 const POPULAR_SEARCHES = [
   'huile olive', 'café 1kg', 'détergent 5L', 't-shirts coton', 'couches bébé'
 ]
 
-// Inject font + keyframes
 if (typeof document !== 'undefined' && !document.getElementById('hs-styles')) {
   const s = document.createElement('style')
   s.id = 'hs-styles'
@@ -48,7 +36,6 @@ if (typeof document !== 'undefined' && !document.getElementById('hs-styles')) {
     .hs-halo  { animation: hs-halo  6s ease-in-out infinite; }
     .hs-shim  { animation: hs-shimmer 3.6s ease-in-out infinite; }
 
-    /* La lévitation se fige dès qu'on interagit : viser une cible mouvante, non. */
     .hs-float.is-still { animation-play-state: paused; }
 
     .hs-input::placeholder { color: #A8ADB4; }
@@ -64,11 +51,10 @@ export default function HeroSearch() {
   const [query, setQuery]     = useState('')
   const [focused, setFocused] = useState(false)
   const [hovered, setHovered] = useState(false)
-  const [bgUrl, setBgUrl]     = useState(null)   // image du fond venue de l'admin
+  const [bgUrl, setBgUrl]     = useState(null)
   const navigate = useNavigate()
   const ref = useRef(null)
 
-  // ── Fond du Hero piloté depuis l'admin (zone hero_bg, endpoint public) ──
   useEffect(() => {
     let alive = true
     fetch(`${API_BASE}/api/banners/active/`)
@@ -83,8 +69,6 @@ export default function HeroSearch() {
     return () => { alive = false }
   }, [])
 
-  /* On mesure la ligne de saisie pour réserver exactement sa hauteur :
-     le conteneur des suggestions s'étale par-dessus sans pousser le reste. */
   const rowRef = useRef(null)
   const [rowH, setRowH] = useState(66)
 
@@ -108,7 +92,6 @@ export default function HeroSearch() {
     return () => observer.disconnect()
   }, [])
 
-  // ── Suggestions live + récentes (logique partagée avec Header) ──
   const {
     suggestions, showDropdown, setShowDropdown,
     activeIndex, setActiveIndex, handleKeyDown,
@@ -118,6 +101,12 @@ export default function HeroSearch() {
   const goToSearch = (text) => {
     setShowDropdown(false)
     if (text.trim()) navigate(`/search?q=${encodeURIComponent(text)}`)
+  }
+
+  // produit → fiche, complétion/catégorie → /search
+  const onSelectItem = (item) => {
+    setShowDropdown(false)
+    if (item?.to) navigate(item.to)
   }
 
   const handleSearch = (e) => {
@@ -138,8 +127,6 @@ export default function HeroSearch() {
       fontFamily: '"DM Sans", -apple-system, sans-serif',
     }}>
 
-      {/* ═══ Calque image : le clipping vit ICI uniquement, derrière le contenu,
-          pour que le menu de suggestions puisse déborder sous la barre. ═══ */}
       <div style={{
         position: 'absolute',
         inset: 0,
@@ -168,7 +155,6 @@ export default function HeroSearch() {
         )}
       </div>
 
-      {/* ═══ Contenu — non clippé ═══ */}
       <div style={{
         position: 'relative',
         zIndex: 1,
@@ -181,13 +167,11 @@ export default function HeroSearch() {
         boxSizing: 'border-box',
       }}>
 
-        {/* ── Search bar ── */}
         <form onSubmit={handleSearch} style={{
           width: '100%', maxWidth: '760px',
           position: 'relative', zIndex: 100,
         }}>
 
-          {/* Halo : ellipse blanche floutée, derrière la barre */}
           {SHOW_HALO && (
             <div
               className="hs-halo"
@@ -205,15 +189,12 @@ export default function HeroSearch() {
             />
           )}
 
-          {/* Réserve la hauteur de la ligne de saisie */}
           <div style={{ position: 'relative', height: rowH, zIndex: 1 }}>
 
-            {/* Couche 1 — lévitation */}
             <div
               className={`${FLOAT ? 'hs-float' : ''} ${active ? 'is-still' : ''}`}
               style={{ position: 'absolute', top: 0, left: 0, right: 0 }}
             >
-              {/* Couche 2 — LE conteneur unique : fond, radius, ombre, bordure */}
               <div
                 onMouseEnter={() => setHovered(true)}
                 onMouseLeave={() => setHovered(false)}
@@ -236,7 +217,6 @@ export default function HeroSearch() {
                 }}
               >
 
-                {/* ── Ligne de saisie ── */}
                 <div ref={rowRef} style={{
                   display: 'flex', alignItems: 'center',
                   padding: '9px 9px 9px 22px',
@@ -259,7 +239,7 @@ export default function HeroSearch() {
                     onChange={e => setQuery(e.target.value)}
                     onFocus={() => { setFocused(true); if (suggestions.length > 0 || hasRecent) setShowDropdown(true) }}
                     onBlur={() => { setFocused(false); setTimeout(() => setShowDropdown(false), 150) }}
-                    onKeyDown={e => handleKeyDown(e, goToSearch)}
+                    onKeyDown={e => handleKeyDown(e, onSelectItem)}
                     placeholder="ex: huile d'olive 5L palette, t-shirts coton..."
                     style={{
                       flex: 1, minWidth: 0, border: 'none', outline: 'none',
@@ -333,92 +313,25 @@ export default function HeroSearch() {
                   </button>
                 </div>
 
-                {/* ── Suggestions ── */}
+                {/* ── Suggestions (menu groupé partagé) ── */}
                 {open && (
-                  <>
-                    <div style={{ height: 1, background: '#EFEFEF', margin: '0 22px' }} />
-
-                    {isRecent && (
-                      <div style={{
-                        display: 'flex', alignItems: 'center',
-                        padding: '10px 22px 4px',
-                      }}>
-                        <span style={{ fontSize: 11.5, fontWeight: 600, color: '#bbb', letterSpacing: '.3px' }}>
-                          RECHERCHES RÉCENTES
-                        </span>
-                        <div style={{ flex: 1 }} />
-                        <button
-                          type="button"
-                          onMouseDown={e => e.preventDefault()}
-                          onClick={clearRecent}
-                          style={{
-                            background: 'none', border: 'none', cursor: 'pointer',
-                            fontSize: 11.5, fontWeight: 600, color: ORANGE_DEEP,
-                            fontFamily: '"DM Sans", sans-serif', padding: 0,
-                          }}
-                        >
-                          Effacer
-                        </button>
-                      </div>
-                    )}
-
-                    <div style={{ padding: '6px 0 10px' }}>
-                      {suggestions.map((s, i) => {
-                        const isActive = i === activeIndex
-                        const stroke = isActive ? ORANGE_DEEP : '#bbb'
-                        return (
-                          <div
-                            key={`${s.type}-${s.text}`}
-                            onMouseDown={e => e.preventDefault()}
-                            onClick={() => goToSearch(s.text)}
-                            onMouseEnter={() => setActiveIndex(i)}
-                            style={{
-                              display: 'flex', alignItems: 'center', gap: 12,
-                              padding: '11px 22px',
-                              cursor: 'pointer',
-                              background: isActive ? '#FFF4F0' : 'transparent',
-                              textAlign: 'left',
-                              transition: 'background .12s',
-                            }}
-                          >
-                            {s.type === 'recent' ? (
-                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-                              </svg>
-                            ) : (
-                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth="2" strokeLinecap="round" style={{ flexShrink: 0 }}>
-                                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                              </svg>
-                            )}
-                            <span style={{
-                              fontSize: 14.5, fontWeight: 500,
-                              color: isActive ? ORANGE_DEEP : '#333',
-                              flex: 1,
-                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                            }}>
-                              {s.text}
-                            </span>
-                            {s.type === 'category' && (
-                              <span style={{
-                                fontSize: 11, fontWeight: 600, color: '#9AA3AE',
-                                background: '#F4F5F7', padding: '3px 10px', borderRadius: 20,
-                                flexShrink: 0, textTransform: 'uppercase', letterSpacing: '.4px',
-                              }}>
-                                Catégorie
-                              </span>
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </>
+                  <SearchDropdown
+                    flatItems={suggestions}
+                    query={query}
+                    activeIndex={activeIndex}
+                    setActiveIndex={setActiveIndex}
+                    onSelect={onSelectItem}
+                    isRecent={isRecent}
+                    hasRecent={hasRecent}
+                    clearRecent={clearRecent}
+                    accent={ORANGE_DEEP}
+                  />
                 )}
               </div>
             </div>
           </div>
         </form>
 
-        {/* ── Tags ── */}
         {SHOW_TAGS && (
           <div style={{
             display: 'flex', alignItems: 'center', gap: '8px',

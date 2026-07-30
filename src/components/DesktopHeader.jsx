@@ -1,4 +1,4 @@
-// Header.jsx — GROSHOP.tn
+// DesktopHeader.jsx — GROSHOP.tn
 
 import { useState, useEffect, useRef, forwardRef } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
@@ -7,7 +7,7 @@ import { products } from '../lib/api'
 import { DotLottieReact } from '@lottiefiles/dotlottie-react'
 import * as Icons from 'lucide-react'
 import LOGO_SRC from '../assets/logo2.png'
-import { useSearchSuggestions } from './SearchSuggestions'
+import { useSearchSuggestions, SearchDropdown } from './SearchSuggestions'
 import {
   MessagesDropdown,
   OrdersDropdown,
@@ -99,7 +99,6 @@ function useHoverMenu(delay = 150) {
   const wrapRef  = useRef(null)
   const menuRef  = useRef(null)
 
-  // Écoute l'événement global pour fermer ce menu
   useEffect(() => {
     const handleClose = () => setOpen(false)
     window.addEventListener('closeDropdowns', handleClose)
@@ -125,7 +124,7 @@ function useHoverMenu(delay = 150) {
   return { open, wrapRef, menuRef, handleEnter, handleLeave }
 }
 
-export default function Header() {
+export default function DesktopHeader() {
   const { user, signOut }           = useAuth()
   const navigate                    = useNavigate()
   const location                    = useLocation()
@@ -153,6 +152,12 @@ export default function Header() {
   const goToSearch = (text) => {
     setShowDropdown(false)
     if (text.trim()) navigate(`/search?q=${encodeURIComponent(text)}`)
+  }
+
+  // Sélection d'un item du menu : produit → fiche, complétion/catégorie → /search
+  const onSelectItem = (item) => {
+    setShowDropdown(false)
+    if (item?.to) navigate(item.to)
   }
 
   const open = showDropdown && suggestions.length > 0
@@ -217,7 +222,7 @@ export default function Header() {
                     onChange={e => setSearchQuery(e.target.value)}
                     onFocus={() => { setFocused(true); if (suggestions.length > 0) setShowDropdown(true) }}
                     onBlur={() => { setFocused(false); setTimeout(() => setShowDropdown(false), 150) }}
-                    onKeyDown={e => handleKeyDown(e, goToSearch)}
+                    onKeyDown={e => handleKeyDown(e, onSelectItem)}
                     placeholder="Rechercher..."
                     style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', fontSize: '14px', color: '#0F1419', background: 'transparent' }} />
 
@@ -250,68 +255,17 @@ export default function Header() {
                 </div>
 
                 {open && (
-                  <>
-                    <div style={{ height: 1, background: '#F0F0F0', margin: '0 18px' }} />
-
-                    {isRecent && hasRecent && (
-                      <div style={{ display: 'flex', alignItems: 'center', padding: '9px 18px 3px' }}>
-                        <span style={{ fontSize: '11px', fontWeight: 700, color: '#9AA3AE', textTransform: 'uppercase', letterSpacing: '.5px' }}>
-                          Recherches récentes
-                        </span>
-                        <div style={{ flex: 1 }} />
-                        <button type="button" onMouseDown={e => e.preventDefault()} onClick={clearRecent}
-                          style={{ fontSize: '12px', fontWeight: 600, color: '#FF4500', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                          Effacer
-                        </button>
-                      </div>
-                    )}
-
-                    <div style={{ padding: '4px 0 8px', textAlign: 'left' }}>
-                      {suggestions.map((s, i) => {
-                        const active = i === activeIndex
-                        const stroke = active ? '#FF4500' : '#bbb'
-                        return (
-                          <div
-                            key={`${s.type}-${s.text}`}
-                            onMouseDown={e => e.preventDefault()}
-                            onClick={() => goToSearch(s.text)}
-                            onMouseEnter={() => setActiveIndex(i)}
-                            style={{
-                              display: 'flex', alignItems: 'center', gap: '12px',
-                              padding: '10px 18px', cursor: 'pointer',
-                              background: active ? '#FFF4F0' : 'transparent',
-                              transition: 'background 0.1s',
-                            }}>
-                            {s.type === 'recent' ? (
-                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-                              </svg>
-                            ) : (
-                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth="2" strokeLinecap="round" style={{ flexShrink: 0 }}>
-                                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                              </svg>
-                            )}
-                            <span style={{
-                              fontSize: '14px', fontWeight: 500,
-                              color: active ? '#FF4500' : '#333', flex: 1,
-                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                            }}>
-                              {s.text}
-                            </span>
-                            {s.type === 'category' && (
-                              <span style={{
-                                fontSize: '11px', fontWeight: 600, color: '#9AA3AE',
-                                background: '#F4F5F7', padding: '3px 10px', borderRadius: '20px',
-                                flexShrink: 0, textTransform: 'uppercase', letterSpacing: '.4px',
-                              }}>
-                                Catégorie
-                              </span>
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </>
+                  <SearchDropdown
+                    flatItems={suggestions}
+                    query={searchQuery}
+                    activeIndex={activeIndex}
+                    setActiveIndex={setActiveIndex}
+                    onSelect={onSelectItem}
+                    isRecent={isRecent}
+                    hasRecent={hasRecent}
+                    clearRecent={clearRecent}
+                    accent="#FF4500"
+                  />
                 )}
               </form>
             </div>
@@ -412,7 +366,6 @@ function AccountMenu({ signOut }) {
 }
 
 function CatIcon({ name, size = 18, color = 'currentColor' }) {
-  // Si c'est une URL d'image
   if (typeof name === 'string' && (name.startsWith('http') || name.startsWith('//') || /\.(png|jpe?g|gif|svg|webp|ico)$/i.test(name))) {
     return (
       <img
@@ -423,7 +376,6 @@ function CatIcon({ name, size = 18, color = 'currentColor' }) {
       />
     );
   }
-  // Sinon, on essaie Lucide
   const Icon = Icons[name];
   if (!Icon) return <Icons.Grid size={size} color={color} />;
   return <Icon size={size} color={color} strokeWidth={1.6} />;
@@ -449,8 +401,16 @@ function CategoriesButton() {
 // ── SubCategoryItem ───────────────────────────────────────────────
 function SubCategoryItem({ sub }) {
   const [hov, setHov] = useState(false)
+  const navigate = useNavigate()
+
+  const goToCategory = () => {
+    window.dispatchEvent(new CustomEvent('closeDropdowns'))   // ferme le méga-menu
+    navigate(`/search?q=${encodeURIComponent(sub.name)}`)
+  }
+
   return (
     <div onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
+      onClick={goToCategory}
       style={{ textAlign: 'center', cursor: 'pointer', width: '100%' }}>
       <div style={{ position: 'relative', width: '120px', height: '120px', margin: '0 auto 10px' }}>
         <div style={{
@@ -509,6 +469,7 @@ const POUR_VOUS_ID = '__pour_vous__'
 const _cache = { categories: null, allSubs: null, subs: {} }
 
 const MegaMenu = forwardRef(function MegaMenu({ onMouseEnter, onMouseLeave }, ref) {
+  const navigate = useNavigate()
   const [categories, setCategories] = useState(_cache.categories || [])
   const [activeId, setActiveId]     = useState(POUR_VOUS_ID)
   const [loading, setLoading]       = useState(!_cache.categories)
@@ -595,7 +556,15 @@ const MegaMenu = forwardRef(function MegaMenu({ onMouseEnter, onMouseLeave }, re
               return (
                 <div key={cat.id} id={`cat-left-${cat.id}`}
                   onMouseEnter={() => setActiveId(cat.id)}
-                  onClick={() => { setActiveId(cat.id); scrollToCategory(cat.id) }}
+                  onClick={() => {
+                    setActiveId(cat.id)
+                    if (cat.id === POUR_VOUS_ID) {
+                      scrollToCategory(cat.id)          // juste défiler
+                    } else {
+                      window.dispatchEvent(new CustomEvent('closeDropdowns'))
+                      navigate(`/search?q=${encodeURIComponent(cat.name)}`)
+                    }
+                  }}
                   style={{
                     display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 24px', cursor: 'pointer',
                     background: isActive ? '#F4F5F7' : 'transparent',

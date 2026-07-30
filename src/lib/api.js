@@ -195,7 +195,8 @@ export const products = {
 
     return _productsCategoriesPromise
   },
-
+  categoryBanner: (q) =>
+  request(`/products/category-banner/?q=${encodeURIComponent(q)}`),
   // Lecture synchrone du cache — retourne les données si déjà chargées,
   // sinon null. Utile pour initialiser un state React sans flash de loading.
   categoriesCached() {
@@ -208,7 +209,13 @@ export const products = {
     _productsCategoriesCache   = null
     _productsCategoriesPromise = null
   },
-
+  async suggestions(query) {
+    return request(`/products/suggestions/?q=${encodeURIComponent(query)}`)
+  },
+  // ── Autocomplete pro : { completions, products, categories } ──
+  async autocomplete(query) {
+    return request(`/products/autocomplete/?q=${encodeURIComponent(query)}`)
+  },
   async create(data) {
     return request('/products/create/', {
       method: 'POST',

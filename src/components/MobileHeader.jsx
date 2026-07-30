@@ -3,19 +3,16 @@ import { useState } from 'react'
 import { Link, useNavigate, useLocation, matchPath } from 'react-router-dom'
 import LOGO_SRC from '../assets/logo2.png'
 import LOGO_WHITE from '../assets/logo2.png'   // ⬅️ idéalement une version blanche du logo
-import { useSearchSuggestions } from './SearchSuggestions'
+import { useSearchSuggestions, SearchDropdown } from './SearchSuggestions'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
 
 const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
 
-/* Seule teinte orange du projet. Toute variation passe par une opacité
-   de cette même couleur, jamais par un autre code hexadécimal. */
+/* Seule teinte orange du projet. */
 const ORANGE = '#ff5e20'
-const ORANGE_SOFT = 'rgba(255, 94, 32, .07)'   // fond de ligne survolée
 
-/* Routes qui déclenchent la variante « produit » du header
-   (bandeau orange, retour + menu + logo + compte + panier). */
+/* Routes qui déclenchent la variante « produit » du header. */
 const PRODUCT_ROUTES = ['/produit/:id']
 
 export function useIsProductRoute() {
@@ -43,10 +40,16 @@ export default function MobileHeader() {
     setShowDropdown(false)
     if (text.trim()) navigate(`/search?q=${encodeURIComponent(text)}`)
   }
+
+  // produit → fiche, complétion/catégorie → /search
+  const onSelectItem = (item) => {
+    setShowDropdown(false)
+    if (item?.to) navigate(item.to)
+  }
+
   const open = showDropdown && suggestions.length > 0
 
-  /* Hauteur du spacer : la variante produit empile une rangée d'icônes
-     (52) puis la barre de recherche (52) ; la variante normale tient sur 56. */
+  /* Hauteur du spacer. */
   const spacerH = isProduct ? 104 : 56
 
   // ── Champ de recherche, partagé par les deux variantes ──
@@ -63,7 +66,7 @@ export default function MobileHeader() {
         <input value={query} onChange={e => setQuery(e.target.value)}
           onFocus={() => { if (suggestions.length) setShowDropdown(true) }}
           onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
-          onKeyDown={e => handleKeyDown(e, goToSearch)}
+          onKeyDown={e => handleKeyDown(e, onSelectItem)}
           placeholder="Rechercher…"
           style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', fontSize: 14, background: 'transparent', color: '#0F1419' }} />
 
@@ -84,35 +87,17 @@ export default function MobileHeader() {
 
       {open && (
         <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, background: '#fff', border: '1px solid #E8EAED', borderRadius: 14, boxShadow: '0 12px 32px rgba(0,0,0,.14)', overflow: 'hidden', zIndex: 2500 }}>
-          {isRecent && hasRecent && (
-            <div style={{ display: 'flex', alignItems: 'center', padding: '10px 16px 4px' }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: '#9AA3AE', textTransform: 'uppercase', letterSpacing: '.5px' }}>Recherches récentes</span>
-              <div style={{ flex: 1 }} />
-              <button type="button" onMouseDown={e => e.preventDefault()} onClick={clearRecent}
-                style={{ fontSize: 12, fontWeight: 600, color: ORANGE, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>Effacer</button>
-            </div>
-          )}
-          {suggestions.map((s, i) => {
-            const active = i === activeIndex
-            const stroke = active ? ORANGE : '#bbb'
-            return (
-              <div key={`${s.type}-${s.text}`}
-                onMouseDown={e => e.preventDefault()}
-                onClick={() => goToSearch(s.text)}
-                onMouseEnter={() => setActiveIndex(i)}
-                style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 16px', cursor: 'pointer', background: active ? ORANGE_SOFT : 'transparent' }}>
-                {s.type === 'recent' ? (
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
-                ) : (
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth="2" strokeLinecap="round" style={{ flexShrink: 0 }}><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
-                )}
-                <span style={{ fontSize: 14, fontWeight: 500, color: active ? ORANGE : '#333', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.text}</span>
-                {s.type === 'category' && (
-                  <span style={{ fontSize: 11, fontWeight: 600, color: '#9AA3AE', background: '#F4F5F7', padding: '3px 10px', borderRadius: 20, textTransform: 'uppercase', letterSpacing: '.4px', flexShrink: 0 }}>Catégorie</span>
-                )}
-              </div>
-            )
-          })}
+          <SearchDropdown
+            flatItems={suggestions}
+            query={query}
+            activeIndex={activeIndex}
+            setActiveIndex={setActiveIndex}
+            onSelect={onSelectItem}
+            isRecent={isRecent}
+            hasRecent={hasRecent}
+            clearRecent={clearRecent}
+            accent={ORANGE}
+          />
         </div>
       )}
     </form>

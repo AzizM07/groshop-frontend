@@ -10,7 +10,7 @@ import { useAuth } from '../context/AuthContext'
 import { orders as ordersApi } from '../lib/api'
 import { useIsMobile } from '../hooks/useIsMobile'
 
-const ORANGE='#FF4500', INK='#1A1A1A', MUTE='#7A7A7A', FAINT='#A0A0A0', LINE='#EAEAEA', SOFT='#FFF0E8', GREEN='#0E9F6E'
+const ORANGE='#FF5E00', INK='#1A1A1A', MUTE='#7A7A7A', FAINT='#A0A0A0', LINE='#EAEAEA', SOFT='#FFF0E8', GREEN='#0E9F6E'
 const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
 const CITIES = ['Tunis', 'Sfax', 'Sousse', 'Mahdia', 'Nabeul', 'Bizerte', 'Gabès', 'Monastir', 'Ariana', 'Ben Arous']
 const fmt = (n) => (Number(n) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -60,26 +60,25 @@ function useCheckout() {
   }
   const removeVoucher = () => { setApplied(null); setDiscount(0); setVoucher('') }
 
-  const placeOrder = async () => {
+const placeOrder = async () => {
     if (!address.trim()) { setError('Veuillez entrer une adresse de livraison'); return }
+    if (!selected.length) { setError('Votre panier est vide'); return }
     setPlacing(true); setError('')
     try {
-      // ⚠️ Adapte à ton endpoint réel de création de commande
-      await ordersApi.create({
-        item_ids: selected.map(i => i.id),
-        first_name: firstName.trim(),
-        last_name: lastName.trim(),
-        phone: phone.trim(),
-        address: `${address.trim()}, ${city}${zip ? ' ' + zip : ''}`,
-        city,
+      const order = await ordersApi.create({
+        items: selected.map(i => ({
+          product_id: i.product?.id || i.product_id,
+          quantity: Number(i.quantity) || 1,
+        })),
+        shipping_address: `${firstName} ${lastName} — ${phone}\n${address.trim()}, ${city}${zip ? ' ' + zip : ''}`,
+        payment_method: 'cod',           // paiement à la livraison
         notes: notes.trim(),
-        shipping_method: shipping === 1 ? 'express' : 'standard',
-        voucher: applied || null,
       })
       clear()
-      navigate('/dashboard/commandes')
+      navigate('/commande-confirmee', { state: { orderId: order?.id, total } })
     } catch (e) {
-      setError("Impossible de passer la commande. Réessayez.")
+      console.error('placeOrder error:', e)
+      setError(e?.message || "Impossible de passer la commande. Réessayez.")
     } finally {
       setPlacing(false)
     }

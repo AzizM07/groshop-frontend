@@ -11,7 +11,7 @@ import { orders as ordersApi, store as storeApi, products as productsApi } from 
 import Footer from '../components/Footer'
 import { useIsMobile } from '../hooks/useIsMobile'
 import MobileAccount from '../components/MobileAccount'
-const ORANGE = '#FF4500'
+const ORANGE = '#FF5E00'
 const INK    = '#0F1419'
 const MUTE   = '#6B7785'
 const FAINT  = '#9AA3AE'

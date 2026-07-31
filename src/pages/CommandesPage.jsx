@@ -18,7 +18,7 @@ import { MessageSquare, ChevronRight, Package, Copy, Check } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { orders as ordersApi, messaging } from '../lib/api'
 
-const ORANGE = '#FF4500'
+const ORANGE = '#FF5E00'
 const INK    = '#0F1419'
 const MUTE   = '#6B7785'
 const FAINT  = '#9AA3AE'

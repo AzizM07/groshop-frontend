@@ -10,10 +10,10 @@ import AdSlot from '../components/AdSlot'
 import PopularCategoriesMobile from '../components/PopularCategoriesMobile'
 import SearchCategoryBannerMobile from '../components/SearchCategoryBannerMobile'
 const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
-const HEADER_H = 56  // hauteur du MobileHeader fixe — les onglets se collent dessous
+const HEADER_H = 56
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
-/* ══════════════ Grille MASONRY 2 colonnes (façon Flutter left/right) ══════════════ */
+/* ══════════════ Grille MASONRY 2 colonnes ══════════════ */
 function MasonryProducts({ items = [], loading = false, adEvery = 6, gap = 8 }) {
   if (loading) {
     const cols = [[], []]
@@ -50,10 +50,10 @@ function MasonryProducts({ items = [], loading = false, adEvery = 6, gap = 8 }) 
   )
 }
 
-/* ══════════════ Onglets sticky sous la barre de recherche ══════════════ */
+/* ══════════════ Onglets sticky ══════════════ */
 function StickyTabs({ cats }) {
   const [params] = useSearchParams()
-  const active = params.get('cat')  // null sur "Pour vous"
+  const active = params.get('cat')
 
   const tabs = [
     { id: null, name: 'Pour vous', to: '/' },
@@ -86,7 +86,7 @@ function StickyTabs({ cats }) {
   )
 }
 
-/* ══════════════ HeroGrid — version mobile (slider d'images) ══════════════ */
+/* ══════════════ HeroGrid mobile ══════════════ */
 function MobileHeroGrid() {
   const [slides, setSlides] = useState([])
   const [i, setI] = useState(0)
@@ -147,27 +147,37 @@ function MobileCategory({ cats, catId, items, loading }) {
   const selected = cats.find(c => String(c.id) === String(catId))
   const subs = selected?.children || []
   const [activeSub, setActiveSub] = useState('all')
-  const [banner, setBanner] = useState(null)   // { image_url, link } — via endpoint, comme desktop
+  const [banner, setBanner] = useState(null)
 
-  // Sous-catégorie active (null quand "Tout")
   const activeSubCat = activeSub !== 'all'
     ? subs.find(s => String(s.id) === String(activeSub))
     : null
 
-  // Réinitialise le filtre quand on change de grande catégorie
   useEffect(() => { setActiveSub('all') }, [catId])
 
-  // Bannière : même source que SearchPage → productsApi.categoryBanner(nom)
-  // Cible = la sous-catégorie active si présente, sinon la grande catégorie
-  const bannerName = activeSubCat?.name || selected?.name || ''
+  // Cible = sous-cat active sinon grande cat
+  const target = activeSubCat || selected
+
   useEffect(() => {
-    if (!bannerName || typeof productsApi.categoryBanner !== 'function') { setBanner(null); return }
     let alive = true
-    productsApi.categoryBanner(bannerName)
-      .then(d => { if (alive) setBanner(d?.banner || null) })
-      .catch(() => { if (alive) setBanner(null) })
+    setBanner(null)
+    if (!target) return
+
+    // 1) Si l'objet catégorie porte déjà banner_url (serializer) → direct, sans requête
+    if (target.banner_url) {
+      setBanner({ image_url: target.banner_url, link: target.banner_link || null })
+      return
+    }
+    // 2) Sinon endpoint par nom (exactement comme SearchPage)
+    if (typeof productsApi.categoryBanner !== 'function' || !target.name) return
+    productsApi.categoryBanner(target.name)
+      .then(d => {
+        console.log('[banner]', target.name, '→', d)   // ← retire après debug
+        if (alive) setBanner(d?.banner || null)
+      })
+      .catch((e) => { console.warn('[banner] erreur', e); if (alive) setBanner(null) })
     return () => { alive = false }
-  }, [bannerName])
+  }, [target?.id, target?.name, target?.banner_url])
 
   const goLink = (l) => {
     if (!l) return
@@ -193,7 +203,7 @@ function MobileCategory({ cats, catId, items, loading }) {
         ))}
       </div>
 
-      {/* Bannière GRANDE CATÉGORIE : à sa place, seulement si aucune sous-cat active */}
+      {/* Bannière GRANDE CATÉGORIE : à sa place, si aucune sous-cat active */}
       {!activeSubCat && (
         banner?.image_url ? (
           <div style={{ padding: '4px 12px 0' }}>
@@ -219,7 +229,7 @@ function MobileCategory({ cats, catId, items, loading }) {
         <span style={{ color: '#8A94A0', fontSize: 18 }}>›</span>
       </div>
 
-      {/* Chips de filtres (All + sous-catégories) */}
+      {/* Chips de filtres */}
       <div style={{ display: 'flex', gap: 10, overflowX: 'auto', padding: '0 12px 14px', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
         <FilterChip label="Tout" active={activeSub === 'all'} onClick={() => setActiveSub('all')} />
         {subs.map(s => (
@@ -227,7 +237,7 @@ function MobileCategory({ cats, catId, items, loading }) {
         ))}
       </div>
 
-      {/* Grille produits — MASONRY 2 colonnes */}
+      {/* Grille produits */}
       <div style={{ padding: '0 12px 24px' }}>
         <MasonryProducts items={items} loading={loading} />
       </div>
@@ -270,52 +280,18 @@ function FilterChip({ label, active, onClick }) {
   )
 }
 
-/* ═══════════════════════ FEED "POUR VOUS" (accueil) ═══════════════════════ */
-const ICONS = {
-  tag:   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>,
-  new:   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 14.2 8.6 21 9 15.5 13.2 17.5 20 12 16 6.5 20 8.5 13.2 3 9 9.8 8.6 12 2"/></svg>,
-  quote: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>,
-  shield:<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>,
-}
-const SHORTCUTS = [
-  { label: 'Meilleures offres', to: '/produits', bg: '#FFF0E9', color: '#FF4500', icon: 'tag' },
-  { label: 'Nouveautés',        to: '/produits', bg: '#EAF7F0', color: '#0F9D58', icon: 'new' },
-  { label: 'Demander un devis', to: '/devis',    bg: '#EAF0FE', color: '#1668FF', icon: 'quote' },
-  { label: 'Vérifiés',          to: '/produits', bg: '#F3EAFE', color: '#7C3AED', icon: 'shield' },
-]
-function Shortcuts() {
-  return (
-    <div style={{ display: 'flex', gap: 6, overflowX: 'auto', padding: '14px 12px 4px', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
-      {SHORTCUTS.map(s => (
-        <Link key={s.label} to={s.to} style={{ flex: '0 0 72px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
-          <span style={{ width: 48, height: 48, borderRadius: '50%', background: s.bg, color: s.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{ICONS[s.icon]}</span>
-          <span style={{ fontSize: 11, color: '#3D4853', textAlign: 'center', lineHeight: 1.2 }}>{s.label}</span>
-        </Link>
-      ))}
-    </div>
-  )
-}
-
-/* ── Feed accueil : calqué sur le desktop, sections en version mobile ── */
+/* ═══════════════════════ FEED "POUR VOUS" ═══════════════════════ */
+const SHORTCUTS = []
 function HomeFeed({ items, trending, loading, error, isPersonalized }) {
   return (
     <>
-      {/*<Shortcuts />*/}
-
-      {/* HeroGrid mobile (images du hero) */}
       <MobileHeroGrid />
-
-      {/* Catégories populaires — comme desktop */}
       <PopularCategoriesMobile />
-
-      {/* Tendances 48h — CategorySection choisit la variante mobile via useIsMobile */}
       {trending.length > 0 && (
         <div style={{ padding: '8px 0 0' }}>
           <CategorySection products={trending} />
         </div>
       )}
-
-      {/* Produits recommandés — MASONRY 2 colonnes */}
       <div style={{ padding: '16px 12px 24px' }}>
         <h2 style={{ margin: '0 0 12px', fontSize: 15, fontWeight: 700, color: '#0F1419' }}>
           {isPersonalized ? 'Recommandé pour vous' : 'Produits recommandés'}
@@ -323,7 +299,6 @@ function HomeFeed({ items, trending, loading, error, isPersonalized }) {
         {error && <div style={{ color: '#D32F2F', fontSize: 13, marginBottom: 12 }}>{error}</div>}
         <MasonryProducts items={items} loading={loading} />
       </div>
-
       <Footer />
     </>
   )

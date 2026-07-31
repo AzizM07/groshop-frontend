@@ -1,6 +1,6 @@
 // src/components/MobileHome.jsx
 import { useState, useEffect } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams, useNavigate } from 'react-router-dom'
 import { products as productsApi } from '../lib/api'
 import ProductCard from '../components/ProductCard'
 import CategorySection from '../components/CategorySection'
@@ -8,17 +8,13 @@ import PopularCategories from '../components/PopularCategories'
 import Footer from '../components/Footer'
 import AdSlot from '../components/AdSlot'
 import PopularCategoriesMobile from '../components/PopularCategoriesMobile'
+import SearchCategoryBannerMobile from '../components/SearchCategoryBannerMobile'
 const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
 const HEADER_H = 56  // hauteur du MobileHeader fixe — les onglets se collent dessous
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 /* ══════════════ Grille MASONRY 2 colonnes (façon Flutter left/right) ══════════════ */
-// Deux colonnes flex INDÉPENDANTES : chaque carte s'empile sous la précédente
-// dans sa colonne, sans s'aligner sur l'autre colonne (pas de rangées CSS).
-// Items répartis en alternance (pair → gauche, impair → droite), pubs insérées
-// tous les 6 produits comme dans ProductsSection.dart.
 function MasonryProducts({ items = [], loading = false, adEvery = 6, gap = 8 }) {
-  // Skeletons pendant le chargement, eux aussi en 2 colonnes
   if (loading) {
     const cols = [[], []]
     for (let i = 0; i < 8; i++) cols[i % 2].push(i)
@@ -33,13 +29,11 @@ function MasonryProducts({ items = [], loading = false, adEvery = 6, gap = 8 }) 
     )
   }
 
-  // 1) flux produits + pubs entrelacées
   const stream = []
   items.forEach((p, i) => {
     stream.push({ kind: 'product', data: p })
     if (adEvery && (i + 1) % adEvery === 0) stream.push({ kind: 'ad', at: i })
   })
-  // 2) répartition alternée gauche/droite (comme i % 2 en Flutter)
   const cols = [[], []]
   stream.forEach((it, idx) => cols[idx % 2].push(it))
 
@@ -93,8 +87,6 @@ function StickyTabs({ cats }) {
 }
 
 /* ══════════════ HeroGrid — version mobile (slider d'images) ══════════════ */
-// Prend les mêmes images que le HeroGrid desktop : bannières des zones
-// hero_slider + side_card (via /api/banners/active/). Aucun fallback codé en dur.
 function MobileHeroGrid() {
   const [slides, setSlides] = useState([])
   const [i, setI] = useState(0)
@@ -151,32 +143,75 @@ function MobileHeroGrid() {
 
 /* ══════════════════════ VUE CATÉGORIE (?cat=<id>) ══════════════════════ */
 function MobileCategory({ cats, catId, items, loading }) {
+  const navigate = useNavigate()
   const selected = cats.find(c => String(c.id) === String(catId))
   const subs = selected?.children || []
   const [activeSub, setActiveSub] = useState('all')
+  const [banner, setBanner] = useState(null)   // { image_url, link } — via endpoint, comme desktop
+
+  // Sous-catégorie active (null quand "Tout")
+  const activeSubCat = activeSub !== 'all'
+    ? subs.find(s => String(s.id) === String(activeSub))
+    : null
+
+  // Réinitialise le filtre quand on change de grande catégorie
+  useEffect(() => { setActiveSub('all') }, [catId])
+
+  // Bannière : même source que SearchPage → productsApi.categoryBanner(nom)
+  // Cible = la sous-catégorie active si présente, sinon la grande catégorie
+  const bannerName = activeSubCat?.name || selected?.name || ''
+  useEffect(() => {
+    if (!bannerName || typeof productsApi.categoryBanner !== 'function') { setBanner(null); return }
+    let alive = true
+    productsApi.categoryBanner(bannerName)
+      .then(d => { if (alive) setBanner(d?.banner || null) })
+      .catch(() => { if (alive) setBanner(null) })
+    return () => { alive = false }
+  }, [bannerName])
+
+  const goLink = (l) => {
+    if (!l) return
+    if (/^https?:\/\//i.test(l)) window.open(l, '_blank', 'noopener')
+    else navigate(l)
+  }
 
   return (
     <div>
+      {/* Bannière SOUS-CATÉGORIE : tout de suite en haut */}
+      {activeSubCat && banner?.image_url && (
+        <div style={{ padding: '10px 12px 0' }}>
+          <SearchCategoryBannerMobile banner={banner} onClick={() => goLink(banner.link)} />
+        </div>
+      )}
+
       {/* Rangée d'icônes rondes de sous-catégories */}
       <div style={{ display: 'flex', gap: 14, overflowX: 'auto', padding: '14px 12px 8px', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
-        <SubIcon active label="Tout" onClick={() => setActiveSub('all')} heart />
+        <SubIcon active={activeSub === 'all'} label="Tout" onClick={() => setActiveSub('all')} heart />
         {subs.map(s => (
           <SubIcon key={s.id} label={s.name} img={s.image_url} emoji={s.emoji}
             active={activeSub === String(s.id)} onClick={() => setActiveSub(String(s.id))} />
         ))}
       </div>
 
-      {/* Bannière de catégorie */}
-      <div style={{ margin: '4px 12px 0', height: 140, borderRadius: 14, overflow: 'hidden', position: 'relative', background: 'linear-gradient(120deg, #FF6A2B, #FF4500)' }}>
-        {selected?.image_url && (
-          <img src={selected.image_url} alt="" style={{ position: 'absolute', right: 0, top: 0, height: '100%', width: '55%', objectFit: 'cover', opacity: 0.9 }} />
-        )}
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, rgba(0,0,0,.15), transparent 65%)' }} />
-        <div style={{ position: 'absolute', left: 18, top: 0, bottom: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-          <span style={{ fontSize: 22, fontWeight: 800, color: '#fff', lineHeight: 1.1, maxWidth: 200 }}>{selected?.name || 'Catégorie'}</span>
-          <span style={{ fontSize: 12, color: 'rgba(255,255,255,.9)', marginTop: 6 }}>Prix de gros · Fournisseurs vérifiés</span>
-        </div>
-      </div>
+      {/* Bannière GRANDE CATÉGORIE : à sa place, seulement si aucune sous-cat active */}
+      {!activeSubCat && (
+        banner?.image_url ? (
+          <div style={{ padding: '4px 12px 0' }}>
+            <SearchCategoryBannerMobile banner={banner} onClick={() => goLink(banner.link)} />
+          </div>
+        ) : (
+          <div style={{ margin: '4px 12px 0', height: 140, borderRadius: 14, overflow: 'hidden', position: 'relative', background: 'linear-gradient(120deg, #FF6A2B, #FF4500)' }}>
+            {selected?.image_url && (
+              <img src={selected.image_url} alt="" style={{ position: 'absolute', right: 0, top: 0, height: '100%', width: '55%', objectFit: 'cover', opacity: 0.9 }} />
+            )}
+            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, rgba(0,0,0,.15), transparent 65%)' }} />
+            <div style={{ position: 'absolute', left: 18, top: 0, bottom: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+              <span style={{ fontSize: 22, fontWeight: 800, color: '#fff', lineHeight: 1.1, maxWidth: 200 }}>{selected?.name || 'Catégorie'}</span>
+              <span style={{ fontSize: 12, color: 'rgba(255,255,255,.9)', marginTop: 6 }}>Prix de gros · Fournisseurs vérifiés</span>
+            </div>
+          </div>
+        )
+      )}
 
       {/* Titre "Offres du jour" */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '18px 12px 12px' }}>

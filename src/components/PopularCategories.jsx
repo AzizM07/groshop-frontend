@@ -73,9 +73,7 @@ function CatIcon({ name, size = 44, color = '#6B7280' }) {
 //    (le backend renvoie souvent les images sur les subs, pas sur les cats)
 // 3) null → on affichera <CatIcon> (icône Lucide ou Grid par défaut)
 function pickImage(cat) {
-  if (cat.image_url) return cat.image_url
-  const firstWithImg = cat.children?.find(c => c && c.image_url)
-  return firstWithImg?.image_url || null
+  return cat.image_url || null
 }
 
 // ── Squelette pendant le chargement ───────────────────────────
@@ -249,11 +247,14 @@ export default function PopularCategories({ limit = 20 }) {
 
   // Ajuste la route ici si ton router utilise autre chose
   // (par ex. `/produits?category=${cat.slug}` ou `/c/${cat.slug}`).
-  const goTo = (cat) => {
-    navigate(`/categories/${cat.slug || cat.id}`)
+// Tap sur une sous-catégorie → recherche par son nom
+  const goTo = (sub) => {
+    navigate(`/search?q=${encodeURIComponent(sub.name)}`)
   }
 
-  const displayed = categories.slice(0, limit)
+  // Sous-catégories = enfants aplatis de toutes les grandes catégories
+  const subcategories = categories.flatMap(c => c.children || [])
+  const displayed = subcategories.slice(0, limit)
 
   return (
     <section style={{

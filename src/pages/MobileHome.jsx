@@ -204,24 +204,10 @@ function MobileCategory({ cats, catId, items, loading }) {
       </div>
 
       {/* Bannière GRANDE CATÉGORIE : à sa place, si aucune sous-cat active */}
-      {!activeSubCat && (
-        banner?.image_url ? (
           <div style={{ padding: '4px 12px 0' }}>
             <SearchCategoryBannerMobile banner={banner} onClick={() => goLink(banner.link)} />
           </div>
-        ) : (
-          <div style={{ margin: '4px 12px 0', height: 140, borderRadius: 14, overflow: 'hidden', position: 'relative', background: 'linear-gradient(120deg, #FF6A2B, #FF4500)' }}>
-            {selected?.image_url && (
-              <img src={selected.image_url} alt="" style={{ position: 'absolute', right: 0, top: 0, height: '100%', width: '55%', objectFit: 'cover', opacity: 0.9 }} />
-            )}
-            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, rgba(0,0,0,.15), transparent 65%)' }} />
-            <div style={{ position: 'absolute', left: 18, top: 0, bottom: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-              <span style={{ fontSize: 22, fontWeight: 800, color: '#fff', lineHeight: 1.1, maxWidth: 200 }}>{selected?.name || 'Catégorie'}</span>
-              <span style={{ fontSize: 12, color: 'rgba(255,255,255,.9)', marginTop: 6 }}>Prix de gros · Fournisseurs vérifiés</span>
-            </div>
-          </div>
-        )
-      )}
+
 
       {/* Titre "Offres du jour" */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '18px 12px 12px' }}>

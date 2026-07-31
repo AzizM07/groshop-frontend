@@ -15,6 +15,7 @@
     "@supabase/supabase-js": "^2.101.1",
     "d3-geo": "^3.1.1",
     "d3-scale": "^4.0.2",
+    "firebase": "^12.17.0",
     "lottie-react": "^2.4.1",
     "lucide-react": "^1.17.0",
     "ogl": "^1.0.11",

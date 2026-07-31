@@ -5,8 +5,11 @@ import { useState, useEffect, useMemo } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { products as productsApi } from '../lib/api'
 import { usePageTracking } from '../hooks/usePageTracking'
+import { useIsMobile } from '../hooks/useIsMobile'
 import ProductCard from '../components/ProductCard'
 import Footer from '../components/Footer'
+import SearchCategoryBannerDesktop from '../components/SearchCategoryBannerDesktop'
+import SearchCategoryBannerMobile from '../components/SearchCategoryBannerMobile'
 
 const LAYOUT = { maxWidth: '1500px', padding: '0 2%' }
 
@@ -103,6 +106,7 @@ export default function SearchPage() {
   const [params]  = useSearchParams()
   const query     = params.get('q') || ''
   const navigate  = useNavigate()
+  const isMobile  = useIsMobile()
 
   const [results, setResults] = useState([])
   const [total, setTotal]     = useState(0)
@@ -177,8 +181,12 @@ export default function SearchPage() {
     <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif' }}>
       <Container style={{ paddingTop: '1.5rem', paddingBottom: '3rem' }}>
 
-        {/* ── Bannière de catégorie (si le terme matche une catégorie) ── */}
-        {query && banner && <CategoryBanner banner={banner} onClick={goBannerLink} />}
+        {/* ── Bannière de catégorie (1/4 de page) — Desktop ou Mobile ── */}
+        {query && banner && (
+          isMobile
+            ? <SearchCategoryBannerMobile  banner={banner} onClick={goBannerLink} />
+            : <SearchCategoryBannerDesktop banner={banner} onClick={goBannerLink} />
+        )}
 
         {/* ── Nombre de résultats (plus de fil d'Ariane ni de gros titre) ── */}
         {!loading && query && (
@@ -270,24 +278,6 @@ const catItem = (active) => ({
   fontFamily: 'inherit',
   flexShrink: 0,
 })
-
-/* ── Bannière de catégorie : image seule, cliquable ── */
-function CategoryBanner({ banner, onClick }) {
-  if (!banner?.image_url) return null
-  const clickable = !!banner.link
-  return (
-    <div
-      className="gs-cat-banner"
-      onClick={clickable ? onClick : undefined}
-      style={{
-        marginBottom: 18, borderRadius: 12, overflow: 'hidden',
-        border: '1px solid #EEF0F2', cursor: clickable ? 'pointer' : 'default',
-      }}
-    >
-      <img src={banner.image_url} alt="" style={{ width: '100%', height: 'auto', display: 'block' }} />
-    </div>
-  )
-}
 
 function EmptyState({ icon, title, text }) {
   return (

@@ -382,21 +382,13 @@ export const messaging = {
 }
 
 // ── Notifications ─────────────────────────────────────────────────
-
 export const notifications = {
-
-  async list(unreadOnly = false) {
-    return request(`/notifications/?unread=${unreadOnly}`)
-  },
-
-  async markRead(id) {
-    return request(`/notifications/${id}/read/`, { method: 'POST' })
-  },
-
-  async markAllRead() {
-    return request('/notifications/read-all/', { method: 'POST' })
-  },
+  registerToken: (token, platform = 'web') =>
+    request('/notifications/register/', { method: 'POST', body: JSON.stringify({ token, platform }) }),
+  unregister: (token) =>
+    request('/notifications/unregister/', { method: 'POST', body: JSON.stringify({ token }) }),
 }
+ 
 
 // ── Store (recherche, etc.) ───────────────────────────────────────
 

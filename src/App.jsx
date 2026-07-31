@@ -1,6 +1,6 @@
 // src/App.jsx
 
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+
 import { AuthProvider } from './context/AuthContext'
 import { CartProvider } from './context/CartContext'
 import { useAuth } from './context/AuthContext'
@@ -41,6 +41,11 @@ import AddProductPage from './pages/AddProductPage'
 import RequireAuth from './router/RequireAuth'
 import MobileCategoriesPage from './pages/MobileCategoriesPage'
 import CheckoutPage from './pages/CheckoutPage'
+import { requestPushToken, onForegroundMessage } from './lib/firebase'
+import { notifications } from './lib/api'
+import { useEffect } from 'react'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+ 
 const NO_LAYOUT   = ['/login', '/signup', '/pending', '/supplier', '/dashboard', '/categories', '/checkout']
 const FOOTER_ONLY = ['/devenir-fournisseur']
 
@@ -59,7 +64,15 @@ function DashSoon() {
 function AppContent() {
   const location    = useLocation()
   const { user, loading: authLoading } = useAuth()
-
+  useEffect(() => {
+  ;(async () => {
+    const token = await requestPushToken()
+    if (token) await notifications.registerToken(token)
+  })()
+  onForegroundMessage((payload) => {
+    console.log('Push (foreground):', payload)
+  })
+}, [])
   // ⭐ Un compte = un rôle. Le fournisseur n'a accès qu'à son dashboard.
   //    /produit/:id reste public (SEO + prévisualisation de ses fiches).
   const BUYER_PATHS = ['/', '/search', '/panier']

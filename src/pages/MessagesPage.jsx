@@ -1,14 +1,15 @@
 // pages/MessagesPage.jsx — GROSHOP.tn
-// Messagerie acheteur : liste des conversations + fil de discussion.
-// Rendu DANS la coque DashboardLayout (/dashboard/messages) : remplit la zone de contenu.
+// Messagerie acheteur : liste + fil, branchée au hook useMessaging
+// (polling intelligent + accusés de lecture double coche).
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Search, Send, Store, ArrowLeft, Package, AlertCircle } from 'lucide-react'
-import { messaging } from '../lib/api'
+import { Search, Send, Store, ArrowLeft, Package, AlertCircle, Check, CheckCheck } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useIsMobile } from '../hooks/useIsMobile'
+import { useMessaging } from '../hooks/useMessaging'
 import MobileMessages from '../components/MobileMessages'
+
 const ORANGE = '#FF4500'
 const INK    = '#0F1419'
 const MUTE   = '#6B7785'
@@ -16,6 +17,7 @@ const FAINT  = '#9AA3AE'
 const LINE   = '#E8EAED'
 const SOFT   = '#FFF0E8'
 const BG     = '#F4F5F7'
+const SEEN   = '#34B7F1'   // bleu « vu »
 const FONT   = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
 
 const fmtTime = (d) => {
@@ -31,7 +33,6 @@ const fmtTime = (d) => {
 }
 
 const CSS = `
-/* height:100% -> remplit la .gd-main de la coque (déjà calc(100vh - 64px)) */
 .msg-shell { display: grid; grid-template-columns: clamp(280px, 30vw, 380px) minmax(0,1fr); height: 100%; }
 @media (max-width: 760px) {
   .msg-shell { grid-template-columns: minmax(0,1fr); }
@@ -47,68 +48,43 @@ function MessagesPageDesktop() {
   const navigate = useNavigate()
   const { user } = useAuth()
 
-  const [convos, setConvos]   = useState(null)
   const [activeId, setActive] = useState(routeId || null)
-  const [detail, setDetail]   = useState(null)
-  const [loadingDetail, setLD] = useState(false)
   const [draft, setDraft]     = useState('')
-  const [sending, setSending] = useState(false)
-  const [sendError, setSendError] = useState('')
   const [q, setQ]             = useState('')
   const [filter, setFilter]   = useState('all')   // all | unread
 
+  const {
+    conversations, detail, messages, loadingDetail,
+    sending, sendError, send,
+  } = useMessaging(activeId)
+
   const scrollRef = useRef(null)
 
-  // ── Liste des conversations ──
-  const loadList = useCallback(() => {
-    messaging.conversations()
-      .then(d => setConvos(Array.isArray(d) ? d : (d?.results || [])))
-      .catch(() => setConvos([]))
-  }, [])
-
-  useEffect(() => { loadList() }, [loadList])
-
-  // ── Détail quand on change de conversation ──
+  // Sync URL ↔ conversation active
   useEffect(() => {
-    if (!activeId) { setDetail(null); return }
-    setLD(true)
-    messaging.conversation(activeId)
-      .then(d => { setDetail(d); setLD(false) })
-      .catch(() => { setDetail(null); setLD(false) })
-    navigate(`/dashboard/messages/${activeId}`, { replace: true })
+    if (activeId) navigate(`/dashboard/messages/${activeId}`, { replace: true })
   }, [activeId])   // eslint-disable-line
 
-  // ── Scroll en bas à chaque nouveau message ──
+  // Scroll en bas à chaque nouveau message
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-  }, [detail?.messages?.length])
+  }, [messages.length, activeId])
 
-  const send = async () => {
+  const onSend = async () => {
     const text = draft.trim()
-    if (!text || sending) return
-    setSending(true)
-    setSendError('')
-    try {
-      const msg = await messaging.sendMessage(activeId, text)
-      if (msg?.error) { setSendError(msg.error); setSending(false); return }
-      // ajoute le message localement (renvoyé complet par le backend)
-      setDetail(d => d ? { ...d, messages: [...(d.messages || []), msg] } : d)
-      setDraft('')
-      loadList()   // rafraîchit l'aperçu + ordre
-    } catch {
-      setSendError('Échec de l\'envoi. Réessayez.')
-    }
-    setSending(false)
+    if (!text) return
+    const res = await send(text)
+    if (res?.ok) setDraft('')
   }
 
-  const filtered = (convos || []).filter(c => {
+  const filtered = (conversations || []).filter(c => {
     if (filter === 'unread' && !(c.unread_count > 0)) return false
     if (!q) return true
     const hay = `${c.supplier?.name || c.supplier_name || ''} ${c.last_message?.content || ''}`.toLowerCase()
     return hay.includes(q.toLowerCase())
   })
 
-  const totalUnread = (convos || []).reduce((n, c) => n + (Number(c.unread_count) || 0), 0)
+  const totalUnread = (conversations || []).reduce((n, c) => n + (Number(c.unread_count) || 0), 0)
 
   return (
     <div style={{ background: BG, fontFamily: FONT, color: INK, height: '100%' }}>
@@ -119,7 +95,6 @@ function MessagesPageDesktop() {
         {/* ═══ LISTE ═══ */}
         <div className="msg-list" style={{ borderRight: `1px solid ${LINE}`, background: '#fff', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
 
-          {/* Recherche */}
           <div style={{ padding: '16px 16px 10px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: BG, borderRadius: 30, padding: '9px 14px' }}>
               <Search size={17} color={FAINT} />
@@ -128,7 +103,6 @@ function MessagesPageDesktop() {
             </div>
           </div>
 
-          {/* Onglets */}
           <div style={{ display: 'flex', gap: 6, padding: '0 16px 12px' }}>
             <TabBtn active={filter === 'all'}    onClick={() => setFilter('all')}>Toutes</TabBtn>
             <TabBtn active={filter === 'unread'} onClick={() => setFilter('unread')}>
@@ -136,10 +110,9 @@ function MessagesPageDesktop() {
             </TabBtn>
           </div>
 
-          {/* Conversations */}
           <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-            {convos === null && <Spinner />}
-            {convos !== null && filtered.length === 0 && (
+            {conversations === null && <Spinner />}
+            {conversations !== null && filtered.length === 0 && (
               <Empty icon="💬" text={q ? 'Aucun résultat' : 'Aucune conversation'} />
             )}
             {filtered.map(c => {
@@ -185,7 +158,6 @@ function MessagesPageDesktop() {
             </div>
           ) : (
             <>
-              {/* En-tête fil */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 20px', background: '#fff', borderBottom: `1px solid ${LINE}` }}>
                 <button onClick={() => { setActive(null); navigate('/dashboard/messages', { replace: true }) }}
                   style={{ display: 'none', background: 'none', border: 'none', cursor: 'pointer', color: INK }}
@@ -203,20 +175,18 @@ function MessagesPageDesktop() {
                 </div>
               </div>
 
-              {/* Contexte produit */}
               {detail?.product_name && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', background: '#FFFBF5', borderBottom: `1px solid ${LINE}`, fontSize: 12.5, color: MUTE }}>
                   <Package size={15} color={ORANGE} /> À propos de : <strong style={{ color: INK }}>{detail.product_name}</strong>
                 </div>
               )}
 
-              {/* Messages */}
               <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '20px', minHeight: 0 }}>
                 {loadingDetail && <Spinner />}
-                {!loadingDetail && (detail?.messages || []).length === 0 && (
+                {!loadingDetail && messages.length === 0 && (
                   <Empty icon="✍️" text="Aucun message. Écrivez le premier." />
                 )}
-                {!loadingDetail && (detail?.messages || []).map(m => {
+                {!loadingDetail && messages.map(m => {
                   const mine = String(m.sender_id) === String(user?.id)
                   return (
                     <div key={m.id} style={{ display: 'flex', justifyContent: mine ? 'flex-end' : 'flex-start', marginBottom: 12 }}>
@@ -235,8 +205,11 @@ function MessagesPageDesktop() {
                             </a>
                           )}
                         </div>
-                        <div style={{ fontSize: 10.5, color: FAINT, marginTop: 3, textAlign: mine ? 'right' : 'left' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: mine ? 'flex-end' : 'flex-start', fontSize: 10.5, color: FAINT, marginTop: 3 }}>
                           {fmtTime(m.created_at)}
+                          {mine && (m.is_read
+                            ? <CheckCheck size={14} color={SEEN} strokeWidth={2.4} />
+                            : <Check size={13} color={FAINT} strokeWidth={2.4} />)}
                         </div>
                       </div>
                     </div>
@@ -244,19 +217,17 @@ function MessagesPageDesktop() {
                 })}
               </div>
 
-              {/* Erreur d'envoi (ex: filtre anti-contournement) */}
               {sendError && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 20px', background: '#FEF2F2', color: '#B91C1C', fontSize: 12.5 }}>
                   <AlertCircle size={15} /> {sendError}
                 </div>
               )}
 
-              {/* Saisie */}
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, padding: '14px 20px', background: '#fff', borderTop: `1px solid ${LINE}` }}>
                 <textarea
                   value={draft}
                   onChange={e => setDraft(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
+                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend() } }}
                   placeholder="Écrivez votre message…"
                   rows={1}
                   style={{
@@ -264,7 +235,7 @@ function MessagesPageDesktop() {
                     padding: '10px 16px', fontSize: 14, fontFamily: FONT, outline: 'none', color: INK,
                     lineHeight: 1.4,
                   }} />
-                <button onClick={send} disabled={!draft.trim() || sending}
+                <button onClick={onSend} disabled={!draft.trim() || sending}
                   style={{
                     width: 44, height: 44, borderRadius: '50%', border: 'none', flexShrink: 0,
                     background: draft.trim() && !sending ? ORANGE : '#DDD', color: '#fff',
@@ -332,6 +303,7 @@ function Empty({ icon, text }) {
     </div>
   )
 }
+
 export default function MessagesPage() {
   const isMobile = useIsMobile()
   return isMobile ? <MobileMessages /> : <MessagesPageDesktop />

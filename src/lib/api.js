@@ -357,22 +357,35 @@ export const analytics = {
 // ── Messaging ─────────────────────────────────────────────────────
 
 export const messaging = {
-
+ 
   async conversations() {
     return request('/messaging/')
   },
-
+ 
   async conversation(id) {
     return request(`/messaging/${id}/`)
   },
-
+ 
+  // Poll incrémental : ne renvoie que le nouveau depuis `after` (+ accusés de lecture).
+  async poll(id, { after = null, markRead = true } = {}) {
+    const q = new URLSearchParams()
+    if (after) q.set('after', after)
+    q.set('mark_read', markRead ? '1' : '0')
+    return request(`/messaging/${id}/poll/?${q.toString()}`)
+  },
+ 
+  // Compteur global de non-lus (badge de navigation).
+  async unreadCount() {
+    return request('/messaging/unread-count/')
+  },
+ 
   async startConversation(supplierSlug, productId = null) {
     return request(`/messaging/start/${supplierSlug}/`, {
       method: 'POST',
       body: JSON.stringify({ product_id: productId }),
     })
   },
-
+ 
   async sendMessage(conversationId, content, attachmentUrl = '') {
     return request(`/messaging/${conversationId}/send/`, {
       method: 'POST',
@@ -380,7 +393,6 @@ export const messaging = {
     })
   },
 }
-
 // ── Notifications ─────────────────────────────────────────────────
 export const notifications = {
   registerToken: (token, platform = 'web') =>

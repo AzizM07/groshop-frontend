@@ -1,11 +1,15 @@
-// src/components/MobileMessages.jsx
-import { useState, useEffect, useRef, useCallback } from 'react'
+// src/components/MobileMessages.jsx — GROSHOP.tn
+// Messagerie acheteur (mobile) — branchée au hook useMessaging
+// (polling intelligent + accusés de lecture double coche).
+
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Search, Send, Store, ArrowLeft } from 'lucide-react'
-import { messaging } from '../lib/api'
+import { Search, Send, Store, ArrowLeft, AlertCircle, Check, CheckCheck } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import { useMessaging } from '../hooks/useMessaging'
 
 const ORANGE='#FF4500', INK='#0F1419', MUTE='#6B7785', FAINT='#9AA3AE', LINE='#E8EAED', SOFT='#FFF0E8', BG='#F4F5F7'
+const SEEN='#34B7F1'
 const FONT='-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
 const NAV_H = 'calc(56px + env(safe-area-inset-bottom))'
 
@@ -17,46 +21,34 @@ export default function MobileMessages() {
   const navigate = useNavigate()
   const { user } = useAuth()
 
-  const [convos, setConvos] = useState(null)
-  const [detail, setDetail] = useState(null)
-  const [loadingDetail, setLD] = useState(false)
+  const activeId = routeId || null
+  const {
+    conversations, detail, messages, loadingDetail,
+    sending, sendError, send,
+  } = useMessaging(activeId)
+
   const [draft, setDraft] = useState('')
-  const [sending, setSending] = useState(false)
   const [q, setQ] = useState('')
   const [filter, setFilter] = useState('all')
   const scrollRef = useRef(null)
-  const activeId = routeId || null
-
-  const loadList = useCallback(() => {
-    messaging.conversations().then(d => setConvos(Array.isArray(d) ? d : (d?.results || []))).catch(() => setConvos([]))
-  }, [])
-  useEffect(() => { loadList() }, [loadList])
 
   useEffect(() => {
-    if (!activeId) { setDetail(null); return }
-    setLD(true)
-    messaging.conversation(activeId).then(d => { setDetail(d); setLD(false) }).catch(() => { setDetail(null); setLD(false) })
-  }, [activeId])
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+  }, [messages.length, activeId])
 
-  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, [detail?.messages?.length])
-
-  const send = async () => {
-    const text = draft.trim(); if (!text || sending) return
-    setSending(true)
-    try {
-      const msg = await messaging.sendMessage(activeId, text)
-      if (!msg?.error) { setDetail(d => d ? { ...d, messages: [...(d.messages || []), msg] } : d); setDraft(''); loadList() }
-    } catch { /* ignore */ }
-    setSending(false)
+  const onSend = async () => {
+    const text = draft.trim(); if (!text) return
+    const res = await send(text)
+    if (res?.ok) setDraft('')
   }
 
-  const filtered = (convos || []).filter(c => {
+  const filtered = (conversations || []).filter(c => {
     if (filter === 'unread' && !(c.unread_count > 0)) return false
     if (!q) return true
     const hay = `${c.supplier?.name || c.supplier_name || ''} ${c.last_message?.content || ''}`.toLowerCase()
     return hay.includes(q.toLowerCase())
   })
-  const totalUnread = (convos || []).reduce((n, c) => n + (Number(c.unread_count) || 0), 0)
+  const totalUnread = (conversations || []).reduce((n, c) => n + (Number(c.unread_count) || 0), 0)
 
   // ══ FIL (une conversation ouverte) ══
   if (activeId) {
@@ -74,23 +66,34 @@ export default function MobileMessages() {
 
         <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: 16, minHeight: 0 }}>
           {loadingDetail && <Spinner />}
-          {!loadingDetail && (detail?.messages || []).map(m => {
+          {!loadingDetail && messages.map(m => {
             const mine = String(m.sender_id) === String(user?.id)
             return (
               <div key={m.id} style={{ display: 'flex', justifyContent: mine ? 'flex-end' : 'flex-start', marginBottom: 10 }}>
                 <div style={{ maxWidth: '76%' }}>
                   <div style={{ padding: '10px 13px', borderRadius: mine ? '16px 16px 4px 16px' : '16px 16px 16px 4px', background: mine ? ORANGE : '#fff', color: mine ? '#fff' : INK, border: mine ? 'none' : `1px solid ${LINE}`, fontSize: 14, lineHeight: 1.45, wordBreak: 'break-word' }}>{m.content}</div>
-                  <div style={{ fontSize: 10.5, color: FAINT, marginTop: 3, textAlign: mine ? 'right' : 'left' }}>{fmtTime(m.created_at)}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: mine ? 'flex-end' : 'flex-start', fontSize: 10.5, color: FAINT, marginTop: 3 }}>
+                    {fmtTime(m.created_at)}
+                    {mine && (m.is_read
+                      ? <CheckCheck size={14} color={SEEN} strokeWidth={2.4} />
+                      : <Check size={13} color={FAINT} strokeWidth={2.4} />)}
+                  </div>
                 </div>
               </div>
             )
           })}
         </div>
 
+        {sendError && (
+          <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', background: '#FEF2F2', color: '#B91C1C', fontSize: 12.5 }}>
+            <AlertCircle size={15} /> {sendError}
+          </div>
+        )}
+
         <div style={{ flexShrink: 0, display: 'flex', alignItems: 'flex-end', gap: 8, padding: '10px 12px', background: '#fff', borderTop: `1px solid ${LINE}` }}>
-          <textarea value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }} placeholder="Écrivez votre message…" rows={1}
+          <textarea value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend() } }} placeholder="Écrivez votre message…" rows={1}
             style={{ flex: 1, resize: 'none', maxHeight: 110, border: `1px solid ${LINE}`, borderRadius: 20, padding: '10px 14px', fontSize: 14, fontFamily: FONT, outline: 'none', color: INK, lineHeight: 1.4 }} />
-          <button onClick={send} disabled={!draft.trim() || sending} style={{ width: 42, height: 42, borderRadius: '50%', border: 'none', flexShrink: 0, background: draft.trim() && !sending ? ORANGE : '#DDD', color: '#fff', cursor: draft.trim() && !sending ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Send size={18} /></button>
+          <button onClick={onSend} disabled={!draft.trim() || sending} style={{ width: 42, height: 42, borderRadius: '50%', border: 'none', flexShrink: 0, background: draft.trim() && !sending ? ORANGE : '#DDD', color: '#fff', cursor: draft.trim() && !sending ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Send size={18} /></button>
         </div>
       </div>
     )
@@ -114,8 +117,8 @@ export default function MobileMessages() {
       </div>
 
       <div style={{ paddingBottom: NAV_H }}>
-        {convos === null && <Spinner />}
-        {convos !== null && filtered.length === 0 && <Empty icon="💬" text={q ? 'Aucun résultat' : 'Aucune conversation'} />}
+        {conversations === null && <Spinner />}
+        {conversations !== null && filtered.length === 0 && <Empty icon="💬" text={q ? 'Aucun résultat' : 'Aucune conversation'} />}
         {filtered.map(c => {
           const name = c.supplier?.name || c.supplier_name || 'Fournisseur'
           const company = c.supplier?.company || c.supplier_company || ''

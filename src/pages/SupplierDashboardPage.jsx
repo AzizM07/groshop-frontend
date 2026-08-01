@@ -610,87 +610,101 @@ function VisitorsChart({ stats, loading }) {
 // VUES PRODUITS — cette semaine vs semaine dernière (réel)
 // ═══════════════════════════════════════════════════════════════════
 function ProductViewsChart({ stats, loading }) {
-  const data = useMemo(() => {
-    const src = stats?.product_views_by_day || []
-    const map = Object.fromEntries(src.map(r => [r.date, r.views]))
-    const key = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-    const now = new Date()
-    const out = []
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(now); d.setDate(d.getDate() - i)
-      const p = new Date(now); p.setDate(p.getDate() - i - 7)
-      out.push({ day: DAY_LABELS[d.getDay()], thisWeek: map[key(d)] ?? 0, lastWeek: map[key(p)] ?? 0 })
-    }
-    return out
-  }, [stats])
-
-  const hasData = data.some(d => d.thisWeek > 0 || d.lastWeek > 0)
-  const W = 380, H = 240
-  const padding = { top: 20, bottom: 30, left: 40, right: 12 }
-  const chartW = W - padding.left - padding.right
-  const chartH = H - padding.top - padding.bottom
-  const barWidth = 9, barGap = 3
-
-  const rawMax   = Math.max(...data.map(d => Math.max(d.thisWeek, d.lastWeek)), 1)
-  const maxValue = Math.ceil(rawMax / 5 / 10) * 10 * 5 || 5
-  const yTicks   = [0, 0.2, 0.4, 0.6, 0.8, 1].map(t => Math.round(maxValue * t))
-
+  const rows = stats?.product_views_ranked || []
+  const hasData = rows.length > 0
+  const maxViews = Math.max(...rows.map(r => r.views), 1)
+ 
+  const fmtDuration = (s) => {
+    s = Math.round(s || 0)
+    if (s <= 0) return '—'
+    const m = Math.floor(s / 60), r = s % 60
+    return m ? `${m}m ${String(r).padStart(2, '0')}s` : `${r}s`
+  }
+ 
+  const cols = '1fr 52px 66px 70px'
+ 
   return (
     <div className="gs-card" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
-        <SectionTitle icon={Icons.Eye} title="Vues produits" />
-        <div style={{ display: 'flex', gap: 14 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#6B7280' }}>
-            <div style={{ width: 8, height: 8, borderRadius: '50%', background: ORANGE }} />
-            Cette sem.
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#6B7280' }}>
-            <div style={{ width: 8, height: 8, borderRadius: '50%', background: ORANGE_TINT }} />
-            Sem. dern.
-          </div>
-        </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+        <SectionTitle icon={Icons.Eye} title="Vues par produit" />
+        <span style={{ fontSize: 11.5, color: '#9AA3AE', fontWeight: 500 }}>7 derniers jours</span>
       </div>
-
-      {loading ? (
-        <div style={{ flex: 1, marginTop: 10 }}><Skel h="100%" /></div>
-      ) : !hasData ? (
-        <EmptyBox icon="Eye" text="Aucune vue produit." />
-      ) : (
-        <svg viewBox={`0 0 ${W} ${H}`} width="100%" preserveAspectRatio="xMidYMid meet"
-             style={{ flex: 1, display: 'block', minHeight: 0, marginTop: 4 }}>
-          {yTicks.map(val => {
-            const y = padding.top + chartH - (val / maxValue) * chartH
-            return (
-              <g key={val}>
-                <line x1={padding.left} y1={y} x2={W - padding.right} y2={y} stroke="#F0EDE5" strokeWidth="1" />
-                <text x={padding.left - 8} y={y + 3} textAnchor="end"
-                      fontSize="9.5" fill="#9AA3AE" fontFamily="DM Sans" fontWeight="500">
-                  {val === 0 ? '0' : val >= 1000 ? `${(val / 1000).toLocaleString('fr-FR')}k` : val}
-                </text>
-              </g>
-            )
-          })}
-
-          {data.map((d, i) => {
-            const groupCenter = padding.left + (i + 0.5) * (chartW / data.length)
-            const x1 = groupCenter - barWidth - barGap / 2
-            const x2 = groupCenter + barGap / 2
-            const h1 = (d.thisWeek / maxValue) * chartH
-            const h2 = (d.lastWeek / maxValue) * chartH
-
-            return (
-              <g key={i}>
-                <rect x={x1} y={padding.top + chartH - h1} width={barWidth} height={h1} rx={4} fill={ORANGE} />
-                <rect x={x2} y={padding.top + chartH - h2} width={barWidth} height={h2} rx={4} fill={ORANGE_TINT} />
-                <text x={groupCenter} y={H - 10} textAnchor="middle"
-                      fontSize="10.5" fill="#9AA3AE" fontFamily="DM Sans" fontWeight="500">
-                  {d.day}
-                </text>
-              </g>
-            )
-          })}
-        </svg>
-      )}
+ 
+      {/* En-tête colonnes */}
+      <div style={{
+        display: 'grid', gridTemplateColumns: cols, gap: 8,
+        padding: '10px 2px 8px', fontSize: 10,
+        color: '#9AA3AE', fontWeight: 600,
+        letterSpacing: '0.05em', textTransform: 'uppercase',
+        borderBottom: '1px solid #F0EDE5', flexShrink: 0,
+      }}>
+        <div>Produit</div>
+        <div style={{ textAlign: 'right' }}>Vues</div>
+        <div style={{ textAlign: 'right' }}>Temps moy.</div>
+        <div style={{ textAlign: 'right' }}>Engag.</div>
+      </div>
+ 
+      <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+        {loading ? (
+          [...Array(5)].map((_, i) => (
+            <div key={i} style={{ display: 'grid', gridTemplateColumns: cols, gap: 8, padding: '13px 2px', alignItems: 'center' }}>
+              <Skel h={12} w="80%" />
+              <Skel h={12} /><Skel h={12} />
+              <Skel h={18} w={44} style={{ borderRadius: 999, justifySelf: 'end' }} />
+            </div>
+          ))
+        ) : !hasData ? (
+          <EmptyBox icon="Eye" text="Aucune vue produit." />
+        ) : rows.map((r, i) => {
+          const pct = Math.round((r.views / maxViews) * 100)
+          return (
+            <div key={r.product_id || i} style={{
+              display: 'grid', gridTemplateColumns: cols, gap: 8, alignItems: 'center',
+              padding: '13px 2px',
+              borderBottom: i < rows.length - 1 ? '1px solid #F5F3EE' : 'none',
+            }}>
+              {/* Produit : nom + barre de proportion */}
+              <div style={{ minWidth: 0 }}>
+                <div style={{
+                  fontSize: 12.5, fontWeight: 600, color: '#0F1419',
+                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                }}>
+                  {r.name}
+                </div>
+                <div style={{ height: 3, background: '#F1EFE9', borderRadius: 2, marginTop: 6, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${pct}%`, background: ORANGE, borderRadius: 2 }} />
+                </div>
+              </div>
+ 
+              {/* Vues + uniques */}
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: '#0F1419', fontVariantNumeric: 'tabular-nums' }}>
+                  {fmt(r.views)}
+                </div>
+                <div style={{ fontSize: 10, color: '#9AA3AE', marginTop: 1 }}>
+                  {fmt(r.uniques)} uniq.
+                </div>
+              </div>
+ 
+              {/* Temps moyen */}
+              <div style={{ textAlign: 'right', fontSize: 12, color: '#6B7280', fontVariantNumeric: 'tabular-nums' }}>
+                {fmtDuration(r.avg_seconds)}
+              </div>
+ 
+              {/* Engagement */}
+              <div style={{ textAlign: 'right' }}>
+                <span style={{
+                  display: 'inline-block', fontSize: 11, fontWeight: 600,
+                  color: ORANGE, background: 'rgba(255, 94, 32, .10)',
+                  borderRadius: 999, padding: '3px 8px',
+                }}>
+                  {r.engagement_pct}%
+                </span>
+              </div>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }

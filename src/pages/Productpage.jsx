@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 import { useCart } from '../context/CartContext'
 import { products as productsApi } from '../lib/api'
-import { usePageTracking } from '../hooks/usePageTracking'
+import { usePageTracking, trackProductEvent } from '../hooks/usePageTracking'
 import { useIsMobile } from '../hooks/useIsMobile'
 import MobileProductPage from '../components/MobileProductPage'
 
@@ -28,11 +28,18 @@ function Stars({ value = 0, size = 15 }) {
   return <span style={{ display: 'inline-flex', gap: 1 }}>{[1, 2, 3, 4, 5].map(s => <Star key={s} size={size} fill={s <= Math.round(value) ? '#FFB800' : '#E3E6EA'} stroke="none" />)}</span>
 }
 
-function Accordion({ title, trailing, defaultOpen = false, anchorRef, children }) {
+function Accordion({ title, trailing, defaultOpen = false, anchorRef, onOpen, children }) {
   const [open, setOpen] = useState(defaultOpen)
+  // onOpen ne se déclenche QUE sur une ouverture initiée par l'utilisateur
+  // (clic), jamais sur l'ouverture auto via defaultOpen au montage.
+  const toggle = () => setOpen(o => {
+    const next = !o
+    if (next && onOpen) onOpen()
+    return next
+  })
   return (
     <div ref={anchorRef} style={{ background: '#fff', borderRadius: 12, marginBottom: 12, overflow: 'hidden', border: `1px solid ${LINE}`, scrollMarginTop: STICKY_TOP }}>
-      <button onClick={() => setOpen(o => !o)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '20px 24px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
+      <button onClick={toggle} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '20px 24px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
         <span style={{ fontSize: 19, fontWeight: 800, color: INK }}>{title}</span>
         {trailing}
         <span style={{ flex: 1 }} />
@@ -174,7 +181,11 @@ function DesktopProductPage() {
     if (!qtyValid) return
     const firstVariantId = Object.values(selected)[0]?.id ?? null
     const res = await add(p.id, parsedQty, firstVariantId)
-    if (res?.ok) { setAdded(true); setTimeout(() => setAdded(false), 2000) }
+    if (res?.ok) {
+      setAdded(true)
+      trackProductEvent(p.id, 'add_to_cart')
+      setTimeout(() => setAdded(false), 2000)
+    }
     else if (res?.reason === 'error') alert(res.message || "Impossible d'ajouter au panier.")
   }
 
@@ -214,7 +225,7 @@ function DesktopProductPage() {
                     <div style={{ display: 'flex', gap: 8, marginTop: 12, overflowX: 'auto', scrollbarWidth: 'none' }}>
                       {images.map((im, i) => (
                         <button key={i}
-                          onClick={() => { setImgIdx(i); setImgOverride(null) }}
+                          onClick={() => { setImgIdx(i); setImgOverride(null); trackProductEvent(p.id, 'view_image') }}
                           onMouseEnter={() => { setImgIdx(i); setImgOverride(null) }}
                           style={{ flex: '0 0 clamp(58px, 5vw, 76px)', width: 'clamp(58px, 5vw, 76px)', height: 'clamp(58px, 5vw, 76px)', borderRadius: 8, overflow: 'hidden', cursor: 'pointer', background: '#F7F8FA', padding: 0, border: `2px solid ${i === imgIdx && !imgOverride ? ORANGE : 'transparent'}` }}>
                           <img src={im.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -259,7 +270,7 @@ function DesktopProductPage() {
                       <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 7 }}>
                         {specs.slice(0, 4).map((s, i) => <li key={i} style={{ fontSize: 14, color: SUB }}><strong style={{ color: INK }}>{s.k} :</strong> {s.v}</li>)}
                       </ul>
-                      <button onClick={() => descRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })} style={{ marginTop: 12, background: 'none', border: 'none', color: NAVY, fontSize: 14, fontWeight: 700, textDecoration: 'underline', cursor: 'pointer', padding: 0, display: 'inline-flex', alignItems: 'center', gap: 4 }}>Voir le descriptif technique <ChevronDown size={16} /></button>
+                      <button onClick={() => { descRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); trackProductEvent(p.id, 'view_description') }} style={{ marginTop: 12, background: 'none', border: 'none', color: NAVY, fontSize: 14, fontWeight: 700, textDecoration: 'underline', cursor: 'pointer', padding: 0, display: 'inline-flex', alignItems: 'center', gap: 4 }}>Voir le descriptif technique <ChevronDown size={16} /></button>
                     </div>
                   )}
 
@@ -277,6 +288,7 @@ function DesktopProductPage() {
                               onClick={() => {
                                 setSelected(s => ({ ...s, [g.id]: v }))
                                 if (v.image_url) setImgOverride(v.image_url)
+                                trackProductEvent(p.id, 'select_variant')
                               }}
                               style={{ minWidth: 'clamp(54px, 4.6vw, 66px)', height: 'clamp(54px, 4.6vw, 66px)', padding: v.image_url ? 0 : '0 12px', borderRadius: 10, overflow: 'hidden', cursor: 'pointer', background: '#F7F8FA', border: `2px solid ${on ? ORANGE : '#E2E5E9'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: SUB }}>
                               {v.image_url ? <img src={v.image_url} alt={v.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : v.name}
@@ -304,7 +316,8 @@ function DesktopProductPage() {
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, color: MUTE, marginTop: 3 }}><MapPin size={12} />{p.supplier_city || 'Tunisie'}{p.supplier_wilaya ? `, ${p.supplier_wilaya}` : ''}</div>
                   </div>
-                  <Link to={`/fournisseur/${p.supplier_slug}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 16px', borderRadius: 12, border: `1px solid ${LINE}`, fontSize: 13.5, fontWeight: 600, color: INK, textDecoration: 'none', whiteSpace: 'nowrap' }}><Store size={16} /> Boutique</Link>                  <button style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 16px', borderRadius: 12, border: 'none', background: ORANGE, color: '#fff', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}><MessageCircle size={16} /> Contacter</button>
+                  <Link to={`/fournisseur/${p.supplier_slug}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 16px', borderRadius: 12, border: `1px solid ${LINE}`, fontSize: 13.5, fontWeight: 600, color: INK, textDecoration: 'none', whiteSpace: 'nowrap' }}><Store size={16} /> Boutique</Link>
+                  <button onClick={() => trackProductEvent(p.id, 'contact_supplier')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 16px', borderRadius: 12, border: 'none', background: ORANGE, color: '#fff', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}><MessageCircle size={16} /> Contacter</button>
                 </div>
                 <div style={{ display: 'flex', marginTop: 14, borderRadius: 12, background: '#FAFBFC', border: `1px solid ${LINE}` }}>
                   <Stat label="Note boutique" value={p.supplier_rating ? `${toNum(p.supplier_rating).toFixed(1)}/5` : '—'} extra={p.supplier_review_count ? `(${p.supplier_review_count})` : ''} />
@@ -325,10 +338,10 @@ function DesktopProductPage() {
                   <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><RotateCcw size={18} color={ORANGE} /> Retour sous 7 jours</span>
                 </div>
               </Accordion>
-              <Accordion title="Présentation du produit" defaultOpen>
+              <Accordion title="Présentation du produit" defaultOpen onOpen={() => trackProductEvent(p.id, 'view_description')}>
                 <p style={{ margin: 0, fontSize: 14.5, color: SUB, lineHeight: 1.7, whiteSpace: 'pre-line' }}>{p.description || 'Aucune description fournie.'}</p>
               </Accordion>
-              <Accordion title="Descriptif technique" anchorRef={descRef} defaultOpen={specs.length > 0}>
+              <Accordion title="Descriptif technique" anchorRef={descRef} defaultOpen={specs.length > 0} onOpen={() => trackProductEvent(p.id, 'view_description')}>
                 {specs.length === 0 ? <p style={{ margin: 0, fontSize: 14, color: FAINT }}>Aucune caractéristique renseignée.</p> : (
                   <div style={{ border: `1px solid ${LINE}`, borderRadius: 10, overflow: 'hidden' }}>
                     {specs.map((s, i) => (

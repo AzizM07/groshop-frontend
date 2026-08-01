@@ -3,7 +3,7 @@
 // Rendu dans DashboardLayout via <Outlet /> → /dashboard/commandes.
 //
 // Endpoints utilisés (tous réels dans lib/api.js) :
-//   orders.list()            -> liste des commandes
+//   orders.list()            -> liste des commandes (avec sub_orders + items, cf. OrderListSerializer)
 //   orders.cancel(id)        -> annuler (statuts pending / call_confirmed)
 //   messaging.startConversation(slug) -> ouvrir/obtenir la conversation fournisseur
 //
@@ -46,10 +46,15 @@ const fmtDate = (d) => {
 }
 const normalize = (d) => Array.isArray(d) ? d : (d?.results || d?.orders || [])
 
-// Groupes { supplier, items } quelle que soit la forme reçue
+// Groupes { supplier, items } — mappe les vrais champs renvoyés par
+// SubOrderSerializer (supplier_name, supplier_slug) et OrderItemSerializer
+// (product_id, product_name, product_image).
 const groupsOf = (o) => {
   if (Array.isArray(o.sub_orders) && o.sub_orders.length) {
-    return o.sub_orders.map(s => ({ supplier: s.supplier || { name: s.supplier_name }, items: s.items || [] }))
+    return o.sub_orders.map(s => ({
+      supplier: { name: s.supplier_name, slug: s.supplier_slug },
+      items: s.items || [],
+    }))
   }
   return [{ supplier: o.supplier || { name: o.supplier_name || 'Fournisseur' }, items: o.items || [] }]
 }
@@ -211,13 +216,13 @@ export default function CommandesPage() {
                 {g.items.map((it, ii) => (
                   <div key={ii} style={{ display: 'flex', gap: 16, padding: '12px 20px', alignItems: 'flex-start' }}>
                     <div style={{ width: 72, height: 72, borderRadius: 8, background: '#F4F5F7', flexShrink: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      {it?.image_url ? <img src={it.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Package size={22} color={FAINT} />}
+                      {it?.product_image ? <img src={it.product_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Package size={22} color={FAINT} />}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 14, lineHeight: 1.4 }}>
                         {it?.product_id
-                          ? <Link to={`/produit/${it.product_id}`} style={{ color: INK, textDecoration: 'none' }}>{it?.title || 'Article'}</Link>
-                          : (it?.title || 'Article')}
+                          ? <Link to={`/produit/${it.product_id}`} style={{ color: INK, textDecoration: 'none' }}>{it?.product_name || 'Article'}</Link>
+                          : (it?.product_name || 'Article')}
                       </div>
                       {it?.variant && <div style={{ fontSize: 12.5, color: MUTE, marginTop: 4 }}>{it.variant}</div>}
                       <div style={{ fontSize: 13, color: MUTE, marginTop: 6 }}>{fmt(it?.unit_price_tnd)} TND&nbsp;&nbsp;×{it?.quantity || 1}</div>

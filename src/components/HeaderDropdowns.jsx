@@ -198,6 +198,41 @@ function useLazyData(fetcher, enabled) {
   return { data, loading }
 }
 
+/* Commandes du header : fetch au montage + au retour d'onglet (badge live).
+   activeCount = commandes EN COURS (hors livrées / annulées). */
+const ORDERS_DONE = ['delivered', 'cancelled', 'completed', 'refunded']
+function useOrders() {
+  const { user } = useAuth()
+  const [orders, setOrders] = useState(null)
+  const [loading, setLoading] = useState(false)
+  useEffect(() => {
+    if (!user) { setOrders([]); return }
+    let alive = true
+    const load = () => {
+      setLoading(true)
+      fetchOrders()
+        .then(d => { if (alive) setOrders(Array.isArray(d) ? d : (d?.results || d?.orders || [])) })
+        .catch(() => { if (alive) setOrders([]) })
+        .finally(() => { if (alive) setLoading(false) })
+    }
+    load()
+    const onFocus = () => { if (document.visibilityState === 'visible') load() }
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onFocus)
+    window.addEventListener('gs-orders-refresh', load)
+    return () => {
+      alive = false
+      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onFocus)
+      window.removeEventListener('gs-orders-refresh', load)
+    }
+  }, [user])
+  const activeCount = (orders || []).filter(
+    o => !ORDERS_DONE.includes(String(o.status || '').toLowerCase())
+  ).length
+  return { orders, loading, activeCount }
+}
+
 /* ═══════════════════════════════════════════════════════════════════
    MESSAGES, ORDERS, CART (utilisent IconDropdown)
    ═══════════════════════════════════════════════════════════════════ */
@@ -250,11 +285,11 @@ export function MessagesDropdown() {
 }
 
 export function OrdersDropdown() {
-  const [armed, setArmed] = useState(false)
-  const { data, loading } = useLazyData(fetchOrders, armed)
+  const { orders: data, loading, activeCount } = useOrders()
   return (
-    <div onMouseEnter={() => setArmed(true)} style={{ display: 'flex' }}>
-      <IconDropdown to="/dashboard/commandes" title="Mes commandes" width={380} icon={
+    <div style={{ display: 'flex' }}>
+      {/* badge={activeCount} → même pastille que le panier (commandes en cours) */}
+      <IconDropdown to="/dashboard/commandes" title="Mes commandes" badge={activeCount} width={380} icon={
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
           <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
           <rect x="8" y="2" width="8" height="4" rx="1"/>
@@ -262,9 +297,9 @@ export function OrdersDropdown() {
         </svg>
       }>
         <PanelTitle>Mes commandes</PanelTitle>
-        {loading && <PanelSkeleton rows={3} />}
-        {!loading && data?.length === 0 && <PanelEmpty>Aucune commande</PanelEmpty>}
-        {!loading && data?.slice(0, 4).map(o => (
+        {loading && !data && <PanelSkeleton rows={3} />}
+        {data?.length === 0 && <PanelEmpty>Aucune commande</PanelEmpty>}
+        {data?.slice(0, 4).map(o => (
           <Row key={o.id} to={`/dashboard/commandes/${o.id}`}>
             <div style={{ width: 44, height: 44, borderRadius: 8, overflow: 'hidden', background: '#F4F5F7', flexShrink: 0 }}>
               {o.image_url ? <img src={o.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>📦</div>}
@@ -279,7 +314,7 @@ export function OrdersDropdown() {
             </div>
           </Row>
         ))}
-        {!loading && data?.length > 0 && <PanelFooter to="/dashboard/commandes" label="Voir toutes mes commandes" />}
+        {data?.length > 0 && <PanelFooter to="/dashboard/commandes" label="Voir toutes mes commandes" />}
       </IconDropdown>
     </div>
   )

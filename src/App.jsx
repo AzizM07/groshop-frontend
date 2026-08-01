@@ -3,6 +3,7 @@
 
 import { AuthProvider } from './context/AuthContext'
 import { CartProvider } from './context/CartContext'
+import { UnreadProvider } from './context/UnreadContext'
 import { useAuth } from './context/AuthContext'
 import SupplierRoute from './router/SupplierRoute'
 import Layout from './components/Layout'
@@ -163,9 +164,11 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <CartProvider>
-          <ScrollToTop />
-          <AppContent />
-          <GoogleOneTap />
+          <UnreadProvider>
+            <ScrollToTop />
+            <AppContent />
+            <GoogleOneTap />
+          </UnreadProvider>
         </CartProvider>
       </BrowserRouter>
     </AuthProvider>

@@ -6,21 +6,27 @@ import SupplierLandingHeader from './SupplierLandingHeader'
 
 import HERO_VIDEO_MP4 from '../../assets/hero-video.mp4'
 
-const PAGE_BG = '#0A0E1A'
-const PAGE_BG_ALT = '#0F1424'
+// ── PALETTE (un peu plus éclairée) ──
+const PAGE_BG = '#0B1122'
+const PAGE_BG_ALT = '#101A34'
+const ACCENT = C.primary          // #FF6B35
+const ACCENT_LIGHT = '#FF9A63'    // plus lumineux que l'ancien #FF8557
+const ACCENT_SOFT = '#FFB489'
+const GRAD = `linear-gradient(135deg, ${ACCENT} 0%, ${ACCENT_LIGHT} 100%)`
 
 export default function SupplierLandingPage() {
   const navigate = useNavigate()
 
   return (
-    <div style={{ minHeight: '100vh', background: PAGE_BG }}>
+    <div className="gh-root" style={{ minHeight: '100vh', background: PAGE_BG, overflowX: 'hidden' }}>
+      <GlobalStyles />
       <SupplierLandingHeader />
 
       {/* ── HERO ── */}
       <section style={{
         position: 'relative',
         height: '100vh',
-        minHeight: 640,
+        minHeight: 560,
         overflow: 'hidden',
         background: '#000',
       }}>
@@ -37,7 +43,7 @@ export default function SupplierLandingPage() {
 
         <div style={{
           position: 'absolute', inset: 0,
-          background: 'linear-gradient(180deg, rgba(10,14,26,0.65) 0%, rgba(10,14,26,0.40) 40%, rgba(10,14,26,0.85) 100%)',
+          background: 'linear-gradient(180deg, rgba(11,17,34,0.55) 0%, rgba(11,17,34,0.28) 42%, rgba(11,17,34,0.80) 100%)',
           zIndex: 2,
         }} />
 
@@ -45,13 +51,13 @@ export default function SupplierLandingPage() {
           position: 'relative', zIndex: 3,
           height: '100%',
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          padding: '0 32px', textAlign: 'center',
+          padding: '0 clamp(20px, 5vw, 32px)', textAlign: 'center',
           maxWidth: 1200, margin: '0 auto',
         }}>
           <p style={{
             color: 'rgba(255,255,255,0.95)',
-            fontSize: 16, fontWeight: 600,
-            margin: '0 0 24px',
+            fontSize: 'clamp(13px, 1.6vw, 16px)', fontWeight: 600,
+            margin: '0 0 clamp(16px, 3vw, 24px)',
             textShadow: '0 2px 8px rgba(0,0,0,0.4)',
           }}>
             Vendre sur GROSHOP.tn
@@ -59,11 +65,11 @@ export default function SupplierLandingPage() {
 
           <h1 style={{
             color: '#fff',
-            fontSize: 'clamp(40px, 6vw, 78px)',
+            fontSize: 'clamp(32px, 6vw, 78px)',
             fontWeight: 900,
-            margin: '0 0 40px',
+            margin: '0 0 clamp(28px, 5vw, 40px)',
             letterSpacing: '-0.025em',
-            lineHeight: 1.05,
+            lineHeight: 1.06,
             maxWidth: 1000,
             textShadow: '0 4px 20px rgba(0,0,0,0.4)',
           }}>
@@ -71,25 +77,26 @@ export default function SupplierLandingPage() {
           </h1>
 
           <button
+            className="gh-btn"
             onClick={() => navigate('/devenir-fournisseur/inscription')}
             style={{
-              background: C.primary, color: '#fff',
-              fontWeight: 700, fontSize: 17,
-              padding: '18px 40px',
+              background: ACCENT, color: '#fff',
+              fontWeight: 700, fontSize: 'clamp(15px, 1.8vw, 17px)',
+              padding: '18px clamp(28px, 5vw, 40px)',
               borderRadius: 999, border: 'none',
               cursor: 'pointer',
-              boxShadow: '0 10px 32px rgba(255,107,53,0.50)',
+              boxShadow: '0 10px 32px rgba(255,107,53,0.55)',
               transition: 'all 0.15s ease',
             }}
             onMouseEnter={e => {
               e.currentTarget.style.background = C.primaryDark
               e.currentTarget.style.transform = 'translateY(-2px)'
-              e.currentTarget.style.boxShadow = '0 14px 40px rgba(255,107,53,0.60)'
+              e.currentTarget.style.boxShadow = '0 14px 40px rgba(255,107,53,0.65)'
             }}
             onMouseLeave={e => {
-              e.currentTarget.style.background = C.primary
+              e.currentTarget.style.background = ACCENT
               e.currentTarget.style.transform = 'translateY(0)'
-              e.currentTarget.style.boxShadow = '0 10px 32px rgba(255,107,53,0.50)'
+              e.currentTarget.style.boxShadow = '0 10px 32px rgba(255,107,53,0.55)'
             }}>
             Commencez à vendre maintenant
           </button>
@@ -99,7 +106,7 @@ export default function SupplierLandingPage() {
       {/* ── SECTION "Vendez plus vite" ── */}
       <section id="avantages" style={{
         background: PAGE_BG,
-        padding: '120px 32px 100px',
+        padding: 'clamp(72px, 10vw, 120px) clamp(20px, 5vw, 32px) clamp(64px, 8vw, 100px)',
         position: 'relative',
         overflow: 'hidden',
       }}>
@@ -107,7 +114,7 @@ export default function SupplierLandingPage() {
           position: 'absolute',
           top: '-100px', right: '-150px',
           width: 500, height: 400,
-          background: 'radial-gradient(ellipse, rgba(255,107,53,0.15) 0%, transparent 60%)',
+          background: 'radial-gradient(ellipse, rgba(255,122,55,0.22) 0%, transparent 60%)',
           transform: 'rotate(-25deg)',
           pointerEvents: 'none',
           filter: 'blur(40px)',
@@ -116,49 +123,43 @@ export default function SupplierLandingPage() {
           position: 'absolute',
           bottom: '-150px', left: '-200px',
           width: 600, height: 500,
-          background: 'radial-gradient(ellipse, rgba(255,107,53,0.10) 0%, transparent 60%)',
+          background: 'radial-gradient(ellipse, rgba(255,122,55,0.16) 0%, transparent 60%)',
           transform: 'rotate(15deg)',
           pointerEvents: 'none',
           filter: 'blur(50px)',
         }} />
 
         <div style={{ maxWidth: 1280, margin: '0 auto', position: 'relative', zIndex: 1 }}>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: '1.4fr 1fr',
-            gap: 80,
-            marginBottom: 80,
-            alignItems: 'start',
-          }}>
+          <div className="gh-grid-split" style={{ marginBottom: 'clamp(48px, 7vw, 80px)' }}>
             <div>
               <div style={{
                 display: 'inline-block',
-                background: `linear-gradient(135deg, ${C.primary} 0%, #FF8557 100%)`,
+                background: GRAD,
                 color: '#fff',
                 padding: '8px 18px',
                 borderRadius: 999,
                 fontSize: 13,
                 fontWeight: 700,
                 marginBottom: 32,
-                boxShadow: '0 8px 24px rgba(255,107,53,0.35)',
+                boxShadow: '0 8px 24px rgba(255,107,53,0.40)',
                 letterSpacing: '0.01em',
               }}>
                 On vous aide à grandir
               </div>
 
               <h2 style={{
-                fontSize: 'clamp(40px, 5.5vw, 72px)',
+                fontSize: 'clamp(34px, 5.5vw, 72px)',
                 fontWeight: 900,
                 color: '#fff',
                 margin: 0,
                 letterSpacing: '-0.03em',
-                lineHeight: 1.05,
+                lineHeight: 1.06,
               }}>
                 Vendez{' '}
                 <span style={{
                   fontStyle: 'italic',
                   fontWeight: 800,
-                  background: `linear-gradient(135deg, ${C.primary} 0%, #FF8557 100%)`,
+                  background: GRAD,
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
                   backgroundClip: 'text',
@@ -169,7 +170,7 @@ export default function SupplierLandingPage() {
 
             <div style={{ paddingTop: 12 }}>
               <p style={{
-                color: 'rgba(255,255,255,0.65)',
+                color: 'rgba(255,255,255,0.72)',
                 fontSize: 16,
                 lineHeight: 1.65,
                 margin: '0 0 28px',
@@ -181,10 +182,11 @@ export default function SupplierLandingPage() {
               </p>
 
               <button
+                className="gh-btn"
                 onClick={() => navigate('/devenir-fournisseur/inscription')}
                 style={{
-                  background: '#0F1424',
-                  border: '1px solid rgba(255,107,53,0.40)',
+                  background: '#131C33',
+                  border: '1px solid rgba(255,122,55,0.45)',
                   color: '#fff',
                   padding: '14px 24px',
                   borderRadius: 999,
@@ -194,19 +196,19 @@ export default function SupplierLandingPage() {
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: 10,
-                  boxShadow: '0 0 32px rgba(255,107,53,0.25), inset 0 1px 0 rgba(255,255,255,0.08)',
+                  boxShadow: '0 0 32px rgba(255,122,55,0.30), inset 0 1px 0 rgba(255,255,255,0.08)',
                   transition: 'all 0.2s ease',
                 }}
                 onMouseEnter={e => {
-                  e.currentTarget.style.background = C.primary
-                  e.currentTarget.style.borderColor = C.primary
-                  e.currentTarget.style.boxShadow = '0 8px 32px rgba(255,107,53,0.50)'
+                  e.currentTarget.style.background = ACCENT
+                  e.currentTarget.style.borderColor = ACCENT
+                  e.currentTarget.style.boxShadow = '0 8px 32px rgba(255,107,53,0.55)'
                   e.currentTarget.style.transform = 'translateY(-1px)'
                 }}
                 onMouseLeave={e => {
-                  e.currentTarget.style.background = '#0F1424'
-                  e.currentTarget.style.borderColor = 'rgba(255,107,53,0.40)'
-                  e.currentTarget.style.boxShadow = '0 0 32px rgba(255,107,53,0.25), inset 0 1px 0 rgba(255,255,255,0.08)'
+                  e.currentTarget.style.background = '#131C33'
+                  e.currentTarget.style.borderColor = 'rgba(255,122,55,0.45)'
+                  e.currentTarget.style.boxShadow = '0 0 32px rgba(255,122,55,0.30), inset 0 1px 0 rgba(255,255,255,0.08)'
                   e.currentTarget.style.transform = 'translateY(0)'
                 }}>
                 Rejoignez maintenant
@@ -216,7 +218,7 @@ export default function SupplierLandingPage() {
           </div>
 
           {/* Cluster avatars */}
-          <div style={{ marginBottom: 60, display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{ marginBottom: 'clamp(40px, 6vw, 60px)', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
             <div style={{ display: 'flex' }}>
               {[
                 'https://i.pravatar.cc/80?img=11',
@@ -231,7 +233,7 @@ export default function SupplierLandingPage() {
                   style={{
                     width: 48, height: 48,
                     borderRadius: '50%',
-                    border: '3px solid #0A0E1A',
+                    border: '3px solid #0B1122',
                     marginLeft: i === 0 ? 0 : -14,
                     objectFit: 'cover',
                     boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
@@ -243,280 +245,272 @@ export default function SupplierLandingPage() {
               <div style={{ color: '#fff', fontSize: 14, fontWeight: 700 }}>
                 +500 fournisseurs nous font confiance
               </div>
-              <div style={{ color: 'rgba(255,255,255,0.50)', fontSize: 12 }}>
+              <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12 }}>
                 Rejoignez la communauté GROSHOP
               </div>
             </div>
           </div>
 
-{/* Stats grid — 4 cards égales */}
-<div style={{
-  display: 'grid',
-  gridTemplateColumns: 'repeat(4, 1fr)',
-  gap: 16,
-}}>
-  <StatCard
-    icon={<IconGrid />}
-    value="50"
-    suffix="+"
-    title="Catégories"
-    description="De l'alimentation à la mode, tous les secteurs B2B."
-  />
-  <StatCard
-    icon={<IconPackage />}
-    value="5K"
-    suffix="+"
-    title="Commandes traitées"
-    description="Plus de 5 000 commandes B2B avec 98% de satisfaction."
-  />
-  <StatCard
-    icon={<IconTrending />}
-    value="2M"
-    suffix="+"
-    title="TND de transactions"
-    description="Volume traité en toute sécurité sur la plateforme."
-  />
-  <StatCard
-    icon={<IconShield />}
-    value="98"
-    suffix="%"
-    title="Satisfaction"
-    description="Taux d'acheteurs satisfaits ou remboursés."
-  />
-</div>
+          {/* Stats grid — 4 cards égales (responsive) */}
+          <div className="gh-stats-grid">
+            <StatCard
+              icon={<IconGrid />}
+              value="50"
+              suffix="+"
+              title="Catégories"
+              description="De l'alimentation à la mode, tous les secteurs B2B."
+            />
+            <StatCard
+              icon={<IconPackage />}
+              value="5K"
+              suffix="+"
+              title="Commandes traitées"
+              description="Plus de 5 000 commandes B2B avec 98% de satisfaction."
+            />
+            <StatCard
+              icon={<IconTrending />}
+              value="2M"
+              suffix="+"
+              title="TND de transactions"
+              description="Volume traité en toute sécurité sur la plateforme."
+            />
+            <StatCard
+              icon={<IconShield />}
+              value="98"
+              suffix="%"
+              title="Satisfaction"
+              description="Taux d'acheteurs satisfaits ou remboursés."
+            />
+          </div>
         </div>
       </section>
 
-{/* ── SECTION "Vendez à toute la Tunisie" (CARTE DOTTED) ── */}
-<section id="reach" style={{
-  background: PAGE_BG,
-  padding: '120px 32px',
-  position: 'relative',
-  overflow: 'hidden',
-}}>
-  <div style={{
-    position: 'absolute',
-    top: '30%', right: '20%',
-    width: 600, height: 600,
-    background: 'radial-gradient(circle, rgba(255,107,53,0.12) 0%, transparent 65%)',
-    pointerEvents: 'none',
-    filter: 'blur(40px)',
-  }} />
-
-  <div style={{ maxWidth: 1280, margin: '0 auto', position: 'relative', zIndex: 1 }}>
-    <div style={{
-      display: 'grid',
-      gridTemplateColumns: '1fr 1.1fr',
-      gap: 64,
-      alignItems: 'center',
-    }}>
-      {/* COLONNE GAUCHE : tout le texte */}
-      <div>
-        <p style={{
-          color: C.primary,
-          fontSize: 12,
-          fontWeight: 700,
-          letterSpacing: '0.18em',
-          textTransform: 'uppercase',
-          margin: '0 0 20px',
-        }}>
-          Couverture nationale
-        </p>
-
-        <h2 style={{
-          fontSize: 'clamp(40px, 5vw, 64px)',
-          fontWeight: 900,
-          color: '#fff',
-          margin: '0 0 24px',
-          letterSpacing: '-0.03em',
-          lineHeight: 1.05,
-        }}>
-          Vendez à toute la{' '}
-          <span style={{
-            background: `linear-gradient(135deg, ${C.primary} 0%, #FF8557 100%)`,
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text',
-          }}>Tunisie</span>
-        </h2>
-
-        <p style={{
-          color: 'rgba(255,255,255,0.65)',
-          fontSize: 16,
-          lineHeight: 1.65,
-          margin: '0 0 36px',
-          maxWidth: 520,
-        }}>
-          Touchez les 24 gouvernorats. Les acheteurs B2B vous trouvent par recherche
-          locale et envoient des demandes de prix directement à votre boutique. Vous
-          pouvez aussi parcourir les demandes d'achat en gros publiées chaque jour
-          et faire des offres.
-        </p>
-
-        <div style={{
-          display: 'flex',
-          gap: 48,
-          marginBottom: 40,
-          paddingTop: 24,
-          borderTop: '1px solid rgba(255,255,255,0.08)',
-        }}>
-          <div>
-            <div style={{
-              fontSize: 40,
-              fontWeight: 900,
-              color: '#fff',
-              letterSpacing: '-0.03em',
-              lineHeight: 1,
-              marginBottom: 6,
-            }}>
-              5K<span style={{
-                background: `linear-gradient(135deg, ${C.primary} 0%, #FF8557 100%)`,
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
-              }}>+</span>
-            </div>
-            <div style={{ color: 'rgba(255,255,255,0.60)', fontSize: 13, fontWeight: 500 }}>
-              Acheteurs actifs
-            </div>
-          </div>
-
-          <div>
-            <div style={{
-              fontSize: 40,
-              fontWeight: 900,
-              color: '#fff',
-              letterSpacing: '-0.03em',
-              lineHeight: 1,
-              marginBottom: 6,
-            }}>
-              500<span style={{
-                background: `linear-gradient(135deg, ${C.primary} 0%, #FF8557 100%)`,
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
-              }}>+</span>
-            </div>
-            <div style={{ color: 'rgba(255,255,255,0.60)', fontSize: 13, fontWeight: 500 }}>
-              Demandes / jour
-            </div>
-          </div>
-
-          <div>
-            <div style={{
-              fontSize: 40,
-              fontWeight: 900,
-              color: '#fff',
-              letterSpacing: '-0.03em',
-              lineHeight: 1,
-              marginBottom: 6,
-            }}>
-              24<span style={{
-                background: `linear-gradient(135deg, ${C.primary} 0%, #FF8557 100%)`,
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
-              }}>/24</span>
-            </div>
-            <div style={{ color: 'rgba(255,255,255,0.60)', fontSize: 13, fontWeight: 500 }}>
-              Gouvernorats
-            </div>
-          </div>
-        </div>
-
-        <button
-          onClick={() => navigate('/marche')}
-          style={{
-            background: 'transparent',
-            border: '1.5px solid rgba(255,255,255,0.25)',
-            color: '#fff',
-            padding: '13px 28px',
-            borderRadius: 999,
-            fontSize: 14,
-            fontWeight: 700,
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-          }}
-          onMouseEnter={e => {
-            e.currentTarget.style.background = '#fff'
-            e.currentTarget.style.color = '#0F1424'
-            e.currentTarget.style.borderColor = '#fff'
-          }}
-          onMouseLeave={e => {
-            e.currentTarget.style.background = 'transparent'
-            e.currentTarget.style.color = '#fff'
-            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.25)'
-          }}>
-          Visitez le marché B2B
-        </button>
-      </div>
-
-      {/* COLONNE DROITE : Carte Tunisie dotted */}
-      <div style={{
+      {/* ── SECTION "Vendez à toute la Tunisie" (CARTE DOTTED) ── */}
+      <section id="reach" style={{
+        background: PAGE_BG,
+        padding: 'clamp(72px, 10vw, 120px) clamp(20px, 5vw, 32px)',
         position: 'relative',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: 560,
+        overflow: 'hidden',
       }}>
-        <DottedTunisia />
-
         <div style={{
           position: 'absolute',
-          top: '38%', left: '50%',
-          transform: 'translate(-50%, -50%)',
-          textAlign: 'center',
-          zIndex: 5,
-        }}>
-          <CounterDisplay value="2 8 4 7" />
-          <div style={{
-            color: '#fff',
-            fontSize: 14,
-            fontWeight: 600,
-            marginTop: 14,
-            letterSpacing: '0.05em',
-          }}>
-            commandes aujourd'hui
+          top: '30%', right: '20%',
+          width: 600, height: 600,
+          background: 'radial-gradient(circle, rgba(255,122,55,0.16) 0%, transparent 65%)',
+          pointerEvents: 'none',
+          filter: 'blur(40px)',
+        }} />
+
+        <div style={{ maxWidth: 1280, margin: '0 auto', position: 'relative', zIndex: 1 }}>
+          <div className="gh-grid-map">
+            {/* COLONNE GAUCHE : tout le texte */}
+            <div>
+              <p style={{
+                color: ACCENT_LIGHT,
+                fontSize: 12,
+                fontWeight: 700,
+                letterSpacing: '0.18em',
+                textTransform: 'uppercase',
+                margin: '0 0 20px',
+              }}>
+                Couverture nationale
+              </p>
+
+              <h2 style={{
+                fontSize: 'clamp(34px, 5vw, 64px)',
+                fontWeight: 900,
+                color: '#fff',
+                margin: '0 0 24px',
+                letterSpacing: '-0.03em',
+                lineHeight: 1.06,
+              }}>
+                Vendez à toute la{' '}
+                <span style={{
+                  background: GRAD,
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                }}>Tunisie</span>
+              </h2>
+
+              <p style={{
+                color: 'rgba(255,255,255,0.72)',
+                fontSize: 16,
+                lineHeight: 1.65,
+                margin: '0 0 36px',
+                maxWidth: 520,
+              }}>
+                Touchez les 24 gouvernorats. Les acheteurs B2B vous trouvent par recherche
+                locale et envoient des demandes de prix directement à votre boutique. Vous
+                pouvez aussi parcourir les demandes d'achat en gros publiées chaque jour
+                et faire des offres.
+              </p>
+
+              <div className="gh-mini-stats" style={{
+                marginBottom: 40,
+                paddingTop: 24,
+                borderTop: '1px solid rgba(255,255,255,0.08)',
+              }}>
+                <div>
+                  <div style={{
+                    fontSize: 'clamp(32px, 6vw, 40px)',
+                    fontWeight: 900,
+                    color: '#fff',
+                    letterSpacing: '-0.03em',
+                    lineHeight: 1,
+                    marginBottom: 6,
+                  }}>
+                    5K<span style={{
+                      background: GRAD,
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      backgroundClip: 'text',
+                    }}>+</span>
+                  </div>
+                  <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 13, fontWeight: 500 }}>
+                    Acheteurs actifs
+                  </div>
+                </div>
+
+                <div>
+                  <div style={{
+                    fontSize: 'clamp(32px, 6vw, 40px)',
+                    fontWeight: 900,
+                    color: '#fff',
+                    letterSpacing: '-0.03em',
+                    lineHeight: 1,
+                    marginBottom: 6,
+                  }}>
+                    500<span style={{
+                      background: GRAD,
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      backgroundClip: 'text',
+                    }}>+</span>
+                  </div>
+                  <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 13, fontWeight: 500 }}>
+                    Demandes / jour
+                  </div>
+                </div>
+
+                <div>
+                  <div style={{
+                    fontSize: 'clamp(32px, 6vw, 40px)',
+                    fontWeight: 900,
+                    color: '#fff',
+                    letterSpacing: '-0.03em',
+                    lineHeight: 1,
+                    marginBottom: 6,
+                  }}>
+                    24<span style={{
+                      background: GRAD,
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      backgroundClip: 'text',
+                    }}>/24</span>
+                  </div>
+                  <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 13, fontWeight: 500 }}>
+                    Gouvernorats
+                  </div>
+                </div>
+              </div>
+
+              <button
+                className="gh-btn"
+                onClick={() => navigate('/marche')}
+                style={{
+                  background: 'transparent',
+                  border: '1.5px solid rgba(255,255,255,0.28)',
+                  color: '#fff',
+                  padding: '13px 28px',
+                  borderRadius: 999,
+                  fontSize: 14,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.background = '#fff'
+                  e.currentTarget.style.color = '#0F1424'
+                  e.currentTarget.style.borderColor = '#fff'
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.background = 'transparent'
+                  e.currentTarget.style.color = '#fff'
+                  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.28)'
+                }}>
+                Visitez le marché B2B
+              </button>
+            </div>
+
+            {/* COLONNE DROITE : Carte Tunisie dotted */}
+            <div className="gh-map-wrap" style={{
+              position: 'relative',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minHeight: 560,
+            }}>
+              <DottedTunisia />
+
+              <div style={{
+                position: 'absolute',
+                top: '38%', left: '50%',
+                transform: 'translate(-50%, -50%)',
+                textAlign: 'center',
+                zIndex: 5,
+              }}>
+                <CounterDisplay value="2 8 4 7" />
+                <div style={{
+                  color: '#fff',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  marginTop: 14,
+                  letterSpacing: '0.05em',
+                }}>
+                  commandes aujourd'hui
+                </div>
+              </div>
+
+              <FloatingCard
+                className="gh-float-hide gh-float-a"
+                style={{ top: '10%', right: '0%' }}
+                avatar="https://i.pravatar.cc/80?img=12"
+                flag="🇹🇳"
+              />
+
+              <FloatingCard
+                className="gh-float-hide gh-float-b"
+                style={{ bottom: '15%', left: '-5%' }}
+                avatar="https://i.pravatar.cc/80?img=33"
+                flag="🇹🇳"
+              />
+
+              <div className="gh-float-hide gh-float-b" style={{
+                position: 'absolute',
+                bottom: '40%', right: '8%',
+                width: 44, height: 44,
+                borderRadius: '50%',
+                border: '3px solid #0B1122',
+                overflow: 'hidden',
+                boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 0 16px rgba(255,107,53,0.20)',
+                zIndex: 4,
+              }}>
+                <img
+                  src="https://i.pravatar.cc/80?img=47"
+                  alt=""
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              </div>
+            </div>
           </div>
         </div>
-
-        <FloatingCard
-          style={{ top: '10%', right: '0%' }}
-          avatar="https://i.pravatar.cc/80?img=12"
-          flag="🇹🇳"
-        />
-
-        <FloatingCard
-          style={{ bottom: '15%', left: '-5%' }}
-          avatar="https://i.pravatar.cc/80?img=33"
-          flag="🇹🇳"
-        />
-
-        <div style={{
-          position: 'absolute',
-          bottom: '40%', right: '8%',
-          width: 44, height: 44,
-          borderRadius: '50%',
-          border: '3px solid #0A0E1A',
-          overflow: 'hidden',
-          boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 0 16px rgba(255,107,53,0.20)',
-          zIndex: 4,
-        }}>
-          <img
-            src="https://i.pravatar.cc/80?img=47"
-            alt=""
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-          />
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
+      </section>
 
       {/* ── SECTION TARIFS ── */}
       <section id="tarifs" style={{
         background: PAGE_BG,
-        padding: '140px 32px 120px',
+        padding: 'clamp(80px, 11vw, 140px) clamp(20px, 5vw, 32px) clamp(72px, 9vw, 120px)',
         position: 'relative',
         overflow: 'hidden',
       }}>
@@ -526,33 +520,33 @@ export default function SupplierLandingPage() {
           top: '20%', left: '50%',
           transform: 'translateX(-50%)',
           width: 800, height: 400,
-          background: 'radial-gradient(ellipse, rgba(255,107,53,0.15) 0%, transparent 70%)',
+          background: 'radial-gradient(ellipse, rgba(255,122,55,0.18) 0%, transparent 70%)',
           filter: 'blur(60px)',
           pointerEvents: 'none',
         }} />
 
         <div style={{ maxWidth: 1200, margin: '0 auto', position: 'relative', zIndex: 1 }}>
           {/* Header */}
-          <div style={{ textAlign: 'center', marginBottom: 56 }}>
+          <div style={{ textAlign: 'center', marginBottom: 'clamp(40px, 6vw, 56px)' }}>
             <h2 style={{
-              fontSize: 'clamp(40px, 5.5vw, 72px)',
+              fontSize: 'clamp(34px, 5.5vw, 72px)',
               fontWeight: 900,
               color: '#fff',
               margin: '0 0 18px',
               letterSpacing: '-0.03em',
-              lineHeight: 1.05,
+              lineHeight: 1.06,
             }}>
               Une tarification{' '}
               <span style={{
-                background: `linear-gradient(135deg, ${C.primary} 0%, #FF8557 100%)`,
+                background: GRAD,
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 backgroundClip: 'text',
               }}>simple et claire</span>
             </h2>
             <p style={{
-              color: 'rgba(255,255,255,0.60)',
-              fontSize: 17,
+              color: 'rgba(255,255,255,0.68)',
+              fontSize: 'clamp(15px, 2vw, 17px)',
               margin: 0,
               fontWeight: 400,
             }}>
@@ -564,12 +558,7 @@ export default function SupplierLandingPage() {
           <BillingToggleRow />
 
           {/* Cards */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: 20,
-            marginTop: 48,
-          }}>
+          <div className="gh-pricing-grid" style={{ marginTop: 'clamp(36px, 6vw, 48px)' }}>
             <PricingCard
               plan="Découverte"
               price="0"
@@ -625,7 +614,7 @@ export default function SupplierLandingPage() {
       {/* ── SECTION COMMENT ÇA MARCHE (3 étapes) ── */}
       <section id="process" style={{
         background: PAGE_BG_ALT,
-        padding: '120px 32px',
+        padding: 'clamp(72px, 10vw, 120px) clamp(20px, 5vw, 32px)',
         position: 'relative',
         overflow: 'hidden',
       }}>
@@ -633,7 +622,7 @@ export default function SupplierLandingPage() {
           position: 'absolute',
           top: '40%', left: '50%',
           width: 700, height: 400,
-          background: 'radial-gradient(ellipse, rgba(255,107,53,0.08) 0%, transparent 70%)',
+          background: 'radial-gradient(ellipse, rgba(255,122,55,0.12) 0%, transparent 70%)',
           transform: 'translate(-50%, -50%)',
           pointerEvents: 'none',
           filter: 'blur(60px)',
@@ -641,19 +630,18 @@ export default function SupplierLandingPage() {
 
         <div style={{ maxWidth: 1280, margin: '0 auto', position: 'relative', zIndex: 1 }}>
           <h2 style={{
-            fontSize: 'clamp(32px, 4vw, 52px)',
+            fontSize: 'clamp(30px, 4vw, 52px)',
             fontWeight: 900,
             color: '#fff',
-            margin: '0 0 80px',
+            margin: '0 auto clamp(56px, 8vw, 80px)',
             letterSpacing: '-0.025em',
             lineHeight: 1.15,
             textAlign: 'center',
             maxWidth: 900,
-            marginInline: 'auto',
           }}>
             Démarrez votre activité en{' '}
             <span style={{
-              background: `linear-gradient(135deg, ${C.primary} 0%, #FF8557 100%)`,
+              background: GRAD,
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text',
@@ -663,25 +651,19 @@ export default function SupplierLandingPage() {
           <div style={{
             position: 'relative',
             maxWidth: 1080,
-            margin: '0 auto 80px',
+            margin: '0 auto clamp(56px, 8vw, 80px)',
           }}>
-            <div style={{
+            <div className="gh-steps-line" style={{
               position: 'absolute',
               top: 32,
               left: '12%',
               right: '12%',
               height: 2,
-              background: `linear-gradient(90deg, rgba(255,107,53,0.40) 0%, ${C.primary} 50%, rgba(255,107,53,0.40) 100%)`,
+              background: `linear-gradient(90deg, rgba(255,122,55,0.40) 0%, ${ACCENT} 50%, rgba(255,122,55,0.40) 100%)`,
               zIndex: 1,
             }} />
 
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(3, 1fr)',
-              gap: 40,
-              position: 'relative',
-              zIndex: 2,
-            }}>
+            <div className="gh-steps-grid">
               <Step
                 number="1"
                 title="Créez votre compte fournisseur"
@@ -702,26 +684,27 @@ export default function SupplierLandingPage() {
 
           <div style={{ textAlign: 'center' }}>
             <button
+              className="gh-btn"
               onClick={() => navigate('/devenir-fournisseur/inscription')}
               style={{
-                background: C.primary, color: '#fff',
+                background: ACCENT, color: '#fff',
                 fontWeight: 700, fontSize: 16,
-                padding: '17px 48px',
+                padding: '17px clamp(32px, 6vw, 48px)',
                 borderRadius: 12, border: 'none',
                 cursor: 'pointer',
-                boxShadow: '0 10px 32px rgba(255,107,53,0.50)',
+                boxShadow: '0 10px 32px rgba(255,107,53,0.55)',
                 transition: 'all 0.15s ease',
                 letterSpacing: '0.01em',
               }}
               onMouseEnter={e => {
                 e.currentTarget.style.background = C.primaryDark
                 e.currentTarget.style.transform = 'translateY(-2px)'
-                e.currentTarget.style.boxShadow = '0 14px 40px rgba(255,107,53,0.60)'
+                e.currentTarget.style.boxShadow = '0 14px 40px rgba(255,107,53,0.65)'
               }}
               onMouseLeave={e => {
-                e.currentTarget.style.background = C.primary
+                e.currentTarget.style.background = ACCENT
                 e.currentTarget.style.transform = 'translateY(0)'
-                e.currentTarget.style.boxShadow = '0 10px 32px rgba(255,107,53,0.50)'
+                e.currentTarget.style.boxShadow = '0 10px 32px rgba(255,107,53,0.55)'
               }}>
               Commencez à vendre maintenant
             </button>
@@ -731,16 +714,86 @@ export default function SupplierLandingPage() {
 
       {/* ── FOOTER ── */}
       <footer style={{
-        background: '#070A14',
+        background: '#080D1A',
         borderTop: '1px solid rgba(255,255,255,0.06)',
-        color: 'rgba(255,255,255,0.40)',
-        padding: '40px 32px',
+        color: 'rgba(255,255,255,0.45)',
+        padding: 'clamp(32px, 6vw, 40px) clamp(20px, 5vw, 32px)',
         textAlign: 'center',
         fontSize: 13,
       }}>
         © 2026 GROSHOP.tn — Plateforme B2B Tunisie
       </footer>
     </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════
+// STYLES GLOBAUX (responsive + animations)
+// ═══════════════════════════════════════════════════════════
+function GlobalStyles() {
+  return (
+    <style>{`
+      .gh-root, .gh-root *, .gh-root *::before, .gh-root *::after { box-sizing: border-box; }
+      .gh-root { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+      .gh-root img { max-width: 100%; }
+
+      /* ── Accessibilité : focus clavier visible ── */
+      .gh-btn:focus-visible {
+        outline: 2px solid ${ACCENT_LIGHT};
+        outline-offset: 3px;
+      }
+
+      /* ── Animations ── */
+      @keyframes ghBreathe {
+        0%, 100% { opacity: .5;  transform: translateX(-50%) scale(1); }
+        50%      { opacity: .85; transform: translateX(-50%) scale(1.08); }
+      }
+      @keyframes ghFloat     { 0%, 100% { transform: translateY(0); }  50% { transform: translateY(-10px); } }
+      @keyframes ghFloatSlow { 0%, 100% { transform: translateY(0); }  50% { transform: translateY(-14px); } }
+
+      .gh-wave-glow { animation: ghBreathe 6s ease-in-out infinite; }
+      .gh-float-a   { animation: ghFloat 5s ease-in-out infinite; }
+      .gh-float-b   { animation: ghFloatSlow 6.5s ease-in-out infinite; }
+
+      /* ── Grilles responsive ── */
+      .gh-grid-split   { display: grid; grid-template-columns: 1.4fr 1fr; gap: 80px; align-items: start; }
+      .gh-grid-map     { display: grid; grid-template-columns: 1fr 1.1fr; gap: 64px; align-items: center; }
+      .gh-stats-grid   { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+      .gh-pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+      .gh-steps-grid   { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; position: relative; z-index: 2; }
+      .gh-mini-stats   { display: flex; gap: 48px; }
+
+      @media (max-width: 1024px) {
+        .gh-stats-grid { grid-template-columns: repeat(2, 1fr); }
+      }
+      @media (max-width: 960px) {
+        .gh-grid-split { grid-template-columns: 1fr; gap: 44px; }
+        .gh-grid-map   { grid-template-columns: 1fr; gap: 48px; }
+      }
+      @media (max-width: 900px) {
+        .gh-pricing-grid { grid-template-columns: 1fr; max-width: 440px; margin-left: auto; margin-right: auto; }
+      }
+      @media (max-width: 820px) {
+        .gh-steps-grid { grid-template-columns: 1fr; gap: 56px; }
+        .gh-steps-line { display: none !important; }
+      }
+      @media (max-width: 620px) {
+        .gh-mini-stats { gap: 26px; flex-wrap: wrap; }
+      }
+      @media (max-width: 560px) {
+        .gh-float-hide { display: none !important; }
+        .gh-map-wrap   { min-height: 420px !important; }
+      }
+      @media (max-width: 440px) {
+        .gh-stats-grid { grid-template-columns: 1fr; }
+      }
+
+      /* ── Réduction de mouvement ── */
+      @media (prefers-reduced-motion: reduce) {
+        .gh-wave-glow, .gh-float-a, .gh-float-b { animation: none !important; }
+        .gh-sonar { display: none; }
+      }
+    `}</style>
   )
 }
 
@@ -761,14 +814,14 @@ function Step({ number, title, description }) {
       <div style={{
         width: 64, height: 64,
         borderRadius: '50%',
-        background: `linear-gradient(135deg, ${C.primary} 0%, #FF8557 100%)`,
+        background: GRAD,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         color: '#fff',
         fontSize: 26, fontWeight: 900,
-        boxShadow: '0 0 32px rgba(255,107,53,0.45), inset 0 -2px 8px rgba(0,0,0,0.15), inset 0 2px 4px rgba(255,255,255,0.20)',
+        boxShadow: '0 0 32px rgba(255,107,53,0.50), inset 0 -2px 8px rgba(0,0,0,0.15), inset 0 2px 4px rgba(255,255,255,0.25)',
         marginBottom: 28,
         position: 'relative',
-        border: '3px solid #0A0E1A',
+        border: '3px solid #101A34',
       }}>
         {number}
       </div>
@@ -786,7 +839,7 @@ function Step({ number, title, description }) {
       </h3>
 
       <p style={{
-        color: 'rgba(255,255,255,0.60)',
+        color: 'rgba(255,255,255,0.65)',
         fontSize: 14,
         lineHeight: 1.55,
         margin: 0,
@@ -811,11 +864,11 @@ function BillingToggleRow() {
       flexWrap: 'wrap',
       gap: 16,
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
         <div style={{
           display: 'inline-flex',
-          background: 'rgba(255,255,255,0.06)',
-          border: '1px solid rgba(255,255,255,0.08)',
+          background: 'rgba(255,255,255,0.07)',
+          border: '1px solid rgba(255,255,255,0.10)',
           borderRadius: 999,
           padding: 4,
         }}>
@@ -827,12 +880,11 @@ function BillingToggleRow() {
             return (
               <button
                 key={opt.id}
+                className="gh-btn"
                 onClick={() => setBilling(opt.id)}
                 style={{
-                  background: active
-                    ? `linear-gradient(135deg, ${C.primary} 0%, #FF8557 100%)`
-                    : 'transparent',
-                  color: active ? '#fff' : 'rgba(255,255,255,0.65)',
+                  background: active ? GRAD : 'transparent',
+                  color: active ? '#fff' : 'rgba(255,255,255,0.70)',
                   border: 'none',
                   padding: '9px 22px',
                   borderRadius: 999,
@@ -840,14 +892,14 @@ function BillingToggleRow() {
                   fontWeight: 700,
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
-                  boxShadow: active ? '0 6px 20px rgba(255,107,53,0.40)' : 'none',
+                  boxShadow: active ? '0 6px 20px rgba(255,107,53,0.45)' : 'none',
                 }}>
                 {opt.label}
               </button>
             )
           })}
         </div>
-        <span style={{ color: 'rgba(255,255,255,0.55)', fontSize: 13 }}>
+        <span style={{ color: 'rgba(255,255,255,0.60)', fontSize: 13 }}>
           Économisez 15% en payant à l’année
         </span>
       </div>
@@ -873,31 +925,46 @@ function BillingToggleRow() {
 // ── CARTE DE PRIX ──
 function PricingCard({ plan, badge, price, period, description, features, ctaLabel, highlighted }) {
   return (
-    <div style={{
-      background: highlighted
-        ? 'linear-gradient(180deg, rgba(255,107,53,0.10) 0%, rgba(255,107,53,0.02) 100%)'
-        : 'rgba(255,255,255,0.025)',
-      border: highlighted
-        ? '1px solid rgba(255,107,53,0.45)'
-        : '1px solid rgba(255,255,255,0.08)',
-      borderRadius: 20,
-      padding: 32,
-      display: 'flex',
-      flexDirection: 'column',
-      position: 'relative',
-      boxShadow: highlighted
-        ? '0 20px 60px rgba(255,107,53,0.20), inset 0 1px 0 rgba(255,255,255,0.05)'
-        : '0 8px 24px rgba(0,0,0,0.20)',
-      transition: 'transform 0.2s ease',
-    }}>
+    <div
+      style={{
+        background: highlighted
+          ? 'linear-gradient(180deg, rgba(255,122,55,0.14) 0%, rgba(255,122,55,0.03) 100%)'
+          : 'rgba(255,255,255,0.035)',
+        border: highlighted
+          ? '1px solid rgba(255,122,55,0.50)'
+          : '1px solid rgba(255,255,255,0.10)',
+        borderRadius: 20,
+        padding: 32,
+        display: 'flex',
+        flexDirection: 'column',
+        position: 'relative',
+        boxShadow: highlighted
+          ? '0 20px 60px rgba(255,107,53,0.25), inset 0 1px 0 rgba(255,255,255,0.06)'
+          : '0 8px 24px rgba(0,0,0,0.20)',
+        transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.transform = 'translateY(-6px)'
+        if (!highlighted) {
+          e.currentTarget.style.boxShadow = '0 20px 44px rgba(0,0,0,0.30), 0 0 28px rgba(255,122,55,0.10)'
+        } else {
+          e.currentTarget.style.boxShadow = '0 26px 70px rgba(255,107,53,0.32), inset 0 1px 0 rgba(255,255,255,0.06)'
+        }
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.transform = 'translateY(0)'
+        e.currentTarget.style.boxShadow = highlighted
+          ? '0 20px 60px rgba(255,107,53,0.25), inset 0 1px 0 rgba(255,255,255,0.06)'
+          : '0 8px 24px rgba(0,0,0,0.20)'
+      }}>
       {/* Badge plan */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 24 }}>
         <div style={{
           display: 'inline-block',
-          background: highlighted ? 'rgba(255,107,53,0.18)' : 'rgba(255,255,255,0.06)',
+          background: highlighted ? 'rgba(255,122,55,0.20)' : 'rgba(255,255,255,0.07)',
           border: highlighted
-            ? '1px solid rgba(255,107,53,0.35)'
-            : '1px solid rgba(255,255,255,0.10)',
+            ? '1px solid rgba(255,122,55,0.40)'
+            : '1px solid rgba(255,255,255,0.12)',
           color: '#fff',
           padding: '5px 12px',
           borderRadius: 999,
@@ -909,14 +976,14 @@ function PricingCard({ plan, badge, price, period, description, features, ctaLab
         </div>
         {badge && (
           <div style={{
-            background: `linear-gradient(135deg, ${C.primary} 0%, #FF8557 100%)`,
+            background: GRAD,
             color: '#fff',
             padding: '5px 12px',
             borderRadius: 999,
             fontSize: 11,
             fontWeight: 700,
             letterSpacing: '0.04em',
-            boxShadow: '0 6px 18px rgba(255,107,53,0.40)',
+            boxShadow: '0 6px 18px rgba(255,107,53,0.45)',
           }}>
             {badge}
           </div>
@@ -926,7 +993,7 @@ function PricingCard({ plan, badge, price, period, description, features, ctaLab
       {/* Prix */}
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 12 }}>
         <span style={{
-          fontSize: 48,
+          fontSize: 'clamp(38px, 7vw, 48px)',
           fontWeight: 900,
           color: '#fff',
           letterSpacing: '-0.03em',
@@ -935,7 +1002,7 @@ function PricingCard({ plan, badge, price, period, description, features, ctaLab
           {price === '0' ? 'Gratuit' : `${price} TND`}
         </span>
         {price !== '0' && (
-          <span style={{ color: 'rgba(255,255,255,0.55)', fontSize: 15, fontWeight: 500 }}>
+          <span style={{ color: 'rgba(255,255,255,0.60)', fontSize: 15, fontWeight: 500 }}>
             {period}
           </span>
         )}
@@ -943,7 +1010,7 @@ function PricingCard({ plan, badge, price, period, description, features, ctaLab
 
       {/* Description */}
       <p style={{
-        color: 'rgba(255,255,255,0.60)',
+        color: 'rgba(255,255,255,0.65)',
         fontSize: 14,
         lineHeight: 1.5,
         margin: '0 0 28px',
@@ -967,7 +1034,7 @@ function PricingCard({ plan, badge, price, period, description, features, ctaLab
             display: 'flex',
             alignItems: 'center',
             gap: 12,
-            color: f.strong ? '#fff' : 'rgba(255,255,255,0.75)',
+            color: f.strong ? '#fff' : 'rgba(255,255,255,0.78)',
             fontSize: 14,
             fontWeight: f.strong ? 700 : 400,
           }}>
@@ -979,39 +1046,36 @@ function PricingCard({ plan, badge, price, period, description, features, ctaLab
 
       {/* CTA */}
       <button
+        className="gh-btn"
         style={{
           width: '100%',
-          background: highlighted
-            ? `linear-gradient(135deg, ${C.primary} 0%, #FF8557 100%)`
-            : 'rgba(255,255,255,0.06)',
+          background: highlighted ? GRAD : 'rgba(255,255,255,0.07)',
           color: '#fff',
-          border: highlighted ? 'none' : '1px solid rgba(255,255,255,0.15)',
+          border: highlighted ? 'none' : '1px solid rgba(255,255,255,0.16)',
           padding: '15px 24px',
           borderRadius: 999,
           fontSize: 14,
           fontWeight: 700,
           cursor: 'pointer',
-          boxShadow: highlighted
-            ? '0 10px 28px rgba(255,107,53,0.45)'
-            : 'none',
+          boxShadow: highlighted ? '0 10px 28px rgba(255,107,53,0.50)' : 'none',
           transition: 'all 0.2s ease',
         }}
         onMouseEnter={e => {
           if (!highlighted) {
-            e.currentTarget.style.background = 'rgba(255,255,255,0.10)'
-            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.25)'
+            e.currentTarget.style.background = 'rgba(255,255,255,0.11)'
+            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.26)'
           } else {
             e.currentTarget.style.transform = 'translateY(-1px)'
-            e.currentTarget.style.boxShadow = '0 14px 36px rgba(255,107,53,0.55)'
+            e.currentTarget.style.boxShadow = '0 14px 36px rgba(255,107,53,0.60)'
           }
         }}
         onMouseLeave={e => {
           if (!highlighted) {
-            e.currentTarget.style.background = 'rgba(255,255,255,0.06)'
-            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'
+            e.currentTarget.style.background = 'rgba(255,255,255,0.07)'
+            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.16)'
           } else {
             e.currentTarget.style.transform = 'translateY(0)'
-            e.currentTarget.style.boxShadow = '0 10px 28px rgba(255,107,53,0.45)'
+            e.currentTarget.style.boxShadow = '0 10px 28px rgba(255,107,53,0.50)'
           }
         }}>
         {ctaLabel}
@@ -1025,15 +1089,89 @@ function CheckCircle({ highlighted }) {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
       <circle cx="12" cy="12" r="10"
-        stroke={highlighted ? '#FF6B35' : 'rgba(255,255,255,0.35)'}
+        stroke={highlighted ? ACCENT : 'rgba(255,255,255,0.38)'}
         strokeWidth="1.5"
-        fill={highlighted ? 'rgba(255,107,53,0.15)' : 'transparent'} />
+        fill={highlighted ? 'rgba(255,122,55,0.18)' : 'transparent'} />
       <path d="M8 12l3 3 5-6"
-        stroke={highlighted ? '#FF8557' : '#fff'}
+        stroke={highlighted ? ACCENT_LIGHT : '#fff'}
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round" />
     </svg>
+  )
+}
+
+// ── ONDES ANIMÉES SOUS LES CARTES DE PRIX (signature) ──
+function PricingWaves() {
+  const staticRings = [90, 180, 290, 410, 540, 690]
+  const sonar = [0, 1.4, 2.8, 4.2, 5.6]
+
+  return (
+    <div aria-hidden="true" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0, overflow: 'hidden' }}>
+      {/* Halo central qui « respire » */}
+      <div className="gh-wave-glow" style={{
+        position: 'absolute',
+        top: '-10%', left: '50%',
+        width: '82%', height: '74%',
+        background: 'radial-gradient(ellipse at center, rgba(255,122,55,0.30) 0%, rgba(255,90,20,0.10) 40%, transparent 72%)',
+        filter: 'blur(22px)',
+      }} />
+
+      <svg width="100%" height="100%" viewBox="0 0 1200 760" preserveAspectRatio="xMidYMid slice" style={{ position: 'absolute', inset: 0 }}>
+        <defs>
+          <radialGradient id="ghRingFade" gradientUnits="userSpaceOnUse" cx="600" cy="230" r="820">
+            <stop offset="0"    stopColor={ACCENT}       stopOpacity="0.50" />
+            <stop offset="0.5"  stopColor={ACCENT_LIGHT} stopOpacity="0.16" />
+            <stop offset="1"    stopColor="#FFFFFF"      stopOpacity="0" />
+          </radialGradient>
+          <radialGradient id="ghSonarStroke" gradientUnits="userSpaceOnUse" cx="600" cy="230" r="820">
+            <stop offset="0"   stopColor={ACCENT_SOFT} stopOpacity="0.95" />
+            <stop offset="0.6" stopColor={ACCENT}      stopOpacity="0.45" />
+            <stop offset="1"   stopColor={ACCENT}      stopOpacity="0.10" />
+          </radialGradient>
+        </defs>
+
+        {/* Anneaux statiques (profondeur) */}
+        <g fill="none" stroke="url(#ghRingFade)" strokeWidth="1.2">
+          {staticRings.map((r, i) => <circle key={i} cx="600" cy="230" r={r} />)}
+        </g>
+
+        {/* Ondes « sonar » qui se propagent en continu */}
+        <g className="gh-sonar" fill="none" stroke="url(#ghSonarStroke)">
+          {sonar.map((delay, i) => (
+            <circle key={i} cx="600" cy="230" r="70">
+              <animate
+                attributeName="r"
+                values="70;780"
+                dur="7s"
+                begin={`${delay}s`}
+                repeatCount="indefinite"
+                calcMode="spline"
+                keyTimes="0;1"
+                keySplines="0.33 0 0.15 1"
+              />
+              <animate
+                attributeName="opacity"
+                values="0.6;0"
+                dur="7s"
+                begin={`${delay}s`}
+                repeatCount="indefinite"
+                calcMode="spline"
+                keyTimes="0;1"
+                keySplines="0.33 0 0.67 1"
+              />
+              <animate
+                attributeName="stroke-width"
+                values="2.6;0.3"
+                dur="7s"
+                begin={`${delay}s`}
+                repeatCount="indefinite"
+              />
+            </circle>
+          ))}
+        </g>
+      </svg>
+    </div>
   )
 }
 
@@ -1079,7 +1217,7 @@ function DottedTunisia() {
         position: 'absolute',
         top: '30%', left: '25%',
         width: '50%', height: '40%',
-        background: 'radial-gradient(circle, rgba(255,107,53,0.20) 0%, transparent 70%)',
+        background: 'radial-gradient(circle, rgba(255,122,55,0.24) 0%, transparent 70%)',
         filter: 'blur(40px)',
         pointerEvents: 'none',
         zIndex: 0,
@@ -1092,15 +1230,15 @@ function DottedTunisia() {
           height: 'auto',
           position: 'relative',
           zIndex: 1,
-          filter: 'drop-shadow(0 20px 60px rgba(255,107,53,0.25))',
+          filter: 'drop-shadow(0 20px 60px rgba(255,107,53,0.30))',
         }}>
 
         <defs>
           <pattern id="dotPatternGov" x="0" y="0" width="5" height="5" patternUnits="userSpaceOnUse">
-            <circle cx="2.5" cy="2.5" r="0.9" fill="rgba(255,255,255,0.30)" />
+            <circle cx="2.5" cy="2.5" r="0.9" fill="rgba(255,255,255,0.34)" />
           </pattern>
           <pattern id="dotPatternHover" x="0" y="0" width="5" height="5" patternUnits="userSpaceOnUse">
-            <circle cx="2.5" cy="2.5" r="1.1" fill="rgba(255,107,53,0.70)" />
+            <circle cx="2.5" cy="2.5" r="1.1" fill="rgba(255,138,80,0.80)" />
           </pattern>
           <filter id="govGlow">
             <feGaussianBlur stdDeviation="3" result="blur" />
@@ -1123,347 +1261,4 @@ function DottedTunisia() {
               <path
                 d={g.path}
                 fill={isHovered ? 'url(#dotPatternHover)' : 'url(#dotPatternGov)'}
-                stroke={isHovered ? 'rgba(255,107,53,0.80)' : 'rgba(255,255,255,0.12)'}
-                strokeWidth={isHovered ? '1.2' : '0.5'}
-                style={{ transition: 'all 0.2s ease' }}
-              />
-              {/* Overlay couleur légère */}
-              <path
-                d={g.path}
-                fill={
-                  isCapital
-                    ? 'rgba(255,107,53,0.18)'
-                    : isHovered
-                    ? 'rgba(255,107,53,0.25)'
-                    : 'rgba(255,255,255,0.02)'
-                }
-                stroke="none"
-                style={{ transition: 'all 0.2s ease' }}
-              />
-            </g>
-          )
-        })}
-
-        {/* Label Tunis centré dans le gouvernorat */}
-        <text
-          x="190" y="65"
-          fill={C.primary}
-          fontSize="7"
-          fontWeight="800"
-          textAnchor="middle"
-          style={{ pointerEvents: 'none', letterSpacing: '0.05em' }}>
-          TUNIS
-        </text>
-      </svg>
-
-      {/* Tooltip hover */}
-      {hovered && (
-        <div style={{
-          position: 'absolute',
-          top: -48,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          background: 'rgba(10,14,26,0.95)',
-          border: `1px solid rgba(255,107,53,0.40)`,
-          borderRadius: 8,
-          padding: '6px 14px',
-          color: '#fff',
-          fontSize: 13,
-          fontWeight: 700,
-          whiteSpace: 'nowrap',
-          boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-          zIndex: 10,
-          pointerEvents: 'none',
-        }}>
-          {gouvernorats.find(g => g.id === hovered)?.name}
-          <div style={{
-            position: 'absolute',
-            bottom: -5, left: '50%',
-            transform: 'translateX(-50%) rotate(45deg)',
-            width: 8, height: 8,
-            background: 'rgba(10,14,26,0.95)',
-            border: `1px solid rgba(255,107,53,0.40)`,
-            borderTop: 'none', borderLeft: 'none',
-          }} />
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── COMPTEUR STYLE FLIP BOARD ──
-function CounterDisplay({ value }) {
-  const chars = value.split('')
-  return (
-    <div style={{
-      display: 'inline-flex',
-      gap: 4,
-      padding: 8,
-      background: 'rgba(0,0,0,0.4)',
-      borderRadius: 12,
-      boxShadow: '0 12px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05)',
-      backdropFilter: 'blur(10px)',
-    }}>
-      {chars.map((c, i) => (
-        c === ' ' ? (
-          <span key={i} style={{ width: 6 }} />
-        ) : (
-          <div key={i} style={{
-            width: 36, height: 50,
-            background: 'linear-gradient(180deg, #1a1f2e 0%, #0A0E1A 100%)',
-            borderRadius: 6,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: '#fff',
-            fontSize: 28,
-            fontWeight: 900,
-            fontFamily: 'Georgia, serif',
-            border: '1px solid rgba(255,255,255,0.08)',
-            boxShadow: 'inset 0 -1px 0 rgba(255,255,255,0.05), 0 2px 8px rgba(0,0,0,0.3)',
-            position: 'relative',
-          }}>
-            {c}
-            <div style={{
-              position: 'absolute',
-              top: '50%', left: 0, right: 0,
-              height: 1,
-              background: 'rgba(0,0,0,0.5)',
-            }} />
-          </div>
-        )
-      ))}
-    </div>
-  )
-}
-
-// ── CARD FLOTTANTE ──
-function FloatingCard({ style, avatar, flag }) {
-  return (
-    <div style={{
-      position: 'absolute',
-      width: 200,
-      background: 'rgba(255,255,255,0.97)',
-      borderRadius: 12,
-      padding: 12,
-      display: 'flex',
-      alignItems: 'center',
-      gap: 10,
-      boxShadow: '0 12px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,107,53,0.10)',
-      zIndex: 4,
-      ...style,
-    }}>
-      <div style={{
-        position: 'relative',
-        width: 40, height: 40,
-        borderRadius: '50%',
-        overflow: 'hidden',
-        flexShrink: 0,
-      }}>
-        <img
-          src={avatar}
-          alt=""
-          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-        />
-        <div style={{
-          position: 'absolute',
-          bottom: -2, right: -2,
-          width: 18, height: 18,
-          borderRadius: '50%',
-          background: '#fff',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 10,
-          boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-        }}>
-          {flag}
-        </div>
-      </div>
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <div style={{ height: 6, background: '#e5e7eb', borderRadius: 3, width: '85%' }} />
-        <div style={{ height: 6, background: '#e5e7eb', borderRadius: 3, width: '60%' }} />
-        <div style={{ height: 6, background: '#e5e7eb', borderRadius: 3, width: '70%' }} />
-      </div>
-    </div>
-  )
-}
-// ── STAT CARD ──
-function StatCard({ icon, value, suffix, title, description }) {
-  return (
-    <div
-      style={{
-        background: 'linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.015) 100%)',
-        border: '1px solid rgba(255,255,255,0.08)',
-        borderRadius: 20,
-        padding: '28px 24px',
-        position: 'relative',
-        overflow: 'hidden',
-        transition: 'all 0.25s ease',
-        cursor: 'default',
-      }}
-      onMouseEnter={e => {
-        e.currentTarget.style.transform = 'translateY(-4px)'
-        e.currentTarget.style.borderColor = 'rgba(255,107,53,0.35)'
-        e.currentTarget.style.boxShadow = '0 20px 40px rgba(0,0,0,0.30), 0 0 32px rgba(255,107,53,0.12)'
-      }}
-      onMouseLeave={e => {
-        e.currentTarget.style.transform = 'translateY(0)'
-        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'
-        e.currentTarget.style.boxShadow = 'none'
-      }}>
-
-      {/* Glow décoratif coin sup droit */}
-      <div style={{
-        position: 'absolute',
-        top: -40, right: -40,
-        width: 120, height: 120,
-        background: 'radial-gradient(circle, rgba(255,107,53,0.18) 0%, transparent 70%)',
-        filter: 'blur(20px)',
-        pointerEvents: 'none',
-      }} />
-
-      {/* Icône */}
-      <div style={{
-        width: 44, height: 44,
-        borderRadius: 12,
-        background: 'linear-gradient(135deg, rgba(255,107,53,0.18) 0%, rgba(255,107,53,0.06) 100%)',
-        border: '1px solid rgba(255,107,53,0.25)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        marginBottom: 24,
-        position: 'relative',
-        zIndex: 1,
-      }}>
-        {icon}
-      </div>
-
-      {/* Number */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'baseline',
-        gap: 2,
-        marginBottom: 10,
-        position: 'relative',
-        zIndex: 1,
-      }}>
-        <span style={{
-          fontSize: 48,
-          fontWeight: 900,
-          color: '#fff',
-          letterSpacing: '-0.04em',
-          lineHeight: 1,
-        }}>
-          {value}
-        </span>
-        <span style={{
-          fontSize: 38,
-          fontWeight: 900,
-          letterSpacing: '-0.04em',
-          lineHeight: 1,
-          background: `linear-gradient(135deg, ${C.primary} 0%, #FF8557 100%)`,
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-          backgroundClip: 'text',
-        }}>
-          {suffix}
-        </span>
-      </div>
-
-      {/* Title */}
-      <div style={{
-        color: '#fff',
-        fontSize: 15,
-        fontWeight: 700,
-        marginBottom: 6,
-        letterSpacing: '-0.01em',
-        position: 'relative',
-        zIndex: 1,
-      }}>
-        {title}
-      </div>
-
-      {/* Description */}
-      <p style={{
-        color: 'rgba(255,255,255,0.55)',
-        fontSize: 13,
-        lineHeight: 1.5,
-        margin: 0,
-        position: 'relative',
-        zIndex: 1,
-      }}>
-        {description}
-      </p>
-    </div>
-  )
-}
-
-// ── ICÔNES STATS ──
-function IconGrid() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF8557" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="3" width="7" height="7" rx="1.5"/>
-      <rect x="14" y="3" width="7" height="7" rx="1.5"/>
-      <rect x="3" y="14" width="7" height="7" rx="1.5"/>
-      <rect x="14" y="14" width="7" height="7" rx="1.5"/>
-    </svg>
-  )
-}
-
-function IconPackage() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF8557" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M16.5 9.4L7.55 4.24M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/>
-      <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
-      <line x1="12" y1="22.08" x2="12" y2="12"/>
-    </svg>
-  )
-}
-
-function IconTrending() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF8557" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
-      <polyline points="17 6 23 6 23 12"/>
-    </svg>
-  )
-}
-function PricingWaves() {
-  const rings = [110, 210, 320, 440, 570, 710, 860]
-  return (
-    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0, overflow: 'hidden' }}>
-      {/* lueur orange centrale */}
-      <div style={{
-        position: 'absolute', top: '-12%', left: '50%', transform: 'translateX(-50%)',
-        width: '78%', height: '70%',
-        background: 'radial-gradient(ellipse at center, rgba(255,69,0,0.20) 0%, rgba(255,69,0,0.06) 38%, transparent 70%)',
-        filter: 'blur(18px)',
-      }} />
-      {/* ondes concentriques */}
-      <svg width="100%" height="100%" viewBox="0 0 1200 760" preserveAspectRatio="xMidYMid slice" style={{ position: 'absolute', inset: 0 }}>
-        <defs>
-          <radialGradient id="ringFade" gradientUnits="userSpaceOnUse" cx="600" cy="210" r="900">
-            <stop offset="0"    stopColor="#FF6A2C" stopOpacity="0.28" />
-            <stop offset="0.45" stopColor="#FFFFFF" stopOpacity="0.09" />
-            <stop offset="1"    stopColor="#FFFFFF" stopOpacity="0" />
-          </radialGradient>
-        </defs>
-        <g fill="none" stroke="url(#ringFade)" strokeWidth="1.5">
-          {rings.map((r, i) => <circle key={i} cx="600" cy="210" r={r} />)}
-        </g>
-      </svg>
-    </div>
-  )
-}
-function IconShield() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF8557" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-      <polyline points="9 12 11 14 15 10"/>
-    </svg>
-  )
-}
-// ── ICÔNE FLÈCHE ──
-function ArrowRight() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="5" y1="12" x2="19" y2="12"/>
-      <polyline points="12 5 19 12 12 19"/>
-    </svg>
-  )
-}
+                stro

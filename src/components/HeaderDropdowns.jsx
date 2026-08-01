@@ -6,6 +6,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useCart } from '../context/CartContext'
 import { useAuth } from '../context/AuthContext'
+import { useUnread } from '../context/UnreadContext'
 import { messaging, orders, addresses as addressesApi } from '../lib/api'
 import * as Icons from 'lucide-react'
 import PHONE_ICON from '../assets/phone.png'
@@ -200,12 +201,14 @@ function useLazyData(fetcher, enabled) {
 /* ═══════════════════════════════════════════════════════════════════
    MESSAGES, ORDERS, CART (utilisent IconDropdown)
    ═══════════════════════════════════════════════════════════════════ */
-export function MessagesDropdown({ badge = 0 }) {
+export function MessagesDropdown() {
   const [armed, setArmed] = useState(false)
+  const { unread } = useUnread()                       // ← compteur global (poller UnreadContext)
   const { data, loading } = useLazyData(fetchMessages, armed)
   return (
     <div onMouseEnter={() => setArmed(true)} style={{ display: 'flex' }}>
-      <IconDropdown to="/messages" title="Messages" badge={badge} width={400} icon={
+      {/* badge={unread} → même pastille orange que le panier, cap « 9+ » */}
+      <IconDropdown to="/messages" title="Messages" badge={unread} width={400} icon={
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
           <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
         </svg>
@@ -214,15 +217,16 @@ export function MessagesDropdown({ badge = 0 }) {
         {loading && <PanelSkeleton rows={3} />}
         {!loading && data?.length === 0 && <PanelEmpty>Aucun message</PanelEmpty>}
         {!loading && data?.slice(0, 4).map(m => {
-          const name = asText(m.name || m.sender_name || m.supplier || m.other_party)
-          const company = asText(m.company || m.supplier_name || m.company_name)
+          const name = asText(m.supplier?.name || m.supplier_name || m.name || m.sender_name)
+          const product = asText(m.product_name)
           const last = asText(m.last_message || m.preview)
-          const date = fmtDate(m.last_message?.created_at || m.updated_at || m.created_at)
+          const date = fmtDate(m.last_msg_at || m.last_message?.created_at || m.updated_at || m.created_at)
+          const logo = m.supplier?.logo_url || m.supplier_logo || m.avatar_url
           return (
             <Row key={m.id} to={`/messages/${m.id}`}>
               <div style={{ width: 44, height: 44, borderRadius: '50%', overflow: 'hidden', background: '#F4F5F7', flexShrink: 0 }}>
-                {m.avatar_url
-                  ? <img src={m.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                {logo
+                  ? <img src={logo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 700, color: MUTE }}>{(name || '?')[0]}</div>}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -230,7 +234,7 @@ export function MessagesDropdown({ badge = 0 }) {
                   <span style={{ fontSize: '13.5px', fontWeight: 700, color: INK, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name || 'Conversation'}</span>
                   <span style={{ fontSize: '11px', color: FAINT, flexShrink: 0 }}>{date}</span>
                 </div>
-                {company && <div style={{ fontSize: '12px', color: MUTE, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{company}</div>}
+                {product && <div style={{ fontSize: '12px', color: MUTE, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{product}</div>}
                 <div style={{ fontSize: '12.5px', color: '#3D4853', marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{last}</div>
               </div>
               {m.unread_count > 0 && (

@@ -1,16 +1,20 @@
 // src/hooks/useMessaging.js — GROSHOP.tn
 // Logique messagerie partagée (acheteur + fournisseur) : liste, fil actif,
-// polling INTELLIGENT (se met en pause quand l'onglet est caché), accusés
-// de lecture (double coche). Aucune UI ici — juste des données + actions.
+// polling INTELLIGENT (pause quand l'onglet est caché), accusés de lecture.
+// Émet 'gs-unread-refresh' pour que le badge global (UnreadContext) reste synchro.
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { messaging } from '../lib/api'
 
-const LIST_MS   = 6000   // rafraîchit la liste (aperçu, ordre, non-lus)
-const THREAD_MS = 2800   // rafraîchit le fil ouvert (nouveaux messages + accusés)
+const LIST_MS   = 6000
+const THREAD_MS = 2800
 
 const isVisible = () =>
   typeof document === 'undefined' || document.visibilityState === 'visible'
+
+const pingUnread = () => {
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event('gs-unread-refresh'))
+}
 
 export function useMessaging(activeId) {
   const [conversations, setConversations] = useState(null)
@@ -20,8 +24,8 @@ export function useMessaging(activeId) {
   const [sending,   setSending]   = useState(false)
   const [sendError, setSendError] = useState('')
 
-  const cursorRef  = useRef(null)          // curseur serveur pour le poll incrémental
-  const seenRef    = useRef(new Set())     // ids déjà affichés (anti-doublon)
+  const cursorRef  = useRef(null)
+  const seenRef    = useRef(new Set())
   const activeRef  = useRef(activeId)
   activeRef.current = activeId
 
@@ -37,7 +41,6 @@ export function useMessaging(activeId) {
 
   useEffect(() => { loadList() }, [loadList])
 
-  // Polling liste (visible uniquement) + refresh immédiat au retour d'onglet
   useEffect(() => {
     const tick = () => { if (isVisible()) loadList() }
     const t = setInterval(tick, LIST_MS)
@@ -63,7 +66,8 @@ export function useMessaging(activeId) {
         setMessages(msgs)
         cursorRef.current = d?.server_time || new Date().toISOString()
         setLoadingDetail(false)
-        loadList()   // les non-lus viennent d'être remis à zéro côté serveur
+        loadList()      // non-lus remis à zéro côté serveur pour ce fil
+        pingUnread()    // → le badge global baisse instantanément
       })
       .catch(() => {
         if (!alive) return
@@ -82,19 +86,18 @@ export function useMessaging(activeId) {
       try {
         const res = await messaging.poll(activeId, {
           after: cursorRef.current,
-          markRead: isVisible(),      // ne marque « lu » que si on regarde vraiment
+          markRead: isVisible(),
         })
         if (activeRef.current !== activeId) return
 
-        // Nouveaux messages (dédoublonnés par id)
         const incoming = (res?.messages || []).filter(m => !seenRef.current.has(String(m.id)))
         if (incoming.length) {
           incoming.forEach(m => seenRef.current.add(String(m.id)))
           setMessages(prev => [...prev, ...incoming])
-          loadList()   // maj aperçu + ordre
+          loadList()
+          pingUnread()   // nouveau message reçu → maj badge
         }
 
-        // Accusés de lecture : mes messages passés « vus »
         const readSet = new Set((res?.read_ids || []).map(String))
         if (readSet.size) {
           setMessages(prev => prev.map(m =>
@@ -102,7 +105,7 @@ export function useMessaging(activeId) {
         }
 
         if (res?.server_time) cursorRef.current = res.server_time
-      } catch { /* silencieux : on retentera au prochain tick */ }
+      } catch { /* on retentera au prochain tick */ }
     }
 
     const t = setInterval(poll, THREAD_MS)
@@ -118,8 +121,6 @@ export function useMessaging(activeId) {
     setSending(true); setSendError('')
     try {
       const msg = await messaging.sendMessage(activeRef.current, content, attachmentUrl)
-      // request() lève une erreur sur 4xx → le filtre anti-contournement
-      // arrive donc dans le catch (message précis dans e.message).
       seenRef.current.add(String(msg.id))
       setMessages(prev => [...prev, msg])
       setSending(false)

@@ -14,6 +14,7 @@ import { usePageTracking } from '../hooks/usePageTracking'
 import { useIsMobile } from '../hooks/useIsMobile'
 import MobileHome from './MobileHome'
 import PopularCategories from '../components/PopularCategories'
+import ParticlesBg from '../components/ParticlesBg'
 // ── Paramètres globaux layout ───────────────────────────────────
 const LAYOUT = {
   maxWidth: '1500px',
@@ -179,26 +180,41 @@ export default function HomePage() {
 
       {/* Hero search */}
       <HeroSearch />
-      {/* Catégories populaires */}
 
-  <PopularCategories />
+      {/* ═══════════════════════════════════════════════════════════
+          BANDE À FOND DE PARTICULES : tendance → HeroGrid → catégories → bannières.
+          Le conteneur est en position:relative, <ParticlesBg /> se cale derrière,
+          et le contenu passe au-dessus grâce à zIndex:1.
+          → pour changer l'étendue du fond, déplace l'ouverture/fermeture de ce bloc
+            (ex. sortir <BannerSlider /> du wrapper pour l'exclure).
+          ═══════════════════════════════════════════════════════════ */}
+      <div style={{ position: 'relative' }}>
+        <ParticlesBg />
 
-      {/* HeroGrid */}
-      <div >
-        <Container style={{ paddingTop: '1rem', paddingBottom: '1rem' }}>
-          <HeroGrid />
-        </Container>
+        <div style={{ position: 'relative', zIndex: 1 }}>
+
+          {/* Section "Tendances 48h" — fichier CategorySection.jsx */}
+          <div>
+            <CategorySection products={trendingProducts} />
+          </div>
+
+          {/* HeroGrid */}
+          <div>
+            <Container style={{ paddingTop: '1rem', paddingBottom: '1rem' }}>
+              <HeroGrid />
+            </Container>
+          </div>
+
+          {/* Catégories populaires */}
+          <PopularCategories />
+
+          {/* Bannières slider */}
+          <Container style={{ paddingTop: '1.5rem' }}>
+            <BannerSlider />
+          </Container>
+
+        </div>
       </div>
-
-      {/* Section "Tendances 48h" — fichier CategorySection.jsx, composant TrendingSection */}
-      <div >
-          <CategorySection products={trendingProducts} />
-      </div>
-
-      {/* Bannières slider */}
-      <Container style={{ paddingTop: '1.5rem' }}>
-        <BannerSlider />
-      </Container>
 
       {/* Grille produits recommandés */}
       <Container style={{ paddingTop: '2rem', paddingBottom: '3rem' }}>

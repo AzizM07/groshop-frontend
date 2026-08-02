@@ -11,6 +11,10 @@ const HERO_BG_ZONE = 'hero_bg'
 const API_BASE = import.meta.env.VITE_API_URL || ''
 
 const HERO_HEIGHT = 'clamp(400px, 0vh, 620px)'
+// Position verticale de la barre = hauteur du "vide" au-dessus, en % de la hauteur du hero.
+// ≈50% = centre, plus grand = plus bas. Comme c'est un % du hero (donc de l'image),
+// la barre reste ancrée au même endroit de l'image quelle que soit sa taille.
+const SEARCH_Y = '70%'
 const OVERLAY = 0
 const RADIUS = '0px'
 const SHOW_HALO = true
@@ -158,14 +162,17 @@ export default function HeroSearch() {
       <div style={{
         position: 'relative',
         zIndex: 1,
-        minHeight: HERO_HEIGHT,
+        height: HERO_HEIGHT,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'center',
-        padding: '32px 24px',
+        justifyContent: 'flex-start',
+        padding: '0 24px',
         boxSizing: 'border-box',
       }}>
+
+        {/* Espace au-dessus de la barre → contrôle sa position verticale, en % du hero (donc de l'image) */}
+        <div aria-hidden="true" style={{ height: SEARCH_Y, flexShrink: 0 }} />
 
         <form onSubmit={handleSearch} style={{
           width: '100%', maxWidth: '760px',

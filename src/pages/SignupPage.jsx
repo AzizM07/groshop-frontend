@@ -11,6 +11,8 @@ import SimpleInput from './../pages/auth/_shared/SimpleInput'
 import SocialButtons from './../pages/auth/_shared/SocialButtons'
 import PasswordStrength from './../pages/auth/_shared/PasswordStrength'
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+
 function mapSignupError(msg) {
   const m = (msg || '').toLowerCase()
   if (m.includes('email') && (m.includes('déjà') || m.includes('exist') || m.includes('unique')))
@@ -71,8 +73,10 @@ export default function SignupPage() {
     }
   }
 
+  // ── Inscription/connexion sociale : redirige vers le backend (OAuth géré côté serveur) ──
   function handleSocialSignIn(provider) {
-    alert(`${provider} Sign-In : à brancher`)
+    const slug = String(provider).toLowerCase()   // 'google' | 'facebook' | 'linkedin'
+    window.location.href = `${API_URL}/api/auth/${slug}/start/`
   }
 
   return (

@@ -1,6 +1,6 @@
 // src/pages/LoginPage.jsx
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { Spinner, Modal } from './_shared'
@@ -11,6 +11,8 @@ import AuthStyles     from './../pages/auth/_shared/AuthStyles'
 import SimpleInput    from './../pages/auth/_shared/SimpleInput'
 import SocialButtons  from './../pages/auth/_shared/SocialButtons'
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+
 function mapAuthError(msg) {
   if (msg.includes('incorrect'))    return 'Email ou mot de passe incorrect.'
   if (msg.includes('désactivé'))    return 'Compte désactivé. Contactez le support.'
@@ -18,6 +20,17 @@ function mapAuthError(msg) {
   if (msg.includes('Too many') || msg.includes('throttled') || msg.includes('limit'))
     return 'Trop de tentatives. Réessayez dans quelques minutes.'
   return msg || 'Une erreur est survenue. Réessayez.'
+}
+
+// Messages d'erreur renvoyés par le backend après un login social échoué
+// (ex: /login?social=facebook_noemail)
+function mapSocialError(param) {
+  if (!param) return ''
+  if (param === 'disabled')            return 'Ce compte est désactivé. Contactez le support.'
+  if (param.endsWith('_noemail'))      return "Ce compte ne partage pas d'adresse email. Utilisez un autre mode de connexion."
+  if (param.endsWith('_denied'))       return 'Connexion annulée.'
+  if (param.endsWith('_notconfigured'))return "Cette méthode de connexion n'est pas encore disponible."
+  return 'La connexion a échoué. Réessayez.'
 }
 
 export default function LoginPage() {
@@ -36,6 +49,17 @@ export default function LoginPage() {
   const [forgotLoading, setForgotLoading] = useState(false)
   const [forgotSuccess, setForgotSuccess] = useState('')
   const [forgotError,   setForgotError]   = useState('')
+
+  // Au retour d'un login social en échec, affiche le message puis nettoie l'URL
+  useEffect(() => {
+    const params = new URLSearchParams(location.search)
+    const social = params.get('social')
+    if (social) {
+      setError(mapSocialError(social))
+      navigate('/login', { replace: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   async function handleLogin(e) {
     e.preventDefault()
@@ -70,8 +94,10 @@ export default function LoginPage() {
     }
   }
 
+  // ── Connexion sociale : redirige vers le backend qui gère tout l'OAuth ──
   function handleSocialSignIn(provider) {
-    alert(`${provider} Sign-In : à brancher`)
+    const slug = String(provider).toLowerCase()   // 'google' | 'facebook' | 'linkedin'
+    window.location.href = `${API_URL}/api/auth/${slug}/start/`
   }
 
   return (

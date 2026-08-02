@@ -192,9 +192,7 @@ export default function HomePage() {
 
       {/* Section "Tendances 48h" — fichier CategorySection.jsx, composant TrendingSection */}
       <div >
-        <Container style={{ paddingTop: '1rem' }}>
           <CategorySection products={trendingProducts} />
-        </Container>
       </div>
 
       {/* Bannières slider */}

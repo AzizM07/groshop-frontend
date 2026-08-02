@@ -180,9 +180,8 @@ export default function HomePage() {
       {/* Hero search */}
       <HeroSearch />
       {/* Catégories populaires */}
-<Container style={{ paddingTop: '.5rem' }}>
+
   <PopularCategories />
-</Container>
 
       {/* HeroGrid */}
       <div >

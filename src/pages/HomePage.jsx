@@ -189,8 +189,6 @@ export default function HomePage() {
             (ex. sortir <BannerSlider /> du wrapper pour l'exclure).
           ═══════════════════════════════════════════════════════════ */}
       <div style={{ position: 'relative' }}>
-        <ParticlesBg />
-
         <div style={{ position: 'relative', zIndex: 1 }}>
 
           {/* Section "Tendances 48h" — fichier CategorySection.jsx */}

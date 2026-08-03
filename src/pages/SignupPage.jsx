@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { auth } from '../lib/api'
+import { facebookSignIn, preloadFacebookSdk } from '../lib/facebookLogin'
 import { Spinner } from './_shared'
 
 import { C } from './auth/_shared/constants'
@@ -41,6 +42,9 @@ export default function SignupPage() {
   const [password, setPassword] = useState('')
   const [cguOk,    setCguOk]    = useState(false)
 
+  // Précharge le SDK Facebook pour que le popup s'ouvre dans le geste du clic
+  useEffect(() => { preloadFacebookSdk() }, [])
+
   function validate() {
     if (!fullName.trim() || fullName.trim().length < 2) return 'Veuillez entrer votre nom complet.'
     if (!email.includes('@') || !email.includes('.'))   return 'Email invalide.'
@@ -73,9 +77,29 @@ export default function SignupPage() {
     }
   }
 
-  // ── Inscription/connexion sociale : redirige vers le backend (OAuth géré côté serveur) ──
-  function handleSocialSignIn(provider) {
-    const slug = String(provider).toLowerCase()   // 'google' | 'facebook' | 'linkedin'
+  // ── Inscription/connexion sociale ──
+  //  • Facebook : flux CLIENT (SDK popup) → pas de redirection → pas de page rouge.
+  //  • Google / LinkedIn : flux redirection serveur (inchangé).
+  async function handleSocialSignIn(provider) {
+    const slug = String(provider).toLowerCase()
+
+    if (slug === 'facebook') {
+      setError('')
+      try {
+        const u = await facebookSignIn()
+        setUser(u)
+        try { new BroadcastChannel('gs_auth').postMessage('login') } catch {}
+        navigate(u.role === 'supplier' ? '/supplier' : '/', { replace: true })
+      } catch (e) {
+        if (e.message === 'cancelled') return
+        if (e.message === 'config')
+          setError("La connexion Facebook n'est pas encore configurée.")
+        else
+          setError('La connexion Facebook a échoué. Réessayez.')
+      }
+      return
+    }
+
     window.location.href = `${API_URL}/api/auth/${slug}/start/`
   }
 

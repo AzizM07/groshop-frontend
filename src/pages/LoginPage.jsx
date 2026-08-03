@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { auth } from '../lib/api'
+import { facebookSignIn, preloadFacebookSdk } from '../lib/facebookLogin'
 import { Spinner, Modal } from './_shared'
 
 import { C } from './../pages/auth/_shared/constants'
@@ -34,7 +36,7 @@ function mapSocialError(param) {
 }
 
 export default function LoginPage() {
-  const { signIn }   = useAuth()
+  const { signIn, setUser } = useAuth()
   const navigate     = useNavigate()
   const location     = useLocation()
 
@@ -49,6 +51,9 @@ export default function LoginPage() {
   const [forgotLoading, setForgotLoading] = useState(false)
   const [forgotSuccess, setForgotSuccess] = useState('')
   const [forgotError,   setForgotError]   = useState('')
+
+  // Précharge le SDK Facebook pour que le popup s'ouvre dans le geste du clic
+  useEffect(() => { preloadFacebookSdk() }, [])
 
   // Au retour d'un login social en échec, affiche le message puis nettoie l'URL
   useEffect(() => {
@@ -94,9 +99,30 @@ export default function LoginPage() {
     }
   }
 
-  // ── Connexion sociale : redirige vers le backend qui gère tout l'OAuth ──
-  function handleSocialSignIn(provider) {
-    const slug = String(provider).toLowerCase()   // 'google' | 'facebook' | 'linkedin'
+  // ── Connexion sociale ──
+  //  • Facebook : flux CLIENT (SDK popup) → pas de redirection → pas de page rouge.
+  //  • Google / LinkedIn : flux redirection serveur (inchangé).
+  async function handleSocialSignIn(provider) {
+    const slug = String(provider).toLowerCase()
+
+    if (slug === 'facebook') {
+      setError('')
+      try {
+        const u = await facebookSignIn()
+        setUser(u)
+        try { new BroadcastChannel('gs_auth').postMessage('login') } catch {}
+        const from = location.state?.from
+        navigate(from || (u.role === 'supplier' ? '/supplier' : '/'), { replace: true })
+      } catch (e) {
+        if (e.message === 'cancelled') return   // popup fermé volontairement → pas d'erreur
+        if (e.message === 'config')
+          setError("La connexion Facebook n'est pas encore configurée.")
+        else
+          setError('La connexion Facebook a échoué. Réessayez.')
+      }
+      return
+    }
+
     window.location.href = `${API_URL}/api/auth/${slug}/start/`
   }
 

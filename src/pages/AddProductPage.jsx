@@ -61,7 +61,7 @@ export default function AddProductPage() {
     shipping_block_size: 10,
     shipping_block_price: '',
     delivery_days: 3,
-    video_url: '', specs_raw: '',
+    video_url: '', video_poster_url: '', specs_raw: '',
   })
   const [images, setImages]     = useState([])
   const [tiers, setTiers]       = useState([{ min_qty: '', price_tnd: '', old_price_tnd: '' }])
@@ -143,13 +143,28 @@ export default function AddProductPage() {
   const removeShipTier = (i) => setShipTiers((t) => (t.length <= 1 ? t : t.filter((_, idx) => idx !== i)))
 
   const { errs: tierErrs, ok: tierOk } = priceTierIssues(tiers)
+  const [videoUploading, setVideoUploading] = useState(false)
 
+  async function handleVideo(file) {
+    if (!file) return
+    setVideoUploading(true)
+    try {
+      const { url, poster } = await uploadFile('/products/upload-video/', file)
+      setForm((f) => ({ ...f, video_url: url, video_poster_url: poster || '' }))
+    } catch (e) {
+      alert(e.message)
+    } finally {
+      setVideoUploading(false)
+    }
+  }
+  const removeVideo = () => setForm((f) => ({ ...f, video_url: '', video_poster_url: '' }))
+  
   /* ── Soumission ── */
   async function submit(status) {
     const errs = {}
     if (!form.name.trim()) errs.name = 'Nom requis'
     if (!form.category)    errs.category = 'Catégorie requise'
-
+    if (videoUploading) errs.images = 'Attends la fin de la compression vidéo'
     const completeTiers = tiers.filter((t) => t.min_qty && t.price_tnd)
     if (!completeTiers.length) errs.price_tiers = 'Ajoute au moins une tranche de prix'
     else if (!tierOk)          errs.price_tiers = 'Corrige les tranches en rouge (quantité croissante, prix décroissant)'
@@ -167,7 +182,8 @@ export default function AddProductPage() {
     const payload = {
       name: form.name, category: form.category, description: form.description,
       brand: form.brand, reference: form.reference, unit: form.unit,
-      specs_raw: form.specs_raw, video_url: form.video_url,
+      specs_raw: form.specs_raw, video_url: form.video_url, video_poster_url: form.video_poster_url,
+      
       in_stock: form.in_stock,
       delivery_days: Number(form.delivery_days) || 3,
       shipping_mode: form.shipping_mode,
@@ -423,9 +439,25 @@ export default function AddProductPage() {
             )}
             <p style={S.helper}>La 1ʳᵉ image (★) est la principale, affichée sur la carte produit.</p>
 
-            <Field label="Vidéo (URL)" hint="Optionnel — bientôt en upload" style={{ marginTop: 14 }}>
-              <input style={S.input} className="ap-in" value={form.video_url} onChange={(e) => set('video_url', e.target.value)} placeholder="https://…" />
-            </Field>
+<div style={{ marginTop: 14 }}>
+              <label style={{ display: 'block', fontSize: 12.5, fontWeight: 600, color: '#3D4853', marginBottom: 7 }}>Vidéo produit</label>
+              {form.video_url ? (
+                <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', background: '#000' }}>
+                  <video src={form.video_url} poster={form.video_poster_url || undefined} controls
+                    style={{ width: '100%', display: 'block', maxHeight: 220 }} />
+                  <button type="button" style={S.imgRemove} onClick={removeVideo}><X size={13} /></button>
+                </div>
+              ) : (
+                <label style={S.dropzone} className="ap-drop">
+                  <input type="file" accept="video/mp4,video/webm,video/quicktime,video/x-matroska" style={{ display: 'none' }}
+                    onChange={(e) => { if (e.target.files[0]) handleVideo(e.target.files[0]); e.target.value = '' }} />
+                  {videoUploading
+                    ? <Loader2 size={24} className="ap-spin" color="#9aa3ae" />
+                    : <><Upload size={24} color="#c2c8d0" /><span style={{ fontSize: 13, color: '#6B7785', marginTop: 8, textAlign: 'center' }}>Uploader une vidéo<br /><span style={{ fontSize: 11, color: '#a5adb8' }}>MP4, WEBM, MOV · max 100 Mo</span></span></>}
+                </label>
+              )}
+              {videoUploading && <div style={{ ...S.helper, marginTop: 6 }}>Compression en cours, ça peut prendre quelques secondes…</div>}
+            </div>
           </section>
 
           {/* CHOIX & VARIANTES */}

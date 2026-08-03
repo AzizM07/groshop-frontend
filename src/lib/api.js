@@ -121,6 +121,14 @@ export const auth = {
     })
   },
 
+  // ── Facebook (flux SDK client) : envoie l'access_token, reçoit { user } ──
+  async facebookToken(accessToken) {
+    return request('/auth/facebook/token/', {
+      method: 'POST',
+      body: JSON.stringify({ access_token: accessToken }),
+    })
+  },
+
   async supplierMe() {
     return request('/auth/supplier/me/')
   },

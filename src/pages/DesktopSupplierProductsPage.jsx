@@ -245,7 +245,7 @@ function ProductRow({ product, cols, isLast }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
         <div style={{ width: 44, height: 44, borderRadius: 12, background: '#F5F3EE', flexShrink: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           {product.primary_image
-            ? <img src={product.primary_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ? <img src={product.primary_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
             : <Icons.Package size={18} color="#B8BCC4" strokeWidth={1.8} />}
         </div>
         <div style={{ minWidth: 0 }}>

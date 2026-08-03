@@ -56,7 +56,7 @@ function SimilarCard({ p, onClick }) {
   return (
     <div onClick={onClick} style={{ flex: '0 0 200px', background: '#fff', borderRadius: 12, border: `1px solid ${LINE}`, padding: 12, cursor: 'pointer', display: 'flex', flexDirection: 'column' }}>
       <div style={{ width: '100%', aspectRatio: '1', borderRadius: 8, overflow: 'hidden', background: '#F7F8FA' }}>
-        {p.primary_image ? <img src={p.primary_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32 }}>📦</div>}
+        {p.primary_image ? <img src={p.primary_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32 }}>📦</div>}
       </div>
       <div style={{ fontSize: 13, color: SUB, lineHeight: 1.35, marginTop: 10, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', minHeight: 36 }}>{p.name}</div>
       {toNum(p.rating_avg) > 0 && <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 6 }}><Stars value={toNum(p.rating_avg)} size={12} /><span style={{ fontSize: 11.5, color: MUTE }}>{toNum(p.rating_avg).toFixed(1)} / 5</span></div>}
@@ -214,7 +214,7 @@ function DesktopProductPage() {
                 <div style={{ minWidth: 0 }}>
                   <div style={{ position: 'relative', width: '100%', aspectRatio: '1', borderRadius: 10, overflow: 'hidden', background: '#F7F8FA' }}>
                     {mainImage
-                      ? <img src={mainImage} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ? <img src={mainImage} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
                       : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 60 }}>📦</div>}
                     <div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
                       <button onClick={toggleWishlist} style={circBtn}><Heart size={20} fill={wishlisted ? ORANGE : 'none'} color={wishlisted ? ORANGE : INK} /></button>
@@ -228,7 +228,7 @@ function DesktopProductPage() {
                           onClick={() => { setImgIdx(i); setImgOverride(null); trackProductEvent(p.id, 'view_image') }}
                           onMouseEnter={() => { setImgIdx(i); setImgOverride(null) }}
                           style={{ flex: '0 0 clamp(58px, 5vw, 76px)', width: 'clamp(58px, 5vw, 76px)', height: 'clamp(58px, 5vw, 76px)', borderRadius: 8, overflow: 'hidden', cursor: 'pointer', background: '#F7F8FA', padding: 0, border: `2px solid ${i === imgIdx && !imgOverride ? ORANGE : 'transparent'}` }}>
-                          <img src={im.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          <img src={im.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
                         </button>
                       ))}
                     </div>
@@ -291,7 +291,7 @@ function DesktopProductPage() {
                                 trackProductEvent(p.id, 'select_variant')
                               }}
                               style={{ minWidth: 'clamp(54px, 4.6vw, 66px)', height: 'clamp(54px, 4.6vw, 66px)', padding: v.image_url ? 0 : '0 12px', borderRadius: 10, overflow: 'hidden', cursor: 'pointer', background: '#F7F8FA', border: `2px solid ${on ? ORANGE : '#E2E5E9'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: SUB }}>
-                              {v.image_url ? <img src={v.image_url} alt={v.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : v.name}
+                              {v.image_url ? <img src={v.image_url} alt={v.name} style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/> : v.name}
                             </button>
                           )
                         })}
@@ -307,7 +307,7 @@ function DesktopProductPage() {
               <div style={{ marginTop: 12, background: '#fff', border: `1px solid ${LINE}`, borderRadius: 16, padding: 16 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
                   <div style={{ width: 56, height: 56, borderRadius: 14, background: '#FFF1EA', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', boxShadow: '0 2px 8px rgba(255,94,32,.15)' }}>
-                    {p.supplier_logo ? <img src={p.supplier_logo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 26, fontWeight: 900, color: ORANGE }}>{(p.supplier_name || '?')[0]}</span>}
+                    {p.supplier_logo ? <img src={p.supplier_logo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/> : <span style={{ fontSize: 26, fontWeight: 900, color: ORANGE }}>{(p.supplier_name || '?')[0]}</span>}
                   </div>
                   <div style={{ flex: 1, minWidth: 140 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -387,7 +387,7 @@ function DesktopProductPage() {
                               {r.photos.map((photo, i) => (
                                 <button key={photo.id || i} onClick={() => setLightbox({ photos: r.photos, index: i })}
                                   style={{ width: 72, height: 72, borderRadius: 8, overflow: 'hidden', padding: 0, border: `1px solid ${LINE}`, cursor: 'pointer', background: '#F7F8FA' }}>
-                                  <img src={photo.url} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                  <img src={photo.url} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
                                 </button>
                               ))}
                             </div>

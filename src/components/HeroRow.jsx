@@ -105,7 +105,7 @@ export default function HeroRow() {
 
       {/* ══ IMAGE DE FOND PLEINE LARGEUR ══ */}
       <div style={{ position: 'absolute', inset: 0, zIndex: 0, borderRadius: '16px', overflow: 'hidden' }}>
-        <img src={heroBanner} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        <img src={heroBanner} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}}/>
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(244,245,247,0.82)' }} />
       </div>
 
@@ -192,7 +192,7 @@ function MiniCard({ card }) {
         <div style={{ fontSize: '12px', color: '#6B7785', lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{card.name}</div>
       </div>
       <div style={{ width: '90px', height: '90px', borderRadius: '10px', background: card.imageBg || '#F4F5F7', flexShrink: 0, overflow: 'hidden', transform: hov ? 'scale(1.04)' : 'scale(1)', transition: 'transform 0.2s' }}>
-        <img src={card.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        <img src={card.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}}/>
       </div>
     </a>
   )
@@ -214,7 +214,7 @@ function BottomBanner({ b }) {
         <div style={{ fontSize: '12px', color: '#6B7785', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{b.sub}</div>
       </div>
       <div style={{ width: '110px', height: '85px', borderRadius: '10px', overflow: 'hidden', flexShrink: 0, transform: hov ? 'scale(1.06)' : 'scale(1)', transition: 'transform 0.25s' }}>
-        <img src={b.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        <img src={b.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}}/>
       </div>
     </a>
   )

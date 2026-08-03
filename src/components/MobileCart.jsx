@@ -95,7 +95,7 @@ export default function MobileCart() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px' }}>
                 <Checkbox checked={gAll} onClick={() => setSelected(s => { const n = new Set(s); gAll ? gIds.forEach(id => n.delete(id)) : gIds.forEach(id => n.add(id)); return n })} />
                 <div style={{ width: 24, height: 24, borderRadius: 6, background: SOFT, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                  {supplier?.logo_url ? <img src={supplier.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Store size={13} color={ORANGE} />}
+                  {supplier?.logo_url ? <img src={supplier.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/> : <Store size={13} color={ORANGE} />}
                 </div>
                 <Link to={supplier?.slug ? `/fournisseur/${supplier.slug}` : '#'} style={{ fontSize: 14, fontWeight: 600, color: INK, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 3, minWidth: 0 }}>
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{supplier?.name || 'Fournisseur'}</span>
@@ -205,7 +205,7 @@ function MobileRow({ item, selected, onToggle, onQty, onRemove }) {
       <div style={{ paddingTop: 28 }}><Checkbox checked={selected} onClick={onToggle} size={20} /></div>
       <Link to={`/produit/${p.id}`} style={{ flexShrink: 0 }}>
         <div style={{ width: 84, height: 84, borderRadius: 10, overflow: 'hidden', background: '#F6F6F6' }}>
-          {p.image_url ? <img src={p.image_url} alt={p.name} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>📦</div>}
+          {p.image_url ? <img src={p.image_url} alt={p.name} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>📦</div>}
         </div>
       </Link>
       <div style={{ flex: 1, minWidth: 0 }}>

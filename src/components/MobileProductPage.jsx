@@ -202,7 +202,7 @@ export default function MobileProductPage() {
               {images.map((im, i) => (
                 <button key={i} onClick={() => { setImgIdx(i); setImgOverride(null) }}
                   style={{ flex: '0 0 56px', width: 56, height: 56, borderRadius: 8, overflow: 'hidden', cursor: 'pointer', background: '#F7F8FA', padding: 0, border: `2px solid ${i === imgIdx && !imgOverride ? ORANGE : 'transparent'}` }}>
-                  <img src={im.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <img src={im.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
                 </button>
               ))}
             </div>
@@ -296,7 +296,7 @@ export default function MobileProductPage() {
                       <button key={v.id} title={v.name}
                         onClick={() => { setSelected(s => ({ ...s, [g.id]: v })); if (v.image_url) setImgOverride(v.image_url) }}
                         style={{ minWidth: v.image_url ? 56 : 'auto', height: 56, padding: v.image_url ? 0 : '0 16px', borderRadius: 10, overflow: 'hidden', cursor: 'pointer', background: '#F7F8FA', border: `2px solid ${on ? ORANGE : '#E2E5E9'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 600, color: on ? ORANGE : SUB }}>
-                        {v.image_url ? <img src={v.image_url} alt={v.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : v.name}
+                        {v.image_url ? <img src={v.image_url} alt={v.name} style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/> : v.name}
                       </button>
                     )
                   })}
@@ -430,7 +430,7 @@ export default function MobileProductPage() {
                           {r.photos.map((photo, i) => (
                             <button key={photo.id || i} onClick={() => setLightbox({ photos: r.photos, index: i })}
                               style={{ width: 64, height: 64, borderRadius: 8, overflow: 'hidden', padding: 0, border: `1px solid ${LINE}`, cursor: 'pointer', background: '#F7F8FA' }}>
-                              <img src={photo.url} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              <img src={photo.url} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
                             </button>
                           ))}
                         </div>
@@ -450,7 +450,7 @@ export default function MobileProductPage() {
           <div style={{ background: '#fff', borderRadius: 18, padding: 16, marginTop: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{ width: 52, height: 52, borderRadius: 14, background: ORANGE_FILM, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                {p.supplier_logo ? <img src={p.supplier_logo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 22, fontWeight: 700, color: ORANGE }}>{(p.supplier_name || '?')[0]}</span>}
+                {p.supplier_logo ? <img src={p.supplier_logo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/> : <span style={{ fontSize: 22, fontWeight: 700, color: ORANGE }}>{(p.supplier_name || '?')[0]}</span>}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -546,7 +546,7 @@ function ScrollRow({ title, items, navigate, sponsored }) {
           return (
             <div key={sp.id} onClick={() => navigate(`/produit/${sp.id}`)} style={{ flex: '0 0 140px', cursor: 'pointer' }}>
               <div style={{ width: '100%', aspectRatio: '1', borderRadius: 10, overflow: 'hidden', background: '#F5F5F5' }}>
-                {img ? <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>📦</div>}
+                {img ? <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>📦</div>}
               </div>
               <div style={{ fontSize: 12.5, color: SUB, lineHeight: 1.3, marginTop: 6, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', minHeight: 33 }}>{sp.name}</div>
               {toNum(sp.rating_avg) > 0 && (

@@ -4,8 +4,9 @@
 
 import { auth } from './api'
 
-const FB_APP_ID  = '1613871763594603'
-const FB_VERSION = 'v19.0'
+const FB_APP_ID  = '1613871763594603'   // App ID Facebook (public, comme le client_id Google en dur)
+const FB_VERSION = 'v19.0'              // aligne sur le backend
+
 let sdkPromise = null
 
 function loadSdk() {
@@ -45,18 +46,32 @@ export function preloadFacebookSdk() {
   loadSdk().catch(() => {})
 }
 
+// Récupère un access_token Facebook.
+// 1) tente FB.login (ouvre le popup si nécessaire)
+// 2) si le callback ne fournit pas de token (conflit avec un autre SDK FB sur
+//    la page, ex. Pixel/tracking), relit le statut via FB.getLoginStatus.
+function getFacebookToken(FB) {
+  return new Promise((resolve, reject) => {
+    FB.login((res) => {
+      const t = res && res.authResponse && res.authResponse.accessToken
+      if (t) { resolve(t); return }
+
+      // Repli : le token n'est pas venu dans le callback -> on relit le statut.
+      FB.getLoginStatus((s) => {
+        const t2 = s && s.status === 'connected' && s.authResponse && s.authResponse.accessToken
+        if (t2) resolve(t2)
+        else reject(new Error('cancelled'))
+      }, true)  // true = force un refresh du statut (ignore le cache)
+    }, { scope: 'email' })
+  })
+}
+
 // Ouvre le popup Facebook, échange le token contre TA session (cookies JWT),
-// et renvoie l'utilisateur. Throw Error('cancelled') si l'utilisateur ferme le popup.
+// et renvoie l'utilisateur. Throw Error('cancelled') si l'utilisateur annule.
 export async function facebookSignIn() {
   const FB = window.FB || (await loadSdk())
 
-  const accessToken = await new Promise((resolve, reject) => {
-    FB.login((res) => {
-      const token = res && res.authResponse && res.authResponse.accessToken
-      if (token) resolve(token)
-      else reject(new Error('cancelled'))
-    }, { scope: 'email' })
-  })
+  const accessToken = await getFacebookToken(FB)
 
   const data = await auth.facebookToken(accessToken)
   if (!data || !data.user) throw new Error('failed')

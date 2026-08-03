@@ -347,7 +347,7 @@ function TopProducts({ stats, prods, loading }) {
             flexShrink: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
             {p.image
-              ? <img src={p.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ? <img src={p.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
               : <Icons.Package size={15} color={ORANGE} strokeWidth={2} />}
           </div>
 

@@ -216,7 +216,7 @@ export default function CommandesPage() {
                 {g.items.map((it, ii) => (
                   <div key={ii} style={{ display: 'flex', gap: 16, padding: '12px 20px', alignItems: 'flex-start' }}>
                     <div style={{ width: 72, height: 72, borderRadius: 8, background: '#F4F5F7', flexShrink: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      {it?.product_image ? <img src={it.product_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Package size={22} color={FAINT} />}
+                      {it?.product_image ? <img src={it.product_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/> : <Package size={22} color={FAINT} />}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 14, lineHeight: 1.4 }}>

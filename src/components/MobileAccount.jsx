@@ -58,7 +58,7 @@ export default function MobileAccount() {
       {/* En-tête profil */}
       <div style={{ background: '#fff', padding: '16px 16px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
         <div style={{ width: 58, height: 58, borderRadius: '50%', overflow: 'hidden', background: SOFT, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          {user.avatar_url ? <img src={user.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 24, fontWeight: 800, color: ORANGE }}>{initial}</span>}
+          {user.avatar_url ? <img src={user.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/> : <span style={{ fontSize: 24, fontWeight: 800, color: ORANGE }}>{initial}</span>}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -116,7 +116,7 @@ export default function MobileAccount() {
             {favorites.slice(0, 6).map(p => (
               <Link key={p.id} to={`/produit/${p.id}`} style={{ flex: '0 0 92px', textDecoration: 'none' }}>
                 <div style={{ width: 92, height: 92, borderRadius: 10, overflow: 'hidden', background: '#F4F5F7' }}>
-                  {p.primary_image ? <img src={p.primary_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Package size={22} color={FAINT} /></div>}
+                  {p.primary_image ? <img src={p.primary_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Package size={22} color={FAINT} /></div>}
                 </div>
                 <div style={{ fontSize: 12.5, fontWeight: 800, color: ORANGE, marginTop: 5 }}>{fmt(p.base_price_tnd)} TND</div>
               </Link>

@@ -219,7 +219,7 @@ export default function SupplierSignupPage() {
                 <div style={{ display: 'flex' }}>
                   {[11, 32, 47, 59].map((id, i) => (
                     <img key={id} src={`https://i.pravatar.cc/80?img=${id}`} alt=""
-                      style={{ width: 34, height: 34, borderRadius: '50%', border: '2.5px solid rgba(10,14,26,0.80)', marginLeft: i === 0 ? 0 : -10, objectFit: 'cover' }} />
+                      style={{ width: 34, height: 34, borderRadius: '50%', border: '2.5px solid rgba(10,14,26,0.80)', marginLeft: i === 0 ? 0 : -10, objectFit: 'cover'}} />
                   ))}
                 </div>
                 <span style={{ color: 'rgba(255,255,255,0.50)', fontSize: 11.5, fontWeight: 500 }}>+500 fournisseurs actifs</span>

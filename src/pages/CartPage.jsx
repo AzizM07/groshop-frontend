@@ -263,7 +263,7 @@ function CartPageDesktop() {
                       display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
                     }}>
                       {supplier?.logo_url
-                        ? <img src={supplier.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ? <img src={supplier.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
                         : <Store size={14} color={ORANGE} />}
                     </div>
                     <Link to={supplier?.slug ? `/fournisseur/${supplier.slug}` : '#'}
@@ -464,7 +464,7 @@ function CartRow({ item, selected, onToggle, onQty, onRemove }) {
       <Link to={`/produit/${p.id}`} style={{ flexShrink: 0 }}>
         <div style={{ width: 88, height: 88, borderRadius: 10, overflow: 'hidden', background: '#F6F6F6' }}>
           {p.image_url
-            ? <img src={p.image_url} alt={p.name} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ? <img src={p.image_url} alt={p.name} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
             : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>📦</div>}
         </div>
       </Link>
@@ -623,7 +623,7 @@ function RecoCard({ p }) {
       <div style={{ aspectRatio: '1 / 1', background: '#F6F6F6' }}>
         {p.primary_image
           ? <img src={p.primary_image} alt={p.name} loading="lazy"
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
           : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>📦</div>}
       </div>
       <div style={{ padding: '12px 14px 14px' }}>

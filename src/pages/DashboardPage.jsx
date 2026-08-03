@@ -278,7 +278,7 @@ function DashboardPageDesktop() {
                     <Link key={p.id} to={`/produit/${p.id}`} style={{ display: 'flex', gap: 12, alignItems: 'center', textDecoration: 'none' }}>
                       <div style={{ width: 52, height: 52, borderRadius: 8, overflow: 'hidden', background: '#F4F5F7', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         {p.primary_image
-                          ? <img src={p.primary_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          ? <img src={p.primary_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
                           : <Package size={20} color={FAINT} />}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
@@ -360,7 +360,7 @@ function Avatar({ user }) {
       background: SOFT, display: 'flex', alignItems: 'center', justifyContent: 'center',
     }}>
       {user.avatar_url
-        ? <img src={user.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        ? <img src={user.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
         : <span style={{ fontSize: 22, fontWeight: 800, color: ORANGE }}>{initial}</span>}
     </div>
   )

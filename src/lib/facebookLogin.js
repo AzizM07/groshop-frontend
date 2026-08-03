@@ -4,9 +4,8 @@
 
 import { auth } from './api'
 
-const FB_APP_ID  = import.meta.env.VITE_FACEBOOK_APP_ID   // App ID (public) — à mettre dans .env
-const FB_VERSION = 'v19.0'                                // aligne sur le backend
-
+const FB_APP_ID  = '1613871763594603'
+const FB_VERSION = 'v19.0'
 let sdkPromise = null
 
 function loadSdk() {

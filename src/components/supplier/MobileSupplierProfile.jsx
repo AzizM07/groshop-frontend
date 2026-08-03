@@ -163,7 +163,7 @@ export default function MobileSupplierProfilePage() {
         {/* Bannière + identité */}
         <div style={{ position: 'relative' }}>
           <div style={{ width: '100%', aspectRatio: '16 / 9', background: '#E6E6E6', overflow: 'hidden' }}>
-            <img src={store.banner_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <img src={store.banner_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
             <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,.10) 0%, rgba(0,0,0,.55) 100%)' }} />
           </div>
 
@@ -183,7 +183,7 @@ export default function MobileSupplierProfilePage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{ width: 58, height: 58, borderRadius: 16, background: ORANGE_FILM, flexShrink: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {store.brand_logo_url
-                  ? <img src={store.brand_logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ? <img src={store.brand_logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
                   : <span style={{ fontSize: 24, fontWeight: 700, color: ORANGE }}>{supplier.company_name[0]}</span>}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -258,7 +258,7 @@ export default function MobileSupplierProfilePage() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 14 }}>
               {[store.highlight_image_1, store.highlight_image_2].filter(Boolean).map((src, i) => (
                 <div key={i} style={{ width: '100%', aspectRatio: '1', borderRadius: 12, overflow: 'hidden', background: '#F5F5F5' }}>
-                  <img src={src} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <img src={src} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
                 </div>
               ))}
             </div>
@@ -276,7 +276,7 @@ export default function MobileSupplierProfilePage() {
               <div key={p.id} onClick={() => navigate(`/produit/${p.id}`)} style={{ cursor: 'pointer' }}>
                 <div style={{ width: '100%', aspectRatio: '1', borderRadius: 12, overflow: 'hidden', background: '#F5F5F5' }}>
                   {p.image_url
-                    ? <img src={p.image_url} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ? <img src={p.image_url} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
                     : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>📦</div>}
                 </div>
                 <div style={{ fontSize: 13, color: SUB, lineHeight: 1.3, marginTop: 8, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', minHeight: 34 }}>{p.name}</div>
@@ -303,7 +303,7 @@ export default function MobileSupplierProfilePage() {
         <div style={{ background: '#fff', borderRadius: 18, overflow: 'hidden', marginTop: 10 }}>
           {store.about_image_url && (
             <div style={{ width: '100%', aspectRatio: '16 / 10', background: '#F5F5F5' }}>
-              <img src={store.about_image_url} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <img src={store.about_image_url} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
             </div>
           )}
           <div style={{ padding: 16 }}>
@@ -345,7 +345,7 @@ export default function MobileSupplierProfilePage() {
               {store.about_images.map((src, i) => (
                 <button key={i} onClick={() => setLightbox({ photos: store.about_images, index: i })}
                   style={{ flex: '0 0 150px', width: 150, height: 150, borderRadius: 12, overflow: 'hidden', padding: 0, border: `1px solid ${LINE}`, background: '#F5F5F5', cursor: 'pointer' }}>
-                  <img src={src} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <img src={src} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
                 </button>
               ))}
             </div>
@@ -392,7 +392,7 @@ export default function MobileSupplierProfilePage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <div style={{ width: 34, height: 34, borderRadius: '50%', overflow: 'hidden', background: ORANGE, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14, flexShrink: 0 }}>
                       {r.avatar_url
-                        ? <img src={r.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ? <img src={r.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
                         : (r.author_name || '?')[0]?.toUpperCase()}
                     </div>
                     <div style={{ minWidth: 0 }}>
@@ -411,7 +411,7 @@ export default function MobileSupplierProfilePage() {
                       {r.attached_images.map((src, i) => (
                         <button key={i} onClick={() => setLightbox({ photos: r.attached_images, index: i })}
                           style={{ width: 64, height: 64, borderRadius: 8, overflow: 'hidden', padding: 0, border: `1px solid ${LINE}`, cursor: 'pointer', background: '#F7F8FA' }}>
-                          <img src={src} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          <img src={src} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
                         </button>
                       ))}
                     </div>

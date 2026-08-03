@@ -220,7 +220,7 @@ function DesktopCheckout(c) {
                 return (
                   <div key={item.id} style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                     <div style={{ position: 'relative', width: 56, height: 56, borderRadius: 8, overflow: 'hidden', background: '#F5F5F5', flexShrink: 0 }}>
-                      {p.image_url ? <img src={p.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>📦</div>}
+                      {p.image_url ? <img src={p.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>📦</div>}
                       <span style={{ position: 'absolute', top: -4, right: -4, minWidth: 18, height: 18, padding: '0 4px', borderRadius: 9, background: INK, color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{qty}</span>
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -312,7 +312,7 @@ function MobileCheckout(c) {
             <div key={item.id} style={{ border: `1px solid #EEE`, borderRadius: 14, padding: 12, marginBottom: 12 }}>
               <div style={{ display: 'flex', gap: 12 }}>
                 <div style={{ width: 76, height: 76, borderRadius: 10, overflow: 'hidden', background: '#F5F5F5', flexShrink: 0 }}>
-                  {p.image_url ? <img src={p.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>📦</div>}
+                  {p.image_url ? <img src={p.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>📦</div>}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{p.name}</div>

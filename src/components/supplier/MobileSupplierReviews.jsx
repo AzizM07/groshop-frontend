@@ -268,7 +268,7 @@ function ReviewCard({ review, expanded, onOpen, onCancel, onSubmit }) {
             flexShrink: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
             {review.product_image
-              ? <img src={review.product_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ? <img src={review.product_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
               : <Icons.Package size={14} color="#B8BCC4" strokeWidth={2} />}
           </div>
           <span style={{
@@ -312,7 +312,7 @@ function ReviewCard({ review, expanded, onOpen, onCancel, onSubmit }) {
         <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
           {review.photos.map((ph, i) => (
             <div key={ph.id || i} style={{ width: 54, height: 54, borderRadius: 8, overflow: 'hidden', background: '#F5F3EE' }}>
-              <img src={ph.url} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <img src={ph.url} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
             </div>
           ))}
         </div>

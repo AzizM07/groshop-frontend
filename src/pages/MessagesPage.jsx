@@ -279,7 +279,7 @@ function Avatar({ name, logo, online }) {
     <div style={{ position: 'relative', flexShrink: 0 }}>
       <div style={{ width: 44, height: 44, borderRadius: '50%', overflow: 'hidden', background: SOFT, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         {logo
-          ? <img src={logo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ? <img src={logo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
           : <Store size={20} color={ORANGE} />}
       </div>
       {online && <span style={{ position: 'absolute', bottom: 1, right: 1, width: 11, height: 11, borderRadius: '50%', background: '#0E9F6E', border: '2px solid #fff' }} />}

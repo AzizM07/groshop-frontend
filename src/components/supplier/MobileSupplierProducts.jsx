@@ -182,7 +182,7 @@ function ProductCard({ product }) {
         flexShrink: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
         {product.primary_image
-          ? <img src={product.primary_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ? <img src={product.primary_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
           : <Icons.Package size={20} color="#B8BCC4" strokeWidth={1.8} />}
       </div>
 

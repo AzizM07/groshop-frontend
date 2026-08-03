@@ -132,7 +132,7 @@ export default function MobileCategoriesPage() {
                         style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
                         <div style={{ width: '100%', aspectRatio: '1', borderRadius: 12, overflow: 'hidden', background: '#F4F5F7' }}>
                           {p.primary_image
-                            ? <img src={p.primary_image} alt={p.name} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            ? <img src={p.primary_image} alt={p.name} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
                             : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>📦</div>}
                         </div>
                       </button>

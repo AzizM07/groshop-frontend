@@ -814,7 +814,7 @@ function TopProductsTable({ products, loading }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
             <div style={{ width: 42, height: 42, borderRadius: 11, background: C.line2, flexShrink: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {p.primary_image
-                ? <img src={p.primary_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ? <img src={p.primary_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
                 : <Icons.Package size={18} color={C.faint} strokeWidth={1.6} />}
             </div>
             <div style={{ minWidth: 0 }}>

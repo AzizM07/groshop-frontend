@@ -337,7 +337,7 @@ async function handleVariantFile(gi, vi, file) {
                     {im.uploading ? (
                       <div style={S.imgLoading}><Loader2 size={20} className="ap-spin" /></div>
                     ) : (
-                      <img src={im.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <img src={im.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
                     )}
                     {!im.uploading && (
                       <>

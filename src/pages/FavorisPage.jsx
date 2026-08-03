@@ -125,7 +125,7 @@ export default function FavorisPage() {
             {reco.map(p => (
               <Link key={p.id} to={`/produit/${p.id}`} style={{ background: '#fff', border: `1px solid ${LINE}`, borderRadius: 12, overflow: 'hidden', textDecoration: 'none', color: INK }}>
                 <div style={{ aspectRatio: '1 / 1', background: '#F4F5F7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {pImg(p) ? <img src={pImg(p)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Package size={28} color={FAINT} />}
+                  {pImg(p) ? <img src={pImg(p)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/> : <Package size={28} color={FAINT} />}
                 </div>
                 <div style={{ padding: '10px 12px 14px' }}>
                   <div style={{ fontSize: 13, lineHeight: 1.4, height: 36, overflow: 'hidden' }}>{pTitle(p)}</div>
@@ -156,7 +156,7 @@ function ProductCard({ p, onRemove, onChat }) {
     <div style={{ background: '#fff', border: `1px solid ${LINE}`, borderRadius: 12, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <div style={{ position: 'relative', aspectRatio: '1 / 1', background: '#F4F5F7' }}>
         <Link to={`/produit/${p.id}`} style={{ display: 'block', width: '100%', height: '100%' }}>
-          {pImg(p) ? <img src={pImg(p)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          {pImg(p) ? <img src={pImg(p)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
                    : <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: FAINT }}><Package size={30} /></span>}
         </Link>
         <button onClick={onRemove} title="Retirer des favoris" style={{ position: 'absolute', top: 10, right: 10, width: 34, height: 34, borderRadius: '50%', border: 'none', background: '#fff', boxShadow: '0 1px 4px rgba(0,0,0,.12)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

@@ -98,7 +98,7 @@ export default function ParametresPage() {
         <div style={{ position: 'relative', width: 88, height: 88, flexShrink: 0 }}>
           <div style={{ width: 88, height: 88, borderRadius: '50%', overflow: 'hidden', background: SOFT, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             {user.avatar_url
-              ? <img src={user.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ? <img src={user.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
               : <span style={{ fontSize: 38, fontWeight: 800, color: ORANGE }}>{initial}</span>}
           </div>
           <button title="Changer la photo" style={{

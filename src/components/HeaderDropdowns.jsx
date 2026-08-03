@@ -261,7 +261,7 @@ export function MessagesDropdown() {
             <Row key={m.id} to={`/messages/${m.id}`}>
               <div style={{ width: 44, height: 44, borderRadius: '50%', overflow: 'hidden', background: '#F4F5F7', flexShrink: 0 }}>
                 {logo
-                  ? <img src={logo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ? <img src={logo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
                   : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 700, color: MUTE }}>{(name || '?')[0]}</div>}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -302,7 +302,7 @@ export function OrdersDropdown() {
         {data?.slice(0, 4).map(o => (
           <Row key={o.id} to={`/dashboard/commandes/${o.id}`}>
             <div style={{ width: 44, height: 44, borderRadius: 8, overflow: 'hidden', background: '#F4F5F7', flexShrink: 0 }}>
-              {o.image_url ? <img src={o.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>📦</div>}
+              {o.image_url ? <img src={o.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>📦</div>}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
@@ -337,7 +337,7 @@ export function CartDropdown() {
         return (
           <Row key={item.id} to={`/produit/${p.id}`}>
             <div style={{ width: 48, height: 48, borderRadius: 8, overflow: 'hidden', background: '#F4F5F7', flexShrink: 0 }}>
-              {p.image_url ? <img src={p.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>📦</div>}
+              {p.image_url ? <img src={p.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>📦</div>}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: '12.5px', fontWeight: 500, color: INK, lineHeight: 1.35, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{asText(p.name)}</div>

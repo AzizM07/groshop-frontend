@@ -803,7 +803,7 @@ function OrdersList({ subOrders, loading }) {
                   flexShrink: 0, overflow: 'hidden',
                 }}>
                   {o.primary_image
-                    ? <img src={o.primary_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ? <img src={o.primary_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
                     : <Icons.Package size={16} color="#B8BCC4" strokeWidth={2} />}
                 </div>
                 <div style={{ minWidth: 0 }}>

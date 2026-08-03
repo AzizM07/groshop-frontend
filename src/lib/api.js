@@ -39,8 +39,13 @@ async function request(endpoint, options = {}, _retried = false) {
   }
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({}))
-    throw new Error(error.error || error.detail || 'Erreur serveur')
+    const data = await response.json().catch(() => ({}))
+    // On garde le message lisible ET on attache le corps + le statut,
+    // pour que l'appelant puisse détecter des codes métier (ex: phone_required).
+    const err = new Error(data.error || data.detail || data.message || 'Erreur serveur')
+    err.status = response.status
+    err.data = data
+    throw err
   }
 
   // Réponses sans body (ex: certains 204)
@@ -83,8 +88,11 @@ export async function uploadFile(endpoint, file, _retried = false) {
     if (ok) return uploadFile(endpoint, file, true)
   }
   if (!res.ok) {
-    const e = await res.json().catch(() => ({}))
-    throw new Error(e.error || e.detail || 'Upload échoué')
+    const data = await res.json().catch(() => ({}))
+    const err = new Error(data.error || data.detail || 'Upload échoué')
+    err.status = res.status
+    err.data = data
+    throw err
   }
   return res.json()
 }
@@ -126,6 +134,22 @@ export const auth = {
     return request('/auth/facebook/token/', {
       method: 'POST',
       body: JSON.stringify({ access_token: accessToken }),
+    })
+  },
+
+  // ── Vérification téléphone (OTP SMS) ──
+  // Chemins finaux : /api/auth/phone/request-otp/ et /api/auth/phone/verify-otp/
+  async requestPhoneOtp(phone) {
+    return request('/auth/phone/request-otp/', {
+      method: 'POST',
+      body: JSON.stringify({ phone }),
+    })
+  },
+
+  async verifyPhoneOtp(code) {
+    return request('/auth/phone/verify-otp/', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
     })
   },
 
@@ -183,9 +207,6 @@ export const products = {
     return request(`/products/${id}/recommendations/`)
   },
 
-  // Cachée en mémoire pour la durée de la session. Un seul fetch réseau
-  // même si plusieurs composants (Header, PopularCategories, …) l'appellent
-  // au chargement de la page.
   async categories() {
     if (_productsCategoriesCache)   return _productsCategoriesCache
     if (_productsCategoriesPromise) return _productsCategoriesPromise
@@ -205,22 +226,13 @@ export const products = {
   },
   categoryBanner: (q) =>
   request(`/products/category-banner/?q=${encodeURIComponent(q)}`),
-  // Lecture synchrone du cache — retourne les données si déjà chargées,
-  // sinon null. Utile pour initialiser un state React sans flash de loading.
   categoriesCached() {
     return _productsCategoriesCache
   },
-
-  // Vide le cache et force un refetch au prochain appel de categories().
-  // À utiliser après une modif admin des catégories.
   categoriesInvalidate() {
     _productsCategoriesCache   = null
     _productsCategoriesPromise = null
   },
-  async suggestions(query) {
-    return request(`/products/suggestions/?q=${encodeURIComponent(query)}`)
-  },
-  // ── Autocomplete pro : { completions, products, categories } ──
   async autocomplete(query) {
     return request(`/products/autocomplete/?q=${encodeURIComponent(query)}`)
   },
@@ -258,12 +270,10 @@ export const products = {
 
 export const cart = {
 
-  /** GET /api/cart/ → liste des CartItem (avec produit + fournisseur imbriqués) */
   async list() {
     return request('/cart/')
   },
 
-  /** POST /api/cart/ → ajoute (ou met à jour la qty si le couple produit/variante existe déjà) */
   async add(productId, quantity = 1, variantId = null) {
     return request('/cart/', {
       method: 'POST',
@@ -275,7 +285,6 @@ export const cart = {
     })
   },
 
-  /** PATCH /api/cart/<id>/ → change la quantité (qty < 1 supprime l'item côté serveur) */
   async updateQty(itemId, quantity) {
     return request(`/cart/${itemId}/`, {
       method: 'PATCH',
@@ -283,17 +292,14 @@ export const cart = {
     })
   },
 
-  /** DELETE /api/cart/<id>/ */
   async remove(itemId) {
     return request(`/cart/${itemId}/`, { method: 'DELETE' })
   },
 
-  /** DELETE /api/cart/clear/ */
   async clear() {
     return request('/cart/clear/', { method: 'DELETE' })
   },
 
-  /** GET /api/cart/count/ → { count } pour le badge nav */
   async count() {
     return request('/cart/count/')
   },
@@ -365,35 +371,33 @@ export const analytics = {
 // ── Messaging ─────────────────────────────────────────────────────
 
 export const messaging = {
- 
+
   async conversations() {
     return request('/messaging/')
   },
- 
+
   async conversation(id) {
     return request(`/messaging/${id}/`)
   },
- 
-  // Poll incrémental : ne renvoie que le nouveau depuis `after` (+ accusés de lecture).
+
   async poll(id, { after = null, markRead = true } = {}) {
     const q = new URLSearchParams()
     if (after) q.set('after', after)
     q.set('mark_read', markRead ? '1' : '0')
     return request(`/messaging/${id}/poll/?${q.toString()}`)
   },
- 
-  // Compteur global de non-lus (badge de navigation).
+
   async unreadCount() {
     return request('/messaging/unread-count/')
   },
- 
+
   async startConversation(supplierSlug, productId = null) {
     return request(`/messaging/start/${supplierSlug}/`, {
       method: 'POST',
       body: JSON.stringify({ product_id: productId }),
     })
   },
- 
+
   async sendMessage(conversationId, content, attachmentUrl = '') {
     return request(`/messaging/${conversationId}/send/`, {
       method: 'POST',
@@ -401,6 +405,7 @@ export const messaging = {
     })
   },
 }
+
 // ── Notifications ─────────────────────────────────────────────────
 export const notifications = {
   registerToken: (token, platform = 'web') =>
@@ -408,7 +413,6 @@ export const notifications = {
   unregister: (token) =>
     request('/notifications/unregister/', { method: 'POST', body: JSON.stringify({ token }) }),
 }
- 
 
 // ── Store (recherche, etc.) ───────────────────────────────────────
 

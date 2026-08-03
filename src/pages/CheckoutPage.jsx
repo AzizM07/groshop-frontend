@@ -9,11 +9,23 @@ import { useCart } from '../context/CartContext'
 import { useAuth } from '../context/AuthContext'
 import { orders as ordersApi } from '../lib/api'
 import { useIsMobile } from '../hooks/useIsMobile'
+import PhoneVerifyModal from '../components/PhoneVerifyModal'
 
 const ORANGE='#FF5E00', INK='#1A1A1A', MUTE='#7A7A7A', FAINT='#A0A0A0', LINE='#EAEAEA', SOFT='#FFF0E8', GREEN='#0E9F6E'
 const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
 const CITIES = ['Tunis', 'Sfax', 'Sousse', 'Mahdia', 'Nabeul', 'Bizerte', 'Gabès', 'Monastir', 'Ariana', 'Ben Arous']
 const fmt = (n) => (Number(n) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+// Détecte le gate de vérif téléphone dans l'erreur renvoyée par orders.create.
+// Robuste à la forme exacte : cherche phone_required / phone_banned dans code/error/detail/message.
+function phoneGate(err) {
+  const d = err?.data || {}
+  const bag = [d.code, d.error, d.detail, err?.message]
+    .filter(Boolean).map(v => String(v).toLowerCase())
+  if (bag.some(s => s.includes('phone_required'))) return 'required'
+  if (bag.some(s => s.includes('phone_banned')))   return 'banned'
+  return null
+}
 
 // ══════════ Logique partagée ══════════
 function useCheckout() {
@@ -42,6 +54,7 @@ function useCheckout() {
   const [discount, setDiscount]   = useState(0)
   const [placing, setPlacing]     = useState(false)
   const [error, setError]         = useState('')
+  const [verifyOpen, setVerifyOpen] = useState(false)   // ← modale OTP
 
   const subtotal = useMemo(
     () => selected.reduce((t, i) => t + (parseFloat(i.unit_price_tnd) || 0) * (Number(i.quantity) || 0), 0),
@@ -60,25 +73,52 @@ function useCheckout() {
   }
   const removeVoucher = () => { setApplied(null); setDiscount(0); setVoucher('') }
 
-const placeOrder = async () => {
+  // Envoi réel de la commande. Extrait pour être rejouable après vérif du numéro.
+  const submitOrder = async () => {
+    const order = await ordersApi.create({
+      items: selected.map(i => ({
+        product_id: i.product?.id || i.product_id,
+        quantity: Number(i.quantity) || 1,
+      })),
+      shipping_address: `${firstName} ${lastName} — ${phone}\n${address.trim()}, ${city}${zip ? ' ' + zip : ''}`,
+      payment_method: 'cod',           // paiement à la livraison
+      notes: notes.trim(),
+    })
+    clear()
+    navigate('/commande-confirmee', { state: { orderId: order?.id, total } })
+  }
+
+  const placeOrder = async () => {
     if (!address.trim()) { setError('Veuillez entrer une adresse de livraison'); return }
     if (!selected.length) { setError('Votre panier est vide'); return }
     setPlacing(true); setError('')
     try {
-      const order = await ordersApi.create({
-        items: selected.map(i => ({
-          product_id: i.product?.id || i.product_id,
-          quantity: Number(i.quantity) || 1,
-        })),
-        shipping_address: `${firstName} ${lastName} — ${phone}\n${address.trim()}, ${city}${zip ? ' ' + zip : ''}`,
-        payment_method: 'cod',           // paiement à la livraison
-        notes: notes.trim(),
-      })
-      clear()
-      navigate('/commande-confirmee', { state: { orderId: order?.id, total } })
+      await submitOrder()
     } catch (e) {
+      const gate = phoneGate(e)
+      if (gate === 'required') { setVerifyOpen(true); return }   // ouvre la modale, pas d'erreur rouge
+      if (gate === 'banned') {
+        setError("Ce numéro n'est pas autorisé à passer commande. Contactez le support.")
+        return
+      }
       console.error('placeOrder error:', e)
       setError(e?.message || "Impossible de passer la commande. Réessayez.")
+    } finally {
+      setPlacing(false)
+    }
+  }
+
+  // Appelé par la modale une fois le numéro vérifié → on relance la commande.
+  const onVerified = async () => {
+    setVerifyOpen(false)
+    setPlacing(true); setError('')
+    try {
+      await submitOrder()
+    } catch (e) {
+      // Cas limite : banni entre-temps, ou autre. On affiche proprement.
+      const gate = phoneGate(e)
+      if (gate === 'banned') { setError("Ce numéro n'est pas autorisé à passer commande. Contactez le support.") }
+      else { console.error('placeOrder retry error:', e); setError(e?.message || "Impossible de passer la commande. Réessayez.") }
     } finally {
       setPlacing(false)
     }
@@ -90,6 +130,7 @@ const placeOrder = async () => {
     shipping, setShipping, voucher, setVoucher, applied, applyVoucher, removeVoucher,
     subtotal, shippingFee, discount, total, estimatedCashback,
     placing, error, placeOrder, navigate,
+    verifyOpen, closeVerify: () => setVerifyOpen(false), onVerified,
   }
 }
 
@@ -385,5 +426,16 @@ function MobileCheckout(c) {
 export default function CheckoutPage() {
   const isMobile = useIsMobile()
   const checkout = useCheckout()
-  return isMobile ? <MobileCheckout {...checkout} /> : <DesktopCheckout {...checkout} />
+  return (
+    <>
+      {isMobile ? <MobileCheckout {...checkout} /> : <DesktopCheckout {...checkout} />}
+      <PhoneVerifyModal
+        open={checkout.verifyOpen}
+        onClose={checkout.closeVerify}
+        onVerified={checkout.onVerified}
+        initialPhone={checkout.phone}
+        isMobile={isMobile}
+      />
+    </>
+  )
 }

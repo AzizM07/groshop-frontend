@@ -1,39 +1,78 @@
 // AddProductPage.jsx — GROSHOP.tn
-// Formulaire fournisseur "Ajouter un produit" — mappé sur le modèle Product réel.
-// Auth : passe par lib/api.js (cookies httpOnly + CSRF + refresh auto).
+// Formulaire fournisseur "Ajouter un produit" — prix par tranche, dispo booléenne,
+// livraison multi-modes. MOQ / prix de base dérivés côté serveur depuis les tranches.
 
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { products as productsApi, uploadFile } from '../lib/api'
 import {
   Upload, X, Plus, Trash2, Star, Package, Tag, Truck, Image as ImageIcon,
-  Layers, FileText, Loader2, CheckCircle2,
+  Layers, FileText, Loader2, CheckCircle2, AlertTriangle,
 } from 'lucide-react'
 
 const ORANGE = '#FF4500'
 const FONT = "'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif"
 const UPLOAD_ENDPOINT = '/products/upload-image/'
+const fmt = (n) => (Number(n) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })
+
+const SHIP_MODES = [
+  ['free', 'Gratuite'], ['flat', 'Fixe'], ['tiered', 'Par tranche'], ['per_block', 'Par palier'],
+]
+
+// Plage auto d'une tranche : [min, (suivante-1)] ou [min, +] pour la dernière.
+function tierRange(rows, i) {
+  if (!rows[i].min_qty) return '—'
+  const min = Number(rows[i].min_qty)
+  const next = rows[i + 1] && rows[i + 1].min_qty ? Number(rows[i + 1].min_qty) : null
+  if (next === null) return `${min}+`
+  return `${min}–${Math.max(min, next - 1)}`
+}
+
+// Vérifie la cohérence des tranches de prix (croissant qté / décroissant prix / solde valide).
+function priceTierIssues(rows) {
+  const errs = rows.map(() => null)
+  let ok = true
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i]
+    if (!r.min_qty || !r.price_tnd) continue
+    const min = Number(r.min_qty), price = Number(r.price_tnd)
+    const old = r.old_price_tnd === '' ? null : Number(r.old_price_tnd)
+    if (min < 1) { errs[i] = 'Quantité de départ ≥ 1'; ok = false; continue }
+    const prev = rows[i - 1]
+    if (i > 0 && prev.min_qty && min <= Number(prev.min_qty)) {
+      errs[i] = 'La quantité doit dépasser la tranche précédente'; ok = false; continue
+    }
+    if (i > 0 && prev.price_tnd && price >= Number(prev.price_tnd)) {
+      errs[i] = `Le prix doit être inférieur à la tranche précédente (${fmt(prev.price_tnd)})`; ok = false; continue
+    }
+    if (old !== null && old <= price) { errs[i] = "L'ancien prix doit être supérieur au prix"; ok = false }
+  }
+  return { errs, ok }
+}
 
 export default function AddProductPage() {
   const navigate = useNavigate()
 
   const [form, setForm] = useState({
     name: '', category: '', description: '', brand: '', reference: '', unit: '',
-    base_price_tnd: '', old_price_tnd: '', moq: '', pack_size: 1,
-    sku: '', stock_qty: 0,
-    is_free_shipping: false, shipping_price_tnd: '', delivery_days: 3,
+    in_stock: true,
+    shipping_mode: 'flat',
+    shipping_price_tnd: '',
+    shipping_block_size: 10,
+    shipping_block_price: '',
+    delivery_days: 3,
     video_url: '', specs_raw: '',
   })
-  const [images, setImages]         = useState([])   // {tempId, url, is_primary, uploading}
-  const [tiers, setTiers]           = useState([])   // {min_qty, max_qty, price_tnd}
-  const [choiceGroups, setChoiceGroups] = useState([])  // [{name, variants:[{name, image_url, uploading}]}]
+  const [images, setImages]     = useState([])
+  const [tiers, setTiers]       = useState([{ min_qty: '', price_tnd: '', old_price_tnd: '' }])
+  const [shipTiers, setShipTiers] = useState([{ min_qty: '', price_tnd: '' }])
+  const [choiceGroups, setChoiceGroups] = useState([])
   const [categories, setCategories] = useState([])
-  const [errors, setErrors]         = useState({})
+  const [errors, setErrors]     = useState({})
   const [submitting, setSubmitting] = useState(false)
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
 
-  /* ── Catégories ── */
   useEffect(() => {
     productsApi.categories()
       .then((data) => setCategories(Array.isArray(data) ? data : []))
@@ -62,7 +101,6 @@ export default function AddProductPage() {
       }
     }
   }
-
   const removeImage = (tempId) =>
     setImages((prev) => {
       const next = prev.filter((im) => im.tempId !== tempId)
@@ -72,91 +110,92 @@ export default function AddProductPage() {
   const setPrimary = (tempId) =>
     setImages((prev) => prev.map((im) => ({ ...im, is_primary: im.tempId === tempId })))
 
-/* ── Groupes de choix (max 5) + variantes (illimitées) ── */
-const addGroup = () =>
-  setChoiceGroups((g) => (g.length >= 5 ? g : [...g, { name: '', variants: [] }]))
-
-const removeGroup = (gi) =>
-  setChoiceGroups((g) => g.filter((_, i) => i !== gi))
-
-const setGroupName = (gi, val) =>
-  setChoiceGroups((g) => g.map((x, i) => (i === gi ? { ...x, name: val } : x)))
-
-const addVariant = (gi) =>
-  setChoiceGroups((g) => g.map((x, i) =>
+  /* ── Groupes de choix ── */
+  const addGroup = () => setChoiceGroups((g) => (g.length >= 5 ? g : [...g, { name: '', variants: [] }]))
+  const removeGroup = (gi) => setChoiceGroups((g) => g.filter((_, i) => i !== gi))
+  const setGroupName = (gi, val) => setChoiceGroups((g) => g.map((x, i) => (i === gi ? { ...x, name: val } : x)))
+  const addVariant = (gi) => setChoiceGroups((g) => g.map((x, i) =>
     i === gi ? { ...x, variants: [...x.variants, { name: '', image_url: '', uploading: false }] } : x))
-
-const setVariant = (gi, vi, k, val) =>
-  setChoiceGroups((g) => g.map((x, i) =>
+  const setVariant = (gi, vi, k, val) => setChoiceGroups((g) => g.map((x, i) =>
     i === gi ? { ...x, variants: x.variants.map((v, j) => (j === vi ? { ...v, [k]: val } : v)) } : x))
-
-const removeVariant = (gi, vi) =>
-  setChoiceGroups((g) => g.map((x, i) =>
+  const removeVariant = (gi, vi) => setChoiceGroups((g) => g.map((x, i) =>
     i === gi ? { ...x, variants: x.variants.filter((_, j) => j !== vi) } : x))
-
-async function handleVariantFile(gi, vi, file) {
-  setVariant(gi, vi, 'uploading', true)
-  try {
-    const { url } = await uploadFile(UPLOAD_ENDPOINT, file)
-    setChoiceGroups((g) => g.map((x, i) =>
-      i === gi ? { ...x, variants: x.variants.map((v, j) => (j === vi ? { ...v, image_url: url, uploading: false } : v)) } : x))
-  } catch (e) {
-    setVariant(gi, vi, 'uploading', false)
-    alert(e.message)
+  async function handleVariantFile(gi, vi, file) {
+    setVariant(gi, vi, 'uploading', true)
+    try {
+      const { url } = await uploadFile(UPLOAD_ENDPOINT, file)
+      setChoiceGroups((g) => g.map((x, i) =>
+        i === gi ? { ...x, variants: x.variants.map((v, j) => (j === vi ? { ...v, image_url: url, uploading: false } : v)) } : x))
+    } catch (e) {
+      setVariant(gi, vi, 'uploading', false)
+      alert(e.message)
+    }
   }
-}
+
   /* ── Tranches de prix ── */
-  const addTier = () => setTiers((t) => [...t, { min_qty: '', max_qty: '', price_tnd: '' }])
+  const addTier = () => setTiers((t) => [...t, { min_qty: '', price_tnd: '', old_price_tnd: '' }])
   const setTier = (i, k, val) => setTiers((t) => t.map((x, idx) => (idx === i ? { ...x, [k]: val } : x)))
-  const removeTier = (i) => setTiers((t) => t.filter((_, idx) => idx !== i))
+  const removeTier = (i) => setTiers((t) => (t.length <= 1 ? t : t.filter((_, idx) => idx !== i)))
+
+  /* ── Tranches de livraison ── */
+  const addShipTier = () => setShipTiers((t) => [...t, { min_qty: '', price_tnd: '' }])
+  const setShipTier = (i, k, val) => setShipTiers((t) => t.map((x, idx) => (idx === i ? { ...x, [k]: val } : x)))
+  const removeShipTier = (i) => setShipTiers((t) => (t.length <= 1 ? t : t.filter((_, idx) => idx !== i)))
+
+  const { errs: tierErrs, ok: tierOk } = priceTierIssues(tiers)
 
   /* ── Soumission ── */
   async function submit(status) {
     const errs = {}
-    if (!form.name.trim())     errs.name = 'Nom requis'
-    if (!form.category)        errs.category = 'Catégorie requise'
-    if (!form.base_price_tnd)  errs.base_price_tnd = 'Prix requis'
-    if (!form.moq)             errs.moq = 'MOQ requis'
+    if (!form.name.trim()) errs.name = 'Nom requis'
+    if (!form.category)    errs.category = 'Catégorie requise'
+
+    const completeTiers = tiers.filter((t) => t.min_qty && t.price_tnd)
+    if (!completeTiers.length) errs.price_tiers = 'Ajoute au moins une tranche de prix'
+    else if (!tierOk)          errs.price_tiers = 'Corrige les tranches en rouge (quantité croissante, prix décroissant)'
+
+    if (form.shipping_mode === 'tiered' && !shipTiers.filter((t) => t.min_qty && t.price_tnd).length)
+      errs.shipping = 'Ajoute au moins une tranche de livraison'
+    if (form.shipping_mode === 'per_block' && (!form.shipping_block_size || !form.shipping_block_price))
+      errs.shipping = 'Renseigne le palier et le frais par palier'
     if (images.some((im) => im.uploading)) errs.images = 'Attends la fin des uploads'
+
     setErrors(errs)
-    if (Object.keys(errs).length) {
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-      return
-    }
+    if (Object.keys(errs).length) { window.scrollTo({ top: 0, behavior: 'smooth' }); return }
 
     setSubmitting(true)
     const payload = {
-      ...form,
+      name: form.name, category: form.category, description: form.description,
+      brand: form.brand, reference: form.reference, unit: form.unit,
+      specs_raw: form.specs_raw, video_url: form.video_url,
+      in_stock: form.in_stock,
+      delivery_days: Number(form.delivery_days) || 3,
+      shipping_mode: form.shipping_mode,
+      shipping_price_tnd:  form.shipping_mode === 'flat' ? Number(form.shipping_price_tnd || 0) : 0,
+      shipping_block_size: Number(form.shipping_block_size) || 10,
+      shipping_block_price: form.shipping_mode === 'per_block' ? Number(form.shipping_block_price || 0) : 0,
       status,
-      base_price_tnd: Number(form.base_price_tnd),
-      old_price_tnd:  form.old_price_tnd ? Number(form.old_price_tnd) : null,
-      moq:            Number(form.moq),
-      pack_size:      Number(form.pack_size) || 1,
-      stock_qty:      Number(form.stock_qty) || 0,
-      shipping_price_tnd: form.is_free_shipping ? 0 : Number(form.shipping_price_tnd || 0),
-      delivery_days:  Number(form.delivery_days) || 3,
       images: images.filter((im) => im.url).map((im, i) => ({ url: im.url, is_primary: im.is_primary, sort_order: i })),
-      price_tiers: tiers
-        .filter((t) => t.min_qty && t.price_tnd)
-        .map((t) => ({ min_qty: Number(t.min_qty), max_qty: t.max_qty ? Number(t.max_qty) : null, price_tnd: Number(t.price_tnd) })),
+      price_tiers: completeTiers.map((t) => ({
+        min_qty: Number(t.min_qty),
+        price_tnd: Number(t.price_tnd),
+        old_price_tnd: t.old_price_tnd === '' ? null : Number(t.old_price_tnd),
+      })),
+      shipping_tiers: form.shipping_mode === 'tiered'
+        ? shipTiers.filter((t) => t.min_qty && t.price_tnd).map((t) => ({ min_qty: Number(t.min_qty), price_tnd: Number(t.price_tnd) }))
+        : [],
       choice_groups: choiceGroups
-  .filter((g) => g.name.trim())
-  .map((g, gi) => ({
-    name: g.name.trim(),
-    sort_order: gi,
-    variants: g.variants
-      .filter((v) => v.name.trim())
-      .map((v, vi) => ({ name: v.name.trim(), image_url: v.image_url || '', sort_order: vi })),
-  })),
+        .filter((g) => g.name.trim())
+        .map((g, gi) => ({
+          name: g.name.trim(), sort_order: gi,
+          variants: g.variants.filter((v) => v.name.trim())
+            .map((v, vi) => ({ name: v.name.trim(), image_url: v.image_url || '', sort_order: vi })),
+        })),
     }
 
     try {
       const res = await productsApi.create(payload)
-      if (res === null) {
-        // request() renvoie null quand la session a expiré (refresh échoué)
-        alert('Session expirée. Reconnecte-toi puis réessaie.')
-        return
-      }
+      if (res === null) { alert('Session expirée. Reconnecte-toi puis réessaie.'); return }
       navigate('/supplier/products')
     } catch (e) {
       alert('Erreur : ' + e.message)
@@ -167,7 +206,6 @@ async function handleVariantFile(gi, vi, file) {
 
   return (
     <div style={S.page}>
-      {/* ── Barre titre ── */}
       <div style={S.topbar}>
         <div>
           <h1 style={S.topTitle}>Ajouter un produit</h1>
@@ -218,7 +256,7 @@ async function handleVariantFile(gi, vi, file) {
               <Field label="Marque">
                 <input style={S.input} className="ap-in" value={form.brand} onChange={(e) => set('brand', e.target.value)} placeholder="Ex : Sfax Textile" />
               </Field>
-              <Field label="Référence" hint="Code fabricant">
+              <Field label="Référence" hint="Code produit / fabricant (optionnel)">
                 <input style={S.input} className="ap-in" value={form.reference} onChange={(e) => set('reference', e.target.value)} placeholder="Ex : TS-180-BLK" />
               </Field>
             </div>
@@ -226,81 +264,113 @@ async function handleVariantFile(gi, vi, file) {
             <Field label="Description">
               <textarea style={{ ...S.input, height: 120, resize: 'vertical', paddingTop: 12 }} className="ap-in"
                 value={form.description} onChange={(e) => set('description', e.target.value)}
-                placeholder="Décris le produit, matière, finitions, usages…" />
+                placeholder="Décris le produit, matière, finitions, taille du lot…" />
             </Field>
           </section>
 
-          {/* PRIX & GROS */}
+          {/* PRIX PAR TRANCHE */}
           <section style={S.card}>
-            <SectionTitle icon={<Tag size={18} />} title="Prix & vente en gros" />
-            <div style={S.row2}>
-              <Field label="Prix de base (TND)" required error={errors.base_price_tnd} hint="Prix unitaire de départ">
-                <input type="number" step="0.001" style={S.input} className="ap-in"
-                  value={form.base_price_tnd} onChange={(e) => set('base_price_tnd', e.target.value)} placeholder="0.000" />
-              </Field>
-              <Field label="Ancien prix (TND)" hint="Optionnel — affiché barré">
-                <input type="number" step="0.001" style={S.input} className="ap-in"
-                  value={form.old_price_tnd} onChange={(e) => set('old_price_tnd', e.target.value)} placeholder="0.000" />
-              </Field>
-            </div>
-            <div style={S.row2}>
-              <Field label="MOQ (quantité min.)" required error={errors.moq}>
-                <input type="number" style={S.input} className="ap-in" value={form.moq} onChange={(e) => set('moq', e.target.value)} placeholder="Ex : 50" />
-              </Field>
-              <Field label="Taille du lot" hint="Vendu par lot de X unités">
-                <input type="number" style={S.input} className="ap-in" value={form.pack_size} onChange={(e) => set('pack_size', e.target.value)} placeholder="1" />
-              </Field>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+              <span style={{ color: ORANGE, display: 'flex' }}><Tag size={18} /></span>
+              <h2 style={{ fontSize: 17, fontWeight: 700, color: '#141414', margin: 0, fontFamily: FONT, flex: 1 }}>Prix par tranche</h2>
+              <span style={{ fontSize: 12, fontWeight: 600, color: ORANGE, background: '#FFF3EE', padding: '5px 12px', borderRadius: 8 }}>
+                MOQ auto : {tiers[0]?.min_qty ? `${tiers[0].min_qty} ${form.unit || 'pièce'}` : '—'}
+              </span>
             </div>
 
-            {/* Tranches de prix */}
-            <div style={{ marginTop: 6 }}>
-              <div style={S.subLabel}>Tranches de prix dégressif <span style={{ color: '#9aa3ae', fontWeight: 400 }}>(optionnel)</span></div>
-              {tiers.map((t, i) => (
-                <div key={i} style={S.tierRow}>
-                  <input type="number" style={{ ...S.input, textAlign: 'center' }} className="ap-in" placeholder="Qté min"
-                    value={t.min_qty} onChange={(e) => setTier(i, 'min_qty', e.target.value)} />
-                  <input type="number" style={{ ...S.input, textAlign: 'center' }} className="ap-in" placeholder="Qté max"
-                    value={t.max_qty} onChange={(e) => setTier(i, 'max_qty', e.target.value)} />
-                  <input type="number" step="0.001" style={{ ...S.input, textAlign: 'center' }} className="ap-in" placeholder="Prix TND"
-                    value={t.price_tnd} onChange={(e) => setTier(i, 'price_tnd', e.target.value)} />
-                  <button style={S.iconDanger} onClick={() => removeTier(i)} type="button"><Trash2 size={16} /></button>
-                </div>
-              ))}
-              <button style={S.addBtn} onClick={addTier} type="button"><Plus size={15} /> Ajouter une tranche</button>
+            <div style={{ ...S.priceRow, marginBottom: 6 }}>
+              <span style={S.colHead}>À partir de</span>
+              <span style={S.colHead}>Prix unit. (TND)</span>
+              <span style={S.colHead}>Ancien prix</span>
+              <span style={S.colHead}>Plage</span>
+              <span />
             </div>
+
+            {tiers.map((t, i) => {
+              const err = tierErrs[i]
+              return (
+                <div key={i}>
+                  <div style={S.priceRow}>
+                    <input type="number" min="1" style={{ ...S.input, height: 42, textAlign: 'center' }} className="ap-in" placeholder="1"
+                      value={t.min_qty} onChange={(e) => setTier(i, 'min_qty', e.target.value)} />
+                    <input type="number" step="0.001" style={{ ...S.input, height: 42, textAlign: 'center', ...(err ? { borderColor: '#E11900' } : null) }} className="ap-in" placeholder="0.000"
+                      value={t.price_tnd} onChange={(e) => setTier(i, 'price_tnd', e.target.value)} />
+                    <input type="number" step="0.001" style={{ ...S.input, height: 42, textAlign: 'center' }} className="ap-in" placeholder="—"
+                      value={t.old_price_tnd} onChange={(e) => setTier(i, 'old_price_tnd', e.target.value)} />
+                    <span style={S.rangePill}>{tierRange(tiers, i)}</span>
+                    <button style={{ ...S.iconDanger, opacity: tiers.length <= 1 ? 0.4 : 1 }} onClick={() => removeTier(i)} type="button" disabled={tiers.length <= 1}><Trash2 size={16} /></button>
+                  </div>
+                  {err && <div style={S.tierErr}><AlertTriangle size={13} /> {err}</div>}
+                </div>
+              )
+            })}
+            <button style={S.addBtn} onClick={addTier} type="button"><Plus size={15} /> Ajouter une tranche</button>
+            {errors.price_tiers && <div style={{ ...S.errText, marginTop: 8 }}>{errors.price_tiers}</div>}
+            <p style={{ ...S.helper, marginTop: 12 }}>Le prix doit diminuer quand la quantité augmente. La borne haute de chaque tranche se calcule toute seule.</p>
           </section>
 
-          {/* INVENTAIRE */}
+          {/* DISPONIBILITÉ */}
           <section style={S.card}>
-            <SectionTitle icon={<Layers size={18} />} title="Inventaire" />
-            <div style={S.row2}>
-              <Field label="SKU" hint="Référence interne du produit">
-                <input style={S.input} className="ap-in" value={form.sku} onChange={(e) => set('sku', e.target.value)} placeholder="SKU-0001" />
-              </Field>
-              <Field label="Quantité en stock">
-                <input type="number" style={S.input} className="ap-in" value={form.stock_qty} onChange={(e) => set('stock_qty', e.target.value)} placeholder="0" />
-              </Field>
+            <SectionTitle icon={<Layers size={18} />} title="Disponibilité" />
+            <div style={S.segRow}>
+              <button type="button" style={{ ...S.modeBtn, ...(form.in_stock ? S.modeBtnOn : null) }} onClick={() => set('in_stock', true)}>En stock</button>
+              <button type="button" style={{ ...S.modeBtn, ...(!form.in_stock ? S.modeBtnDanger : null) }} onClick={() => set('in_stock', false)}>Hors stock</button>
             </div>
+            <p style={S.helper}>« Hors stock » affiche un badge sur la fiche produit et bloque l'ajout au panier.</p>
           </section>
 
           {/* LIVRAISON */}
           <section style={S.card}>
             <SectionTitle icon={<Truck size={18} />} title="Livraison" />
-            <button type="button" style={S.toggleRow} onClick={() => set('is_free_shipping', !form.is_free_shipping)}>
-              <span style={{ ...S.checkbox, ...(form.is_free_shipping ? S.checkboxOn : null) }}>
-                {form.is_free_shipping && <CheckCircle2 size={14} />}
-              </span>
-              <span style={{ fontWeight: 500 }}>Livraison gratuite</span>
-            </button>
-            <div style={S.row2}>
-              <Field label="Prix de livraison (TND)" hint={form.is_free_shipping ? 'Désactivé (gratuit)' : 'Frais fixes'}>
-                <input type="number" step="0.001" style={{ ...S.input, opacity: form.is_free_shipping ? 0.5 : 1 }} className="ap-in"
-                  disabled={form.is_free_shipping} value={form.shipping_price_tnd} onChange={(e) => set('shipping_price_tnd', e.target.value)} placeholder="0.000" />
-              </Field>
-              <Field label="Délai estimé (jours)">
-                <input type="number" style={S.input} className="ap-in" value={form.delivery_days} onChange={(e) => set('delivery_days', e.target.value)} placeholder="3" />
-              </Field>
+            <div style={S.segRow}>
+              {SHIP_MODES.map(([m, label]) => (
+                <button key={m} type="button" style={{ ...S.modeBtn, ...(form.shipping_mode === m ? S.modeBtnOn : null) }} onClick={() => set('shipping_mode', m)}>{label}</button>
+              ))}
             </div>
+
+            {form.shipping_mode === 'flat' && (
+              <Field label="Frais de livraison (TND)" hint="Montant unique quelle que soit la quantité">
+                <input type="number" step="0.001" style={S.input} className="ap-in" value={form.shipping_price_tnd} onChange={(e) => set('shipping_price_tnd', e.target.value)} placeholder="0.000" />
+              </Field>
+            )}
+
+            {form.shipping_mode === 'per_block' && (
+              <div style={S.row2}>
+                <Field label="Tous les (articles)" hint="Palier de quantité">
+                  <input type="number" min="1" style={S.input} className="ap-in" value={form.shipping_block_size} onChange={(e) => set('shipping_block_size', e.target.value)} placeholder="10" />
+                </Field>
+                <Field label="Frais par palier (TND)">
+                  <input type="number" step="0.001" style={S.input} className="ap-in" value={form.shipping_block_price} onChange={(e) => set('shipping_block_price', e.target.value)} placeholder="0.000" />
+                </Field>
+              </div>
+            )}
+
+            {form.shipping_mode === 'tiered' && (
+              <div style={{ marginBottom: 8 }}>
+                <div style={{ ...S.shipRow, marginBottom: 6 }}>
+                  <span style={S.colHead}>À partir de</span>
+                  <span style={S.colHead}>Frais (TND)</span>
+                  <span style={S.colHead}>Plage</span>
+                  <span />
+                </div>
+                {shipTiers.map((t, i) => (
+                  <div key={i} style={S.shipRow}>
+                    <input type="number" min="1" style={{ ...S.input, height: 42, textAlign: 'center' }} className="ap-in" placeholder="1" value={t.min_qty} onChange={(e) => setShipTier(i, 'min_qty', e.target.value)} />
+                    <input type="number" step="0.001" style={{ ...S.input, height: 42, textAlign: 'center' }} className="ap-in" placeholder="0.000" value={t.price_tnd} onChange={(e) => setShipTier(i, 'price_tnd', e.target.value)} />
+                    <span style={S.rangePill}>{tierRange(shipTiers, i)}</span>
+                    <button style={{ ...S.iconDanger, opacity: shipTiers.length <= 1 ? 0.4 : 1 }} onClick={() => removeShipTier(i)} type="button" disabled={shipTiers.length <= 1}><Trash2 size={16} /></button>
+                  </div>
+                ))}
+                <button style={S.addBtn} onClick={addShipTier} type="button"><Plus size={15} /> Ajouter une tranche</button>
+              </div>
+            )}
+
+            {form.shipping_mode === 'free' && <p style={S.helper}>Livraison offerte pour ce produit.</p>}
+            {errors.shipping && <div style={{ ...S.errText, marginTop: 4 }}>{errors.shipping}</div>}
+
+            <Field label="Délai estimé (jours)" style={{ marginTop: 16 }}>
+              <input type="number" style={S.input} className="ap-in" value={form.delivery_days} onChange={(e) => set('delivery_days', e.target.value)} placeholder="3" />
+            </Field>
           </section>
 
           {/* SPECS */}
@@ -337,7 +407,7 @@ async function handleVariantFile(gi, vi, file) {
                     {im.uploading ? (
                       <div style={S.imgLoading}><Loader2 size={20} className="ap-spin" /></div>
                     ) : (
-                      <img src={im.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
+                      <img src={im.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
                     )}
                     {!im.uploading && (
                       <>
@@ -353,57 +423,57 @@ async function handleVariantFile(gi, vi, file) {
             )}
             <p style={S.helper}>La 1ʳᵉ image (★) est la principale, affichée sur la carte produit.</p>
 
-            <Field label="Vidéo (URL)" hint="Optionnel — lien YouTube / mp4" style={{ marginTop: 14 }}>
+            <Field label="Vidéo (URL)" hint="Optionnel — bientôt en upload" style={{ marginTop: 14 }}>
               <input style={S.input} className="ap-in" value={form.video_url} onChange={(e) => set('video_url', e.target.value)} placeholder="https://…" />
             </Field>
           </section>
 
-{/* CHOIX & VARIANTES */}
-<section style={S.card}>
-  <SectionTitle icon={<Layers size={18} />} title="Choix & variantes" />
-  <p style={{ fontSize: 12, color: '#9aa3ae', margin: '-8px 0 16px', lineHeight: 1.5 }}>
-    Jusqu'à 5 groupes (ex : Couleur, Taille). Variantes illimitées par groupe.
-  </p>
+          {/* CHOIX & VARIANTES */}
+          <section style={S.card}>
+            <SectionTitle icon={<Layers size={18} />} title="Choix & variantes" />
+            <p style={{ fontSize: 12, color: '#9aa3ae', margin: '-8px 0 16px', lineHeight: 1.5 }}>
+              Jusqu'à 5 groupes (ex : Couleur, Taille). Variantes illimitées par groupe.
+            </p>
 
-  {choiceGroups.map((g, gi) => (
-    <div key={gi} style={{ border: '1px solid #ECEEF2', borderRadius: 12, padding: 14, marginBottom: 12 }}>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
-        <input style={{ ...S.input, flex: 1 }} className="ap-in" placeholder="Nom du choix (ex : Couleur)"
-          value={g.name} onChange={(e) => setGroupName(gi, e.target.value)} />
-        <button type="button" style={S.iconDanger} onClick={() => removeGroup(gi)}><Trash2 size={16} /></button>
-      </div>
+            {choiceGroups.map((g, gi) => (
+              <div key={gi} style={{ border: '1px solid #ECEEF2', borderRadius: 12, padding: 14, marginBottom: 12 }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
+                  <input style={{ ...S.input, flex: 1 }} className="ap-in" placeholder="Nom du choix (ex : Couleur)"
+                    value={g.name} onChange={(e) => setGroupName(gi, e.target.value)} />
+                  <button type="button" style={S.iconDanger} onClick={() => removeGroup(gi)}><Trash2 size={16} /></button>
+                </div>
 
-      {g.variants.map((v, vi) => (
-        <div key={vi} style={S.variantRow}>
-          <label style={S.variantImg} className="ap-drop">
-            <input type="file" accept="image/*" style={{ display: 'none' }}
-              onChange={(e) => { if (e.target.files[0]) handleVariantFile(gi, vi, e.target.files[0]); e.target.value = '' }} />
-            {v.uploading
-              ? <Loader2 size={16} className="ap-spin" color="#9aa3ae" />
-              : v.image_url
-                ? <img src={v.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 }} />
-                : <Plus size={16} color="#c2c8d0" />}
-          </label>
-          <input style={{ ...S.input, flex: 1 }} className="ap-in" placeholder="Ex : Rose, XL…"
-            value={v.name} onChange={(e) => setVariant(gi, vi, 'name', e.target.value)} />
-          <button type="button" style={S.iconDanger} onClick={() => removeVariant(gi, vi)}><Trash2 size={16} /></button>
-        </div>
-      ))}
+                {g.variants.map((v, vi) => (
+                  <div key={vi} style={S.variantRow}>
+                    <label style={S.variantImg} className="ap-drop">
+                      <input type="file" accept="image/*" style={{ display: 'none' }}
+                        onChange={(e) => { if (e.target.files[0]) handleVariantFile(gi, vi, e.target.files[0]); e.target.value = '' }} />
+                      {v.uploading
+                        ? <Loader2 size={16} className="ap-spin" color="#9aa3ae" />
+                        : v.image_url
+                          ? <img src={v.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 }} />
+                          : <Plus size={16} color="#c2c8d0" />}
+                    </label>
+                    <input style={{ ...S.input, flex: 1 }} className="ap-in" placeholder="Ex : Rose, XL…"
+                      value={v.name} onChange={(e) => setVariant(gi, vi, 'name', e.target.value)} />
+                    <button type="button" style={S.iconDanger} onClick={() => removeVariant(gi, vi)}><Trash2 size={16} /></button>
+                  </div>
+                ))}
 
-      <button style={S.addBtn} onClick={() => addVariant(gi)} type="button">
-        <Plus size={15} /> Ajouter une variante
-      </button>
-    </div>
-  ))}
+                <button style={S.addBtn} onClick={() => addVariant(gi)} type="button">
+                  <Plus size={15} /> Ajouter une variante
+                </button>
+              </div>
+            ))}
 
-  <button type="button" disabled={choiceGroups.length >= 5}
-    style={{ ...S.addBtn, opacity: choiceGroups.length >= 5 ? 0.5 : 1, cursor: choiceGroups.length >= 5 ? 'not-allowed' : 'pointer' }}
-    onClick={choiceGroups.length < 5 ? addGroup : undefined}>
-    <Plus size={15} /> Ajouter un choix ({choiceGroups.length}/5)
-  </button>
-</section>
+            <button type="button" disabled={choiceGroups.length >= 5}
+              style={{ ...S.addBtn, opacity: choiceGroups.length >= 5 ? 0.5 : 1, cursor: choiceGroups.length >= 5 ? 'not-allowed' : 'pointer' }}
+              onClick={choiceGroups.length < 5 ? addGroup : undefined}>
+              <Plus size={15} /> Ajouter un choix ({choiceGroups.length}/5)
+            </button>
+          </section>
 
-          {/* STATUT + ACTIONS */}
+          {/* PUBLICATION */}
           <section style={S.card}>
             <SectionTitle icon={<CheckCircle2 size={18} />} title="Publication" />
             <p style={{ fontSize: 13, color: '#6B7785', lineHeight: 1.6, margin: '0 0 16px' }}>
@@ -479,14 +549,20 @@ const S = {
   selectWrap: { position: 'relative' },
   select: { width: '100%', height: 44, padding: '0 14px', border: '1.5px solid #E3E6EB', borderRadius: 10, fontSize: 14, color: '#141414', background: '#fff', fontFamily: FONT, outline: 'none', boxSizing: 'border-box', cursor: 'pointer', appearance: 'none', WebkitAppearance: 'none' },
 
+  colHead: { fontSize: 11, color: '#9aa3ae', fontWeight: 600 },
+  priceRow: { display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) 56px 40px', gap: 8, marginBottom: 8, alignItems: 'center' },
+  shipRow: { display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr) 56px 40px', gap: 8, marginBottom: 8, alignItems: 'center' },
+  rangePill: { fontSize: 11, fontWeight: 600, color: ORANGE, background: '#FFF3EE', borderRadius: 6, padding: '6px 3px', textAlign: 'center' },
+  tierErr: { fontSize: 11.5, color: '#E11900', margin: '-2px 0 8px', display: 'flex', alignItems: 'center', gap: 5 },
+
+  segRow: { display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' },
+  modeBtn: { flex: 1, minWidth: 72, textAlign: 'center', padding: '10px 8px', borderRadius: 10, border: '1.5px solid #E3E6EB', background: '#fff', color: '#3D4853', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: FONT },
+  modeBtnOn: { borderColor: ORANGE, background: '#FFF3EE', color: ORANGE },
+  modeBtnDanger: { borderColor: '#E11900', background: '#FDF1F1', color: '#E11900' },
+
   subLabel: { fontSize: 12.5, fontWeight: 600, color: '#3D4853', marginBottom: 10 },
-  tierRow: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 40px', gap: 8, marginBottom: 8, alignItems: 'center' },
   addBtn: { display: 'inline-flex', alignItems: 'center', gap: 6, background: '#FFF3EE', color: ORANGE, border: '1px dashed #FFC2A8', borderRadius: 10, padding: '9px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: FONT, marginTop: 4 },
   iconDanger: { width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FDF1F1', color: '#E11900', border: 'none', borderRadius: 9, cursor: 'pointer', flexShrink: 0 },
-
-  toggleRow: { display: 'flex', alignItems: 'center', gap: 11, background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: FONT, fontSize: 14, color: '#141414', padding: '4px 0', marginBottom: 14 },
-  checkbox: { width: 22, height: 22, borderRadius: 7, border: '1.5px solid #d8dce1', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', flexShrink: 0 },
-  checkboxOn: { background: ORANGE, borderColor: ORANGE },
 
   errText: { fontSize: 11.5, color: '#E11900', marginTop: 6 },
   helper: { fontSize: 11.5, color: '#9aa3ae', margin: '10px 0 0', lineHeight: 1.5 },

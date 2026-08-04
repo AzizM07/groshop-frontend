@@ -10,6 +10,7 @@ import { products as productsApi } from '../lib/api'
 import { usePageTracking, trackProductEvent } from '../hooks/usePageTracking'
 import { useIsMobile } from '../hooks/useIsMobile'
 import MobileProductPage from '../components/MobileProductPage'
+import ProductCard from '../components/ProductCard'
 
 const ORANGE='#FF5E20', ORANGE2='#FF7A45', NAVY='#1B1B4B', INK='#0F1419', SUB='#3D4853', MUTE='#6B7785', FAINT='#9AA3AE', LINE='#ECEEF1', BG='#F4F5F7', GREEN='#0E9F6E', RED='#DC2626'
 const FONT='"DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
@@ -23,6 +24,44 @@ const toNum = (v) => { const n = parseFloat(v); return isNaN(n) ? 0 : n }
 const toInt = (v) => { const n = parseInt(v); return isNaN(n) ? 0 : n }
 const fmt = (n) => (Number(n) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const splitPrice = (n) => { const [a, b] = fmt(n).split(','); return [a, b] }
+
+/* ── Mapper : produit API (similar / reco) → props attendues par <ProductCard>.
+   Les endpoints similar/reco renvoient base_price_tnd / rating_avg / primary_image…
+   alors que ProductCard attend price / rating / image. On traduit ici, en étant
+   tolérant aux champs manquants (tout est optionnel côté carte). ── */
+const toCardProduct = (p = {}) => {
+  const price = toNum(p.base_price_tnd)
+  const old = toNum(p.old_price_tnd)
+  const gallery = Array.isArray(p.images) ? p.images.map(im => im?.url || im).filter(Boolean) : []
+  return {
+    id: p.id,
+    name: p.name,
+    price,
+    was: old > price ? old : null,
+    rating: toNum(p.rating_avg) || null,
+    reviewCount: toInt(p.rating_count) || null,
+    image: p.primary_image || gallery[0] || null,
+    images: gallery,
+    soldCount: p.sold_count != null ? toInt(p.sold_count) : null,
+    moq: p.moq != null ? toInt(p.moq) : null,
+    moqUnit: p.unit || 'pcs',
+    supplier: p.supplier_name || null,
+    verified: p.supplier_verified === 'approved',
+    isFreeShipping: !!p.free_shipping,
+    isBestSeller: !!p.badge_flash,
+  }
+}
+
+/* ── Grille produits : 7 par ligne, entièrement proportionnelle à l'écran.
+   repeat(7, minmax(0,1fr)) = 7 colonnes qui se partagent la largeur ; le gap
+   est lui-même fluide. Combiné à la variante "mini" de ProductCard (tailles en
+   clamp/vw), toute la rangée rétrécit/grandit avec la fenêtre. ── */
+const grid7 = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
+  gap: 'clamp(8px, 0.9vw, 16px)',
+  alignItems: 'start',
+}
 
 function Stars({ value = 0, size = 15 }) {
   return <span style={{ display: 'inline-flex', gap: 1 }}>{[1, 2, 3, 4, 5].map(s => <Star key={s} size={size} fill={s <= Math.round(value) ? '#FFB800' : '#E3E6EA'} stroke="none" />)}</span>
@@ -49,40 +88,6 @@ function Accordion({ title, trailing, defaultOpen = false, anchorRef, onOpen, ch
     </div>
   )
 }
-
-function SimilarCard({ p, onClick }) {
-  const price = toNum(p.base_price_tnd), old = toNum(p.old_price_tnd)
-  const disc = old > price ? Math.round((1 - price / old) * 100) : 0
-  return (
-    <div onClick={onClick} style={{ flex: '0 0 200px', background: '#fff', borderRadius: 12, border: `1px solid ${LINE}`, padding: 12, cursor: 'pointer', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ width: '100%', aspectRatio: '1', borderRadius: 8, overflow: 'hidden', background: '#F7F8FA' }}>
-        {p.primary_image ? <img src={p.primary_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32 }}>📦</div>}
-      </div>
-      <div style={{ fontSize: 13, color: SUB, lineHeight: 1.35, marginTop: 10, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', minHeight: 36 }}>{p.name}</div>
-      {toNum(p.rating_avg) > 0 && <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 6 }}><Stars value={toNum(p.rating_avg)} size={12} /><span style={{ fontSize: 11.5, color: MUTE }}>{toNum(p.rating_avg).toFixed(1)} / 5</span></div>}
-      <div style={{ marginTop: 8 }}>
-        {old > price && <div style={{ fontSize: 11, color: FAINT }}>Prix de comparaison <span style={{ textDecoration: 'line-through' }}>{fmt(old)} TND</span></div>}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
-          <span style={{ fontSize: 17, fontWeight: 800, color: ORANGE }}>{fmt(price)} TND</span>
-          {disc > 0 && <span style={{ fontSize: 10, fontWeight: 800, color: '#fff', background: ORANGE, padding: '1px 5px', borderRadius: 4 }}>-{disc}%</span>}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function HScroll({ children }) {
-  const ref = useRef(null)
-  const scroll = (d) => ref.current?.scrollBy({ left: d * 620, behavior: 'smooth' })
-  return (
-    <div style={{ position: 'relative' }}>
-      <div ref={ref} style={{ display: 'flex', gap: 14, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 4 }}>{children}</div>
-      <button onClick={() => scroll(-1)} style={arrowBtn('left')}><ChevronLeft size={22} /></button>
-      <button onClick={() => scroll(1)} style={arrowBtn('right')}><ChevronRight size={22} /></button>
-    </div>
-  )
-}
-const arrowBtn = (side) => ({ position: 'absolute', top: '42%', [side]: -14, width: 40, height: 40, borderRadius: '50%', background: '#fff', border: `1px solid ${LINE}`, boxShadow: '0 4px 14px rgba(0,0,0,.12)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: INK, zIndex: 5 })
 
 function DesktopProductPage() {
   const { id } = useParams()
@@ -150,7 +155,6 @@ function DesktopProductPage() {
   if (error || !product) return <div style={{ minHeight: '70vh', display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center', justifyContent: 'center', background: BG, fontFamily: FONT }}><span style={{ color: MUTE }}>{error || 'Produit introuvable.'}</span><button onClick={() => navigate('/')} style={{ background: 'none', border: 'none', color: ORANGE, fontWeight: 700, cursor: 'pointer' }}>Retour à l'accueil</button></div>
 
   const p = product
-  console.log('PRODUCT DATA:', p)
   const images = p.images?.length ? p.images : (p.primary_image ? [{ url: p.primary_image }] : [])
   const mainImage = imgOverride || images[imgIdx]?.url
   const unit = p.unit || 'pièce'
@@ -491,11 +495,13 @@ function DesktopProductPage() {
           </div>
         </div>
 
-        {/* ── Pleine largeur après la grille ── */}
+        {/* ── Pleine largeur après la grille — 7 cartes par ligne, fluides ── */}
         {similar.length > 0 && (
           <div style={{ marginTop: 36 }}>
             <h2 style={{ margin: '0 0 16px', fontSize: 'clamp(18px, 1.4vw, 22px)', fontWeight: 800 }}>Produits similaires</h2>
-            <HScroll>{similar.map(sp => <SimilarCard key={sp.id} p={sp} onClick={() => navigate(`/produit/${sp.id}`)} />)}</HScroll>
+            <div style={grid7}>
+              {similar.map(sp => <ProductCard key={sp.id} product={toCardProduct(sp)} variant="mini" />)}
+            </div>
             <div style={{ fontSize: 11.5, color: FAINT, marginTop: 8 }}>Sponsorisé</div>
           </div>
         )}
@@ -503,7 +509,9 @@ function DesktopProductPage() {
         {reco.length > 0 && (
           <div style={{ marginTop: 20 }}>
             <h2 style={{ margin: '0 0 16px', fontSize: 'clamp(18px, 1.4vw, 22px)', fontWeight: 800 }}>Nos clients ont apprécié</h2>
-            <HScroll>{reco.map(rp => <SimilarCard key={rp.id} p={rp} onClick={() => navigate(`/produit/${rp.id}`)} />)}</HScroll>
+            <div style={grid7}>
+              {reco.map(rp => <ProductCard key={rp.id} product={toCardProduct(rp)} variant="mini" />)}
+            </div>
           </div>
         )}
         {lightbox && (

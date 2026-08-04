@@ -2,11 +2,11 @@ importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js
 importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js')
 
 firebase.initializeApp({
-  apiKey: 'À_REMPLIR',
-  authDomain: 'À_REMPLIR',
-  projectId: 'À_REMPLIR',
-  messagingSenderId: 'À_REMPLIR',
-  appId: 'À_REMPLIR',
+  apiKey: 'AIzaSyA09zawbhPk9VWL_ppHkzZq7Mi3b-W2Tqs',
+  authDomain: 'groshop-prod.firebaseapp.com',
+  projectId: 'groshop-prod',
+  messagingSenderId: '637082904152',
+  appId: '1:637082904152:web:054d5804afdb52f27b4c2d',
 })
 
 const messaging = firebase.messaging()

@@ -4,10 +4,13 @@
 // fournisseur · Verified + médailles + années + drapeau · bouton Commander.
 // Card "invisible" : pas de bordure, pas d'ombre, pas de bg différent de la page.
 //
-// 2 variantes via la prop `variant` :
+// 3 variantes via la prop `variant` :
 //   • 'default'   → compact, pensé pour 6 colonnes (inchangé).
 //   • 'wholesale' → texte agrandi (façon Alibaba), pensé pour 5 colonnes,
 //                   bouton "Ajouter au panier" noir qui devient orange au survol.
+//   • 'mini'      → plus dense, pensé pour 7 colonnes. Toutes les tailles sont
+//                   fluides (clamp + vw) → la carte reste proportionnelle à
+//                   la largeur de l'écran.
 
 import { useState } from 'react'
 import { Star, ShoppingCart } from 'lucide-react'
@@ -64,6 +67,30 @@ const SIZES = {
     label:       'Ajouter au panier',
     withCartIcon: true,
   },
+  // ── NOUVELLE VARIANTE — 7 colonnes, entièrement fluide ──
+  // Toutes les tailles sont bornées par clamp(min, vw, max) : à 1600px de
+  // large la carte respire, et elle rétrécit proportionnellement quand la
+  // fenêtre se réduit, sans jamais casser (min garanti).
+  mini: {
+    name:        'clamp(10.5px, 0.82vw, 12.5px)',
+    nameMinH:    'clamp(28px, 2.2vw, 32px)',
+    nameLh:      1.28,
+    price:       'clamp(13px, 1.05vw, 16.5px)',
+    tnd:         '0.6em',
+    star:        'clamp(11px, 0.85vw, 13px)',   // number OK aussi, mais clamp = fluide
+    ratingNum:   'clamp(10px, 0.78vw, 11px)',
+    ratingCount: 'clamp(9.5px, 0.72vw, 10.5px)',
+    moq:         'clamp(10px, 0.8vw, 11.5px)',
+    sold:        'clamp(10px, 0.8vw, 11.5px)',
+    supplier:    'clamp(10px, 0.8vw, 11.5px)',
+    meta:        'clamp(9.5px, 0.75vw, 11px)',
+    medal:       9,
+    tag:         'clamp(9.5px, 0.75vw, 10.5px)',
+    btn:         'clamp(10.5px, 0.85vw, 12px)',
+    btnPad:      'clamp(5px, 0.5vw, 7px)',
+    label:       'Commander',
+    withCartIcon: false,
+  },
 }
 
 // Prix : accepte un nombre OU une fourchette [min, max]
@@ -73,11 +100,15 @@ function fmtPrice(p) {
 }
 
 // ── Étoiles (pleines/vides selon l'arrondi) ──
+// size accepte un nombre (px) OU une chaîne clamp() → on la passe telle quelle
+// en width/height, ce qui rend les étoiles fluides pour la variante mini.
 function Stars({ value = 0, size = 15 }) {
+  const dim = typeof size === 'number' ? size : undefined
+  const styleDim = typeof size === 'string' ? { width: size, height: size } : undefined
   return (
     <span style={{ display: 'inline-flex', gap: 1, flexShrink: 0 }}>
       {[1, 2, 3, 4, 5].map(s => (
-        <Star key={s} size={size} fill={s <= Math.round(value) ? '#FFB800' : '#E3E6EA'} stroke="none" />
+        <Star key={s} size={dim} style={styleDim} fill={s <= Math.round(value) ? '#FFB800' : '#E3E6EA'} stroke="none" />
       ))}
     </span>
   )
@@ -157,7 +188,7 @@ function DesktopProductCard({ product, onOrder, variant = 'default' }) {
   }
 
   /* ── Couleurs du bouton ──
-     Repos : blanc, texte + bordure = INK (wholesale) ou ORANGE (default).
+     Repos : blanc, texte + bordure = INK (wholesale) ou ORANGE (default/mini).
      Rempli (orange) UNIQUEMENT au survol du bouton lui-même — pas de la card. */
   const btnBaseColor = big ? INK : ORANGE
   const btnFilled = btnHov || done

@@ -309,6 +309,7 @@ export const cart = {
 
 export const suppliers = {
 
+  // ── Public (vitrine d'un fournisseur) ──
   async profile(slug) {
     return request(`/auth/suppliers/${slug}/`)
   },
@@ -316,6 +317,25 @@ export const suppliers = {
   async products(slug, params = {}) {
     const query = new URLSearchParams(params).toString()
     return request(`/auth/suppliers/${slug}/products/?${query}`)
+  },
+
+  // ── Fournisseur connecté (édition de SA vitrine) ──
+  // GET  ma vitrine (profil + store imbriqué)
+  async myShop() {
+    return request('/auth/supplier/me/')
+  },
+
+  // PATCH un ou plusieurs champs de la vitrine (partial)
+  async updateStore(data) {
+    return request('/auth/supplier/store/', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    })
+  },
+
+  // Upload d'une image de vitrine → renvoie { url } (WebP optimisé)
+  async uploadStoreImage(file) {
+    return uploadFile('/auth/supplier/store/upload/', file)
   },
 }
 
@@ -425,10 +445,13 @@ export const store = {
   },
 }
 
+// ── Adresses (carnet acheteur) ────────────────────────────────────
+// ⚠️ Chemins SANS '/api' en tête : request() préfixe déjà BASE_URL (…/api).
+//    Les vues adresses vivent dans users/urls.py, monté sous /api/auth/.
 export const addresses = {
-  list:       ()          => request('/api/users/addresses/'),
-  create:     (data)      => request('/api/users/addresses/', { method: 'POST', body: JSON.stringify(data) }),
-  update:     (id, data)  => request(`/api/users/addresses/${id}/`, { method: 'PATCH', body: JSON.stringify(data) }),
-  remove:     (id)        => request(`/api/users/addresses/${id}/`, { method: 'DELETE' }),
-  setDefault: (id)        => request(`/api/users/addresses/${id}/default/`, { method: 'POST' }),
+  list:       ()          => request('/auth/addresses/'),
+  create:     (data)      => request('/auth/addresses/', { method: 'POST', body: JSON.stringify(data) }),
+  update:     (id, data)  => request(`/auth/addresses/${id}/`, { method: 'PATCH', body: JSON.stringify(data) }),
+  remove:     (id)        => request(`/auth/addresses/${id}/`, { method: 'DELETE' }),
+  setDefault: (id)        => request(`/auth/addresses/${id}/default/`, { method: 'POST' }),
 }

@@ -150,6 +150,7 @@ function DesktopProductPage() {
   if (error || !product) return <div style={{ minHeight: '70vh', display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center', justifyContent: 'center', background: BG, fontFamily: FONT }}><span style={{ color: MUTE }}>{error || 'Produit introuvable.'}</span><button onClick={() => navigate('/')} style={{ background: 'none', border: 'none', color: ORANGE, fontWeight: 700, cursor: 'pointer' }}>Retour à l'accueil</button></div>
 
   const p = product
+  console.log('PRODUCT DATA:', p)
   const images = p.images?.length ? p.images : (p.primary_image ? [{ url: p.primary_image }] : [])
   const mainImage = imgOverride || images[imgIdx]?.url
   const unit = p.unit || 'pièce'
@@ -188,7 +189,11 @@ function DesktopProductPage() {
   const specs = (p.specs || []).map(s => ({ k: (s.k || s.label || '').toString(), v: (s.v || s.value || '').toString() })).filter(s => s.k && s.v)
   const dist = [5, 4, 3, 2, 1].map(star => ({ star, n: reviews.filter(r => Math.round(toNum(r.rating)) === star).length }))
   const tierLabel = (t) => t.max_qty ? `${t.min_qty}–${t.max_qty} ${unit}` : `≥${t.min_qty} ${unit}`
-
+   // ── Fallback logo/bannière fournisseur : certains endpoints renvoient
+  // brand_logo_url / banner_url (comme la page boutique) au lieu de
+  // supplier_logo / supplier_banner. On couvre les deux cas.
+  const supplierLogo = p.supplier_logo || p.brand_logo_url || p.supplier?.brand_logo_url
+  const supplierBanner = p.supplier_banner || p.banner_url || p.supplier?.banner_url
   const doOrder = async () => {
     if (!qtyValid || !inStock) return
     // ⚠️ Tant que le panier/serveur ne résout pas le combo, on envoie la 1re variante
@@ -319,32 +324,49 @@ function DesktopProductPage() {
               </div>
             </div>
 
-            {/* Carte société */}
-            {p.supplier_name && (
-              <div style={{ marginTop: 12, background: '#fff', border: `1px solid ${LINE}`, borderRadius: 16, padding: 16 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-                  <div style={{ width: 56, height: 56, borderRadius: 14, background: '#FFF1EA', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', boxShadow: '0 2px 8px rgba(255,94,32,.15)' }}>
-                    {p.supplier_logo ? <img src={p.supplier_logo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/> : <span style={{ fontSize: 26, fontWeight: 900, color: ORANGE }}>{(p.supplier_name || '?')[0]}</span>}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 140 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ fontSize: 17, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.supplier_name}</span>
-                      {p.supplier_verified === 'approved' && <BadgeCheck size={17} fill={ORANGE} stroke="#fff" />}
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, color: MUTE, marginTop: 3 }}><MapPin size={12} />{p.supplier_city || 'Tunisie'}{p.supplier_wilaya ? `, ${p.supplier_wilaya}` : ''}</div>
-                  </div>
-                  <Link to={`/fournisseur/${p.supplier_slug}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 16px', borderRadius: 12, border: `1px solid ${LINE}`, fontSize: 13.5, fontWeight: 600, color: INK, textDecoration: 'none', whiteSpace: 'nowrap' }}><Store size={16} /> Boutique</Link>
-                  <button onClick={() => trackProductEvent(p.id, 'contact_supplier')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 16px', borderRadius: 12, border: 'none', background: ORANGE, color: '#fff', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}><MessageCircle size={16} /> Contacter</button>
-                </div>
-                <div style={{ display: 'flex', marginTop: 14, borderRadius: 12, background: '#FAFBFC', border: `1px solid ${LINE}` }}>
-                  <Stat label="Note boutique" value={p.supplier_rating ? `${toNum(p.supplier_rating).toFixed(1)}/5` : '—'} extra={p.supplier_review_count ? `(${p.supplier_review_count})` : ''} />
-                  <StatSep />
-                  <Stat label="Ville" value={p.supplier_city || 'Tunisie'} />
-                  <StatSep />
-                  <Stat label="Statut" value={p.supplier_verified === 'approved' ? 'Vérifié' : 'Standard'} valueColor={p.supplier_verified === 'approved' ? GREEN : INK} />
-                </div>
-              </div>
-            )}
+{/* Carte société — bannière fournisseur en fond, logo + infos par-dessus */}
+{p.supplier_name && (() => {
+  const hasBanner = !!supplierBanner
+  return (
+    <div style={{ marginTop: 12, background: '#fff', border: `1px solid ${LINE}`, borderRadius: 16, overflow: 'hidden' }}>
+      {/* Bandeau : grande image du fournisseur */}
+      <div style={{
+        padding: '20px 16px',
+        background: hasBanner
+          ? `url(${supplierBanner}) center/cover `
+          : '#fff',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+          <div style={{ width: 56, height: 56, borderRadius: 14, background: '#fff', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', boxShadow: '0 2px 10px rgba(0,0,0,.18)' }}>
+            {supplierLogo
+              ? <img src={supplierLogo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+              : <span style={{ fontSize: 26, fontWeight: 900, color: ORANGE }}>{(p.supplier_name || '?')[0]}</span>}
+          </div>
+          <div style={{ flex: 1, minWidth: 140 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 17, fontWeight: 800, color: hasBanner ? '#fff' : INK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textShadow: hasBanner ? '0 1px 4px rgba(0,0,0,.45)' : 'none' }}>{p.supplier_name}</span>
+              {p.supplier_verified === 'approved' && <BadgeCheck size={17} fill={ORANGE} stroke="#fff" />}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, color: hasBanner ? 'rgba(255,255,255,.92)' : MUTE, marginTop: 3, textShadow: hasBanner ? '0 1px 4px rgba(0,0,0,.45)' : 'none' }}>
+              <MapPin size={12} />{p.supplier_city || 'Tunisie'}{p.supplier_wilaya ? `, ${p.supplier_wilaya}` : ''}
+            </div>
+          </div>
+          <Link to={`/fournisseur/${p.supplier_slug}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 16px', borderRadius: 12, border: `1px solid ${hasBanner ? 'rgba(255,255,255,.55)' : LINE}`, background: hasBanner ? 'rgba(255,255,255,.14)' : '#fff', backdropFilter: hasBanner ? 'blur(4px)' : 'none', fontSize: 13.5, fontWeight: 600, color: hasBanner ? '#fff' : INK, textDecoration: 'none', whiteSpace: 'nowrap' }}><Store size={16} /> Boutique</Link>
+          <button onClick={() => trackProductEvent(p.id, 'contact_supplier')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 16px', borderRadius: 12, border: 'none', background: ORANGE, color: '#fff', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}><MessageCircle size={16} /> Contacter</button>
+        </div>
+      </div>
+
+      {/* Note / Ville / Statut — synchronisés backend */}
+      <div style={{ display: 'flex', margin: 16, borderRadius: 12, background: '#FAFBFC', border: `1px solid ${LINE}` }}>
+        <Stat label="Note boutique" value={p.supplier_rating ? `${toNum(p.supplier_rating).toFixed(1)}/5` : '—'} extra={p.supplier_rating_count ? `(${p.supplier_rating_count})` : ''} />
+        <StatSep />
+        <Stat label="Ville" value={p.supplier_city || 'Tunisie'} />
+        <StatSep />
+        <Stat label="Statut" value={p.supplier_verified === 'approved' ? 'Vérifié' : 'Standard'} valueColor={p.supplier_verified === 'approved' ? GREEN : INK} />
+      </div>
+    </div>
+  )
+})()}
 
             {/* Accordéons — ils étirent la colonne, donc le sticky de droite tient jusqu'ici */}
             <div style={{ marginTop: 24 }}>

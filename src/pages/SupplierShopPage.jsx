@@ -2,6 +2,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import { auth as authApi, suppliers as suppliersApi } from '../lib/api';
+
 import SupplierBanner   from '../components/supplier/SupplierBanner';
 import SectionTitle     from '../components/supplier/SectionTitle';
 import SupplierStats    from '../components/supplier/SupplierStats';
@@ -14,107 +16,110 @@ import Footer           from '../components/Footer';
  * Vitrine éditable du fournisseur connecté — Single Page Scroll
  * URL : /supplier/shop
  *
- * Visuellement IDENTIQUE à /fournisseur/:slug (page publique),
- * mais avec editable={true} sur les composants modifiables.
- * Le fournisseur édite sa vitrine en voyant exactement ce que
- * verront ses visiteurs.
+ * Branchée sur Django :
+ *   - GET    auth.supplierMe()            → charge profil + store
+ *   - PATCH  suppliers.updateStore(data)  → sauvegarde un champ
+ *   - POST   suppliers.uploadStoreImage() → upload image, renvoie { url }
  */
+
+/* ── Helpers ─────────────────────────────────────────────────────── */
+
+// {results:[…]} (DRF paginé) OU tableau nu.
+const unwrap = (r) => (Array.isArray(r) ? r : r?.results ?? []);
+
+// Prix affiché = plus bas palier si price_tiers, sinon base_price_tnd.
+const computePrice = (p) => {
+  const prices = (p.price_tiers || [])
+    .map((t) => parseFloat(t.price_tnd))
+    .filter((n) => !isNaN(n));
+  if (prices.length) return Math.min(...prices);
+  return parseFloat(p.base_price_tnd) || 0;
+};
+
+const mapProduct = (p) => ({
+  id:        p.id,
+  name:      p.name,
+  subtitle:  p.moq ? `MOQ ${p.moq} ${p.unit || 'pièces'}` : p.category_name || '',
+  price:     computePrice(p),
+  currency:  'TND',
+  image_url: p.primary_image || p.images?.[0]?.url || '',
+});
+
+// Le composant émet `brand_logo_url`, la colonne backend est `logo_url`.
+// Seul alias nécessaire ; tout le reste porte le même nom des deux côtés.
+const toBackendField = (f) => (f === 'brand_logo_url' ? 'logo_url' : f);
+
+// certifications : chaîne CSV côté back ↔ tableau côté composants.
+const splitCerts = (v) =>
+  Array.isArray(v) ? v : (v || '').split(',').map((s) => s.trim()).filter(Boolean);
+
 export default function SupplierShopPage() {
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState('home');
   const [loading, setLoading]     = useState(true);
+  const [denied, setDenied]       = useState(false);
 
   const [supplier, setSupplier] = useState(null);
   const [store, setStore]       = useState(null);
   const [products, setProducts] = useState([]);
   const [reviews, setReviews]   = useState([]);
 
-  /* ── Mock data (même structure que SupplierProfilePage) ── */
+  /* ── Chargement depuis le backend ── */
   useEffect(() => {
+    let cancelled = false;
+
     async function loadMyShop() {
       setLoading(true);
-      await new Promise((r) => setTimeout(r, 200));
+      setDenied(false);
+      try {
+        const me = await authApi.supplierMe(); // GET /auth/supplier/me/
+        if (cancelled) return;
 
-      setSupplier({
-        company_name: 'Sfax Textile Co.',
-        slug: 'sfax-textile-co',
-        city: 'Sfax',
-        wilaya: 'Sfax',
-        verification_status: 'verified',
-        rating_avg: 4.6,
-        rating_count: 128,
-        followers_count: 1240,
-        created_at: '2012-03-15',
-      });
+        if (!me) { setDenied(true); setLoading(false); return; } // 401 non récupérable
 
-      setStore({
-        brand_logo_url: 'https://www.livinx.com/img/livinx-logo-1738657124.jpg',
-        banner_url: 'https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?w=1600&q=80',
-        hero_title: 'Un fournisseur de confiance\nsur lequel vous pouvez compter.',
+        const raw = me.store ?? {};
 
-        // ⭐ Champs SupplierStats
-        stats_title: "Sfax Textile Co.,\nl'expertise grossiste\nau service des pros.",
-        stats_description: "Notre savoir-faire allie production de qualité, logistique fiable et accompagnement personnalisé. À chaque étape, nous garantissons un service à la hauteur des exigences professionnelles.",
-        highlight_image_1: 'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=800&q=80',
-        highlight_image_2: 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?w=800&q=80',
+        setSupplier({
+          id:                  me.id,
+          company_name:        me.company_name || '',
+          slug:                me.slug || '',
+          city:                me.city || '',
+          wilaya:              me.wilaya || '',
+          verification_status: me.verification_status || 'pending',
+          rating_avg:          Number(me.rating_avg ?? 0),
+          rating_count:        Number(me.rating_count ?? 0),
+          followers_count:     Number(me.followers_count ?? 0),
+          created_at:          me.created_at || null,
+        });
 
-        // ⭐ Champs SupplierAbout
-        about_title_main: 'Un fournisseur de confiance.',
-        about_title_accent: 'Une vision claire.',
-        about_image_url: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=1200&q=80',
-        about_images: [
-          'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=400&q=80',
-          'https://images.unsplash.com/photo-1581094794329-c8112a89af12?w=400&q=80',
-          'https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?w=400&q=80',
-          'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=900&q=80',
-        ],
+        setStore({
+          ...raw,
+          brand_logo_url: raw.logo_url || '',
+          banner_url:     raw.banner_url || '',
+          certifications: splitCerts(raw.certifications),
+          about_images:   Array.isArray(raw.about_images) ? raw.about_images : [],
+        });
 
-        description: "Sfax Textile Co. est un fournisseur grossiste spécialisé dans la fabrication et distribution de textiles de qualité supérieure depuis 2012. Notre usine basée à Sfax dispose d'une capacité de production de 50 000 pièces/mois, garantissant des délais compétitifs et une traçabilité complète de nos produits. Nous accompagnons les professionnels en Tunisie et au Maghreb avec un service personnalisé.",
-        mission: "Offrir aux professionnels tunisiens et maghrébins un textile de qualité industrielle, à prix juste, avec un service humain et une traçabilité totale.",
-        founded_year: 2012,
-        certifications: ['ISO 9001:2015', 'OEKO-TEX', 'INNORPI'],
-        page_views: 142000,
-        response_rate: 94,
-        response_time_hrs: 2,
-      });
+        if (me.slug) {
+          const prods = await suppliersApi.products(me.slug, { page_size: 24 }).catch(() => []);
+          if (!cancelled) setProducts(unwrap(prods).map(mapProduct));
+        }
 
-      setProducts([
-        { id: 1,  name: 'T-shirt coton premium',         subtitle: 'Lot de 12 unités',  price: 84,  currency: 'TND', image_url: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=600&q=80' },
-        { id: 2,  name: 'Chemise Oxford homme',          subtitle: 'Lot de 6 unités',   price: 138, currency: 'TND', image_url: 'https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=600&q=80' },
-        { id: 3,  name: 'Polo piqué bicolore',           subtitle: 'Lot de 12 unités',  price: 108, currency: 'TND', image_url: 'https://images.unsplash.com/photo-1586790170083-2f9ceadc732d?w=600&q=80' },
-        { id: 4,  name: 'Jean slim stretch',             subtitle: 'Lot de 6 unités',   price: 192, currency: 'TND', image_url: 'https://images.unsplash.com/photo-1542272604-787c3835535d?w=600&q=80' },
-        { id: 5,  name: 'Hoodie zip intérieur molleton', subtitle: 'Lot de 6 unités',   price: 174, currency: 'TND', image_url: 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=600&q=80' },
-        { id: 6,  name: 'Veste légère coupe-vent',       subtitle: 'Lot de 4 unités',   price: 236, currency: 'TND', image_url: 'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=600&q=80' },
-      ]);
-
-      setReviews([
-        {
-          id: 1, rating: 5,
-          text: "Qualité irréprochable et livraison rapide depuis Sfax. Les lots de t-shirts sont conformes à la description, finitions soignées.",
-          author_name: "Karim Ben Salah", city: "Tunis",
-          avatar_url: "https://i.pravatar.cc/150?img=12",
-          attached_images: [],
-        },
-        {
-          id: 2, rating: 4,
-          text: "Bons produits, tissu conforme à la description et délai respecté. Je recommande pour les commandes en volume.",
-          author_name: "Sonia Mhiri", city: "Sousse",
-          avatar_url: "https://i.pravatar.cc/150?img=47",
-          attached_images: [],
-        },
-        {
-          id: 3, rating: 5,
-          text: "Fournisseur de confiance avec lequel je travaille depuis 2 ans. Les certifications sont un vrai gage de qualité.",
-          author_name: "Nabil Trabelsi", city: "Sfax",
-          avatar_url: "https://i.pravatar.cc/150?img=33",
-          attached_images: [],
-        },
-      ]);
-
-      setLoading(false);
+        // Avis embarqués si le back les fournit un jour, sinon vide.
+        setReviews(Array.isArray(me.reviews) ? me.reviews : []);
+      } catch (e) {
+        if (!cancelled) {
+          if (e?.status === 403) setDenied(true);   // pas fournisseur
+          else setDenied(true);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     }
+
     loadMyShop();
+    return () => { cancelled = true; };
   }, []);
 
   /* ── Scroll spy : détecte la section visible et update activeTab ── */
@@ -145,48 +150,54 @@ export default function SupplierShopPage() {
   }, [loading]);
 
   /* ──────────────────────────────────────────────────────────
-     HANDLERS ÉDITION — mock (modifie juste le state local)
-     Plus tard : remplacer par PATCH /api/dashboard/profile/
+     HANDLERS ÉDITION — persistés côté Django
      ────────────────────────────────────────────────────────── */
+
+  // Mise à jour optimiste : on affiche tout de suite, on PATCH derrière.
+  // Si le PATCH échoue, on revient à l'ancienne valeur.
   const handleUpdateField = async (field, value) => {
-    await new Promise((r) => setTimeout(r, 400));
-    console.log('[Shop] update field:', field, '→', value);
+    const prevValue = store?.[field];
     setStore((prev) => ({ ...prev, [field]: value }));
+
+    const backendField = toBackendField(field);
+    const payloadValue =
+      backendField === 'certifications' && Array.isArray(value) ? value.join(', ') : value;
+
+    try {
+      await suppliersApi.updateStore({ [backendField]: payloadValue });
+    } catch (e) {
+      setStore((prev) => ({ ...prev, [field]: prevValue })); // rollback
+      alert(e?.message || "Impossible d'enregistrer la modification.");
+    }
   };
 
   /**
-   * Upload d'image — gère 3 cas :
-   *  1. about_image_0..3 → met à jour l'array store.about_images[i]
-   *  2. autres champs    → met à jour store[field] directement
-   *
-   * Plus tard, remplacer par : POST /api/dashboard/profile/upload/
-   * Le backend renverra une URL et on remplacera previewUrl par result[field].
+   * Upload d'image : upload → { url } → PATCH du champ concerné.
+   *  - about_image_0..3 → met à jour l'array store.about_images[i]
+   *  - autres champs    → met à jour store[field] (alias vers colonne back)
    */
   const handleUploadImage = async (field, file) => {
-    await new Promise((r) => setTimeout(r, 600));
-    const previewUrl = URL.createObjectURL(file);
-    console.log('[Shop] upload image:', field, '→', file.name);
+    const { url } = await suppliersApi.uploadStoreImage(file);
 
-    // Cas spécial : about_image_0..3 → on update l'array about_images
+    // Cas about_image_N → on remplace l'élément i de l'array
     if (field.startsWith('about_image_')) {
       const index = parseInt(field.split('_')[2], 10);
       if (!Number.isNaN(index)) {
-        setStore((prev) => {
-          const newImages = [...(prev.about_images || [])];
-          newImages[index] = previewUrl;
-          return { ...prev, about_images: newImages };
-        });
+        const newImages = [...(store?.about_images || [])];
+        newImages[index] = url;
+        setStore((prev) => ({ ...prev, about_images: newImages }));
+        await suppliersApi.updateStore({ about_images: newImages });
         return;
       }
     }
 
-    // Cas standard : banner_url, brand_logo_url, highlight_image_1, highlight_image_2, etc.
-    setStore((prev) => ({ ...prev, [field]: previewUrl }));
+    // Cas standard : banner_url, brand_logo_url, highlight_image_1/2, about_image_url…
+    setStore((prev) => ({ ...prev, [field]: url }));
+    await suppliersApi.updateStore({ [toBackendField(field)]: url });
   };
 
   /* ── Handlers vitrine (boutons "Contacter" / "Nos produits")
-       Sur sa propre page, on les neutralise — ça n'a aucun sens
-       que le fournisseur se contacte lui-même.                  ── */
+       Sur sa propre page, on les neutralise.                    ── */
   const handleContactSelf = () => {
     alert('Ceci est un aperçu de votre vitrine — vos visiteurs verront le bouton "Contacter".');
   };
@@ -197,6 +208,18 @@ export default function SupplierShopPage() {
 
   /* ── States UI ── */
   if (loading) return <div style={loadingStyle}>Chargement de votre boutique…</div>;
+
+  if (denied || !supplier) return (
+    <div style={{ ...loadingStyle, flexDirection: 'column', gap: 12 }}>
+      <span>Accès réservé à votre compte fournisseur.</span>
+      <button
+        onClick={() => navigate('/login')}
+        style={{ background: 'none', border: 'none', color: '#FF4500', fontWeight: 700, cursor: 'pointer' }}
+      >
+        Se connecter
+      </button>
+    </div>
+  );
 
   /* ── Render principal ── */
   return (
@@ -224,7 +247,7 @@ export default function SupplierShopPage() {
         <SupplierStats
           supplier={supplier}
           store={store}
-          productsCount={products.length || 48}
+          productsCount={products.length || 0}
           editable={true}
           onUpdateField={handleUpdateField}
           onUploadImage={handleUploadImage}

@@ -1,6 +1,10 @@
+// src/pages/DesktopSupplierProfilePage.jsx — GROSHOP.tn
+// Vitrine PUBLIQUE d'un fournisseur (route /fournisseur/:slug)
+// Branchée sur Django : suppliers.profile(slug) + suppliers.products(slug)
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { usePageTracking } from '../hooks/usePageTracking'
+import { suppliers as suppliersApi, messaging as messagingApi } from '../lib/api'
 import SupplierBanner   from '../components/supplier/SupplierBanner'
 import SectionTitle     from '../components/supplier/SectionTitle'
 import SupplierStats    from '../components/supplier/SupplierStats'
@@ -8,103 +12,130 @@ import SupplierProducts from '../components/supplier/SupplierProducts'
 import SupplierAbout    from '../components/supplier/SupplierAbout'
 import SupplierReviews  from '../components/supplier/SupplierReviews'
 import Footer           from '../components/Footer'
+
+/* ── Helpers ──────────────────────────────────────────────────────
+   La réponse de /auth/suppliers/<slug>/ peut renvoyer la vitrine
+   imbriquée (data.store), sous un autre nom (data.supplier_store),
+   ou à plat sur data. On couvre les trois cas — même stratégie que
+   SupplierCataloguePage. ── */
+const pickStore = (d) => d?.store ?? d?.supplier_store ?? d ?? {}
+
+// {results:[…]} (DRF paginé) OU tableau nu.
+const unwrap = (r) => (Array.isArray(r) ? r : r?.results ?? [])
+
+// Prix affiché = plus bas palier si price_tiers, sinon base_price_tnd.
+const computePrice = (p) => {
+  const prices = (p.price_tiers || [])
+    .map((t) => parseFloat(t.price_tnd))
+    .filter((n) => !isNaN(n))
+  if (prices.length) return Math.min(...prices)
+  return parseFloat(p.base_price_tnd) || 0
+}
+
 export default function DesktopSupplierProfilePage() {
   const { slug } = useParams()
+  const navigate = useNavigate()
 
   const [activeTab, setActiveTab] = useState('home')
   const [loading, setLoading]     = useState(true)
+  const [notFound, setNotFound]   = useState(false)
 
   const [supplier, setSupplier] = useState(null)
   const [store, setStore]       = useState(null)
   const [products, setProducts] = useState([])
   const [reviews, setReviews]   = useState([])
-  const navigate = useNavigate()
 
-  /* ── Chargement des données (mock identique au dashboard) ── */
+  /* ── Chargement depuis le backend ── */
   useEffect(() => {
+    let cancelled = false
+
     async function loadSupplier() {
       setLoading(true)
-      await new Promise((r) => setTimeout(r, 200))
+      setNotFound(false)
+      try {
+        const [profileRes, productsRes] = await Promise.all([
+          suppliersApi.profile(slug),
+          suppliersApi.products(slug, { page_size: 12 }).catch(() => []),
+        ])
 
-      setSupplier({
-        company_name: 'Sfax Textile Co.',
-        slug: slug || 'sfax-textile-co',
-        city: 'Sfax',
-        wilaya: 'Sfax',
-        verification_status: 'verified',
-        rating_avg: 4.6,
-        rating_count: 128,
-        followers_count: 1240,
-        created_at: '2012-03-15',
-      })
+        if (cancelled) return
 
-      setStore({
-        brand_logo_url: 'https://www.livinx.com/img/livinx-logo-1738657124.jpg',
-        banner_url: 'https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?w=1600&q=80',
-        hero_title: 'Un fournisseur de confiance\nsur lequel vous pouvez compter.',
+        // request() renvoie null si la session a expiré / 401 non récupérable
+        if (!profileRes) {
+          setNotFound(true)
+          setLoading(false)
+          return
+        }
 
-        stats_title: "Sfax Textile Co.,\nl'expertise grossiste\nau service des pros.",
-        stats_description: "Notre savoir-faire allie production de qualité, logistique fiable et accompagnement personnalisé. À chaque étape, nous garantissons un service à la hauteur des exigences professionnelles.",
-        highlight_image_1: 'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=800&q=80',
-        highlight_image_2: 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?w=800&q=80',
+        const raw = pickStore(profileRes)
 
-        about_title_main: 'Un fournisseur de confiance.',
-        about_title_accent: 'Une vision claire.',
-        about_image_url: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=1200&q=80',
-        about_images: [
-          'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=400&q=80',
-          'https://images.unsplash.com/photo-1581094794329-c8112a89af12?w=400&q=80',
-          'https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?w=400&q=80',
-          'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=900&q=80',
-        ],
+        // ── Entête fournisseur (nom, note, ville, statut…) ──
+        setSupplier({
+          id:                  profileRes.id,
+          company_name:        profileRes.company_name || profileRes.name || '',
+          slug:                profileRes.slug || slug,
+          city:                profileRes.city || '',
+          wilaya:              profileRes.wilaya || '',
+          verification_status: profileRes.verification_status || 'pending',
+          rating_avg:          Number(profileRes.rating_avg ?? profileRes.rating ?? 0),
+          rating_count:        Number(profileRes.rating_count ?? 0),
+          followers_count:     Number(profileRes.followers_count ?? 0),
+          created_at:          profileRes.created_at || null,
+        })
 
-        description: "Sfax Textile Co. est un fournisseur grossiste spécialisé dans la fabrication et distribution de textiles de qualité supérieure depuis 2012. Notre usine basée à Sfax dispose d'une capacité de production de 50 000 pièces/mois, garantissant des délais compétitifs et une traçabilité complète de nos produits. Nous accompagnons les professionnels en Tunisie et au Maghreb avec un service personnalisé.",
-        mission: "Offrir aux professionnels tunisiens et maghrébins un textile de qualité industrielle, à prix juste, avec un service humain et une traçabilité totale.",
-        founded_year: 2012,
-        certifications: ['ISO 9001:2015', 'OEKO-TEX', 'INNORPI'],
-        page_views: 142000,
-        response_rate: 94,
-        response_time_hrs: 2,
-      })
+        // ── Vitrine : on garde TOUT l'objet store tel quel (hero_title,
+        //    stats_*, about_*, highlight_*, description, mission,
+        //    certifications, response_rate…). On ne normalise que le
+        //    logo et la bannière, qui ont plusieurs alias possibles. ──
+        setStore({
+          ...raw,
+          brand_logo_url: raw.brand_logo_url || raw.logo_url || raw.logo || '',
+          banner_url:     raw.banner_url     || raw.banner    || '',
+          // certifications : le back renvoie une chaîne CSV, SupplierAbout attend un tableau.
+          certifications: Array.isArray(raw.certifications)
+            ? raw.certifications
+            : (raw.certifications || '').split(',').map((s) => s.trim()).filter(Boolean),
+          about_images: Array.isArray(raw.about_images) ? raw.about_images : [],
+        })
 
-      setProducts([
-        { id: 1,  name: 'T-shirt coton premium',         subtitle: 'Lot de 12 unités',  price: 84,  currency: 'TND', image_url: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=600&q=80' },
-        { id: 2,  name: 'Chemise Oxford homme',          subtitle: 'Lot de 6 unités',   price: 138, currency: 'TND', image_url: 'https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=600&q=80' },
-        { id: 3,  name: 'Polo piqué bicolore',           subtitle: 'Lot de 12 unités',  price: 108, currency: 'TND', image_url: 'https://images.unsplash.com/photo-1586790170083-2f9ceadc732d?w=600&q=80' },
-        { id: 4,  name: 'Jean slim stretch',             subtitle: 'Lot de 6 unités',   price: 192, currency: 'TND', image_url: 'https://images.unsplash.com/photo-1542272604-787c3835535d?w=600&q=80' },
-        { id: 5,  name: 'Hoodie zip intérieur molleton', subtitle: 'Lot de 6 unités',   price: 174, currency: 'TND', image_url: 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=600&q=80' },
-        { id: 6,  name: 'Veste légère coupe-vent',       subtitle: 'Lot de 4 unités',   price: 236, currency: 'TND', image_url: 'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=600&q=80' },
-      ])
+        // ── Produits → forme attendue par SupplierProducts ──
+        setProducts(
+          unwrap(productsRes).map((p) => ({
+            id:        p.id,
+            name:      p.name,
+            subtitle:  p.moq ? `MOQ ${p.moq} ${p.unit || 'pièces'}` : p.category_name || '',
+            price:     computePrice(p),
+            currency:  'TND',
+            image_url: p.primary_image || p.images?.[0]?.url || '',
+          }))
+        )
 
-      setReviews([
-        {
-          id: 1, rating: 5,
-          text: "Qualité irréprochable et livraison rapide depuis Sfax. Les lots de t-shirts sont conformes à la description, finitions soignées.",
-          author_name: "Karim Ben Salah", city: "Tunis",
-          avatar_url: "https://i.pravatar.cc/150?img=12",
-          attached_images: [],
-        },
-        {
-          id: 2, rating: 4,
-          text: "Bons produits, tissu conforme à la description et délai respecté. Je recommande pour les commandes en volume.",
-          author_name: "Sonia Mhiri", city: "Sousse",
-          avatar_url: "https://i.pravatar.cc/150?img=47",
-          attached_images: [],
-        },
-        {
-          id: 3, rating: 5,
-          text: "Fournisseur de confiance avec lequel je travaille depuis 2 ans. Les certifications sont un vrai gage de qualité.",
-          author_name: "Nabil Trabelsi", city: "Sfax",
-          avatar_url: "https://i.pravatar.cc/150?img=33",
-          attached_images: [],
-        },
-      ])
-
-      setLoading(false)
+        // ── Avis boutique : embarqués dans la réponse profil s'ils
+        //    existent, sinon vide (SupplierReviews gère la liste vide). ──
+        setReviews(
+          (profileRes.reviews || []).map((r) => ({
+            id:              r.id,
+            rating:          Number(r.rating) || 0,
+            text:            r.text || r.comment || '',
+            author_name:     r.author_name || r.reviewer_name || 'Client',
+            city:            r.city || '',
+            avatar_url:      r.avatar_url || '',
+            attached_images: r.attached_images || (r.photos ? r.photos.map((ph) => ph.url) : []),
+          }))
+        )
+      } catch {
+        if (!cancelled) setNotFound(true)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
     }
+
     loadSupplier()
+    return () => { cancelled = true }
   }, [slug])
+
   usePageTracking({ pageType: 'supplier_shop', supplierId: supplier?.id })
+
   /* ── Scroll spy ── */
   useEffect(() => {
     if (loading) return
@@ -132,28 +163,37 @@ export default function DesktopSupplierProfilePage() {
     return () => observers.forEach((o) => o.disconnect())
   }, [loading])
 
-  /* ── Handlers publics (pas d'édition) ── */
-  const handleContact = () => {
-    // TODO: ouvrir modal contact ou rediriger vers messagerie
-    alert('Fonctionnalité de contact bientôt disponible.')
+  /* ── Handlers publics ── */
+  const handleContact = async () => {
+    if (!supplier?.slug) return
+    try {
+      // Ouvre (ou récupère) la conversation avec ce fournisseur
+      await messagingApi.startConversation(supplier.slug)
+      navigate('/dashboard/messages') // ← ajuste la route si besoin
+    } catch (e) {
+      // Non connecté → redirige vers la connexion
+      if (e?.status === 401) navigate('/login')
+      else alert("Impossible d'ouvrir la messagerie pour le moment.")
+    }
   }
 
-const handleSeeAllProducts = () => {
-  navigate(`/fournisseur/${supplier.slug}/catalogue`)
-}
+  const handleSeeAllProducts = () => {
+    navigate(`/fournisseur/${supplier.slug}/catalogue`)
+  }
 
   if (loading) return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: 'linear-gradient(180deg,#FFFFFF 0%,#F8F8FB 100%)',
-      fontFamily: "-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif",
-      color: '#666',
-      fontSize: 14,
-    }}>
-      Chargement de la vitrine…
+    <div style={centerStyle}>Chargement de la vitrine…</div>
+  )
+
+  if (notFound || !supplier) return (
+    <div style={{ ...centerStyle, flexDirection: 'column', gap: 12 }}>
+      <span>Ce fournisseur est introuvable.</span>
+      <button
+        onClick={() => navigate('/')}
+        style={{ background: 'none', border: 'none', color: '#FF5E00', fontWeight: 700, cursor: 'pointer' }}
+      >
+        Retour à l'accueil
+      </button>
     </div>
   )
 
@@ -177,7 +217,7 @@ const handleSeeAllProducts = () => {
         <SupplierStats
           supplier={supplier}
           store={store}
-          productsCount={products.length || 48}
+          productsCount={products.length || 0}
           editable={false}
         />
       </section>
@@ -227,4 +267,16 @@ const handleSeeAllProducts = () => {
       <Footer />
     </div>
   )
+}
+
+/* ── Styles ── */
+const centerStyle = {
+  minHeight: '100vh',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  background: 'linear-gradient(180deg,#FFFFFF 0%,#F8F8FB 100%)',
+  fontFamily: "-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif",
+  color: '#666',
+  fontSize: 14,
 }

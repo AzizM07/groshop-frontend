@@ -11,7 +11,7 @@ import { usePageTracking, trackProductEvent } from '../hooks/usePageTracking'
 import { useIsMobile } from '../hooks/useIsMobile'
 import MobileProductPage from '../components/MobileProductPage'
 
-const ORANGE='#FF5E20', ORANGE2='#FF7A45', NAVY='#1B1B4B', INK='#0F1419', SUB='#3D4853', MUTE='#6B7785', FAINT='#9AA3AE', LINE='#ECEEF1', BG='#F4F5F7', GREEN='#0E9F6E'
+const ORANGE='#FF5E20', ORANGE2='#FF7A45', NAVY='#1B1B4B', INK='#0F1419', SUB='#3D4853', MUTE='#6B7785', FAINT='#9AA3AE', LINE='#ECEEF1', BG='#F4F5F7', GREEN='#0E9F6E', RED='#DC2626'
 const FONT='"DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
 
 /* ── Hauteur du header fixe (barre recherche + barre catégories).
@@ -152,18 +152,30 @@ function DesktopProductPage() {
   const p = product
   const images = p.images?.length ? p.images : (p.primary_image ? [{ url: p.primary_image }] : [])
   const mainImage = imgOverride || images[imgIdx]?.url
-  const moq = p.moq || 1
   const unit = p.unit || 'pièce'
   const parsedQty = parseInt(qty) || 0
   const tiers = p.price_tiers || []
-  const basePrice = toNum(p.base_price_tnd) || (tiers[0] ? toNum(tiers[0].price_tnd) : 0)
-  const oldPrice = toNum(p.old_price_tnd)
+
+  // ── Résolution du prix selon la combinaison choisie ──
+  // combo_key = ids des variantes sélectionnées, triés (identique au serveur).
+  // Si une combinaison a un override → on prend SON barème, sinon le barème produit.
+  const selectedVariantIds = (p.choice_groups || []).map(g => selected[g.id]?.id).filter(Boolean)
+  const comboKey = [...selectedVariantIds].sort().join('|')
+  const activeCombo = comboKey
+    ? (p.variant_combos || []).find(c => [...(c.variant_ids || [])].sort().join('|') === comboKey)
+    : null
+  const effectiveTiers = activeCombo?.price_tiers?.length ? activeCombo.price_tiers : tiers
+
+  const moq = (effectiveTiers[0] ? toInt(effectiveTiers[0].min_qty) : 0) || toInt(p.moq) || 1
+  const basePrice = effectiveTiers[0] ? toNum(effectiveTiers[0].price_tnd) : toNum(p.base_price_tnd)
   const rating = toNum(p.rating_avg)
   const reviewCount = toInt(p.rating_count) || reviews.length
-  const stockQty = toInt(p.stock_qty)
+  const inStock = p.in_stock !== false
 
-  const activeTier = tiers.find(t => parsedQty >= toInt(t.min_qty) && (!t.max_qty || parsedQty <= toInt(t.max_qty))) || tiers[0]
+  const activeTier = effectiveTiers.find(t => parsedQty >= toInt(t.min_qty) && (!t.max_qty || parsedQty <= toInt(t.max_qty))) || effectiveTiers[0]
   const unitPrice = activeTier ? toNum(activeTier.price_tnd) : basePrice
+  const tierOld = activeTier ? toNum(activeTier.old_price_tnd) : 0
+  const oldPrice = tierOld > 0 ? tierOld : (activeCombo ? 0 : toNum(p.old_price_tnd))
   const disc = oldPrice > unitPrice ? Math.round((1 - unitPrice / oldPrice) * 100) : 0
   const total = parsedQty * unitPrice
   const qtyValid = parsedQty >= moq
@@ -178,7 +190,10 @@ function DesktopProductPage() {
   const tierLabel = (t) => t.max_qty ? `${t.min_qty}–${t.max_qty} ${unit}` : `≥${t.min_qty} ${unit}`
 
   const doOrder = async () => {
-    if (!qtyValid) return
+    if (!qtyValid || !inStock) return
+    // ⚠️ Tant que le panier/serveur ne résout pas le combo, on envoie la 1re variante
+    // choisie (contrat actuel de cart.add). Le prix combo sera correct une fois le
+    // ripple panier/checkout fait.
     const firstVariantId = Object.values(selected)[0]?.id ?? null
     const res = await add(p.id, parsedQty, firstVariantId)
     if (res?.ok) {
@@ -247,12 +262,14 @@ function DesktopProductPage() {
                     {p.badge_flash && <Badge bg="#FFEDE4" color={ORANGE}>Soldes</Badge>}
                     {p.badge_choice && <Badge bg="#FFD000" color="#2E2E2E">Choice</Badge>}
                     {p.brand && <Badge bg="#EEF0FA" color={NAVY}>Marque {p.brand}</Badge>}
-                    {stockQty > 0 && <Badge bg="#E9F9F0" color={GREEN}>En stock</Badge>}
+                    {inStock
+                      ? <Badge bg="#E9F9F0" color={GREEN}>En stock</Badge>
+                      : <Badge bg="#FEECEC" color={RED}>Hors stock</Badge>}
                   </div>
 
-                  {tiers.length > 1 && (
+                  {effectiveTiers.length > 1 && (
                     <div style={{ display: 'flex', gap: 'clamp(16px, 2vw, 28px)', flexWrap: 'wrap', marginTop: 22 }}>
-                      {tiers.map((t, i) => {
+                      {effectiveTiers.map((t, i) => {
                         const on = activeTier === t
                         return (
                           <button key={t.id || i} onClick={() => setQty(String(t.min_qty))} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}>
@@ -387,7 +404,7 @@ function DesktopProductPage() {
                               {r.photos.map((photo, i) => (
                                 <button key={photo.id || i} onClick={() => setLightbox({ photos: r.photos, index: i })}
                                   style={{ width: 72, height: 72, borderRadius: 8, overflow: 'hidden', padding: 0, border: `1px solid ${LINE}`, cursor: 'pointer', background: '#F7F8FA' }}>
-                                  <img src={photo.url} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
+                                  <img src={photo.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
                                 </button>
                               ))}
                             </div>
@@ -435,9 +452,9 @@ function DesktopProductPage() {
                 <span style={{ fontSize: 'clamp(17px, 1.4vw, 20px)', fontWeight: 900 }}>{fmt(total)} TND</span>
               </div>
 
-              <button onClick={doOrder} disabled={!qtyValid || adding === p.id}
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', padding: '15px', borderRadius: 12, border: 'none', color: '#fff', fontSize: 16, fontWeight: 800, cursor: qtyValid ? 'pointer' : 'default', opacity: (!qtyValid || adding === p.id) ? .6 : 1, background: added ? GREEN : `linear-gradient(135deg, ${ORANGE2}, ${ORANGE})`, whiteSpace: 'nowrap' }}>
-                <ShoppingCart size={18} /> {adding === p.id ? 'Ajout…' : added ? 'Ajouté ✓' : 'Ajouter au panier'}
+              <button onClick={doOrder} disabled={!qtyValid || !inStock || adding === p.id}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', padding: '15px', borderRadius: 12, border: 'none', color: '#fff', fontSize: 16, fontWeight: 800, cursor: (qtyValid && inStock) ? 'pointer' : 'default', opacity: (!qtyValid || !inStock || adding === p.id) ? .6 : 1, background: added ? GREEN : (!inStock ? '#B9BEC7' : `linear-gradient(135deg, ${ORANGE2}, ${ORANGE})`), whiteSpace: 'nowrap' }}>
+                <ShoppingCart size={18} /> {!inStock ? 'Indisponible' : adding === p.id ? 'Ajout…' : added ? 'Ajouté ✓' : 'Ajouter au panier'}
               </button>
             </div>
 

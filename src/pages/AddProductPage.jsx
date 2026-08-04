@@ -1,6 +1,6 @@
 // AddProductPage.jsx — GROSHOP.tn
-// Formulaire fournisseur "Ajouter un produit" — prix par tranche, dispo booléenne,
-// livraison multi-modes. MOQ / prix de base dérivés côté serveur depuis les tranches.
+// Formulaire fournisseur "Ajouter un produit".
+// Prix par tranche + override par combinaison, dispo booléenne, livraison multi-modes.
 
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
@@ -19,7 +19,6 @@ const SHIP_MODES = [
   ['free', 'Gratuite'], ['flat', 'Fixe'], ['tiered', 'Par tranche'], ['per_block', 'Par palier'],
 ]
 
-// Plage auto d'une tranche : [min, (suivante-1)] ou [min, +] pour la dernière.
 function tierRange(rows, i) {
   if (!rows[i].min_qty) return '—'
   const min = Number(rows[i].min_qty)
@@ -28,7 +27,6 @@ function tierRange(rows, i) {
   return `${min}–${Math.max(min, next - 1)}`
 }
 
-// Vérifie la cohérence des tranches de prix (croissant qté / décroissant prix / solde valide).
 function priceTierIssues(rows) {
   const errs = rows.map(() => null)
   let ok = true
@@ -67,9 +65,11 @@ export default function AddProductPage() {
   const [tiers, setTiers]       = useState([{ min_qty: '', price_tnd: '', old_price_tnd: '' }])
   const [shipTiers, setShipTiers] = useState([{ min_qty: '', price_tnd: '' }])
   const [choiceGroups, setChoiceGroups] = useState([])
+  const [variantCombos, setVariantCombos] = useState([])   // [{ id, sel:{[gi]:variantName}, tiers:[…] }]
   const [categories, setCategories] = useState([])
   const [errors, setErrors]     = useState({})
   const [submitting, setSubmitting] = useState(false)
+  const [videoUploading, setVideoUploading] = useState(false)
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
 
@@ -132,7 +132,7 @@ export default function AddProductPage() {
     }
   }
 
-  /* ── Tranches de prix ── */
+  /* ── Tranches de prix produit ── */
   const addTier = () => setTiers((t) => [...t, { min_qty: '', price_tnd: '', old_price_tnd: '' }])
   const setTier = (i, k, val) => setTiers((t) => t.map((x, idx) => (idx === i ? { ...x, [k]: val } : x)))
   const removeTier = (i) => setTiers((t) => (t.length <= 1 ? t : t.filter((_, idx) => idx !== i)))
@@ -142,8 +142,20 @@ export default function AddProductPage() {
   const setShipTier = (i, k, val) => setShipTiers((t) => t.map((x, idx) => (idx === i ? { ...x, [k]: val } : x)))
   const removeShipTier = (i) => setShipTiers((t) => (t.length <= 1 ? t : t.filter((_, idx) => idx !== i)))
 
+  /* ── Groupes exploitables pour les combinaisons (nom + ≥1 variante nommée) ── */
+  const namedGroups = choiceGroups
+    .map((g, gi) => ({ gi, name: g.name.trim(), variants: g.variants.map((v) => v.name.trim()).filter(Boolean) }))
+    .filter((g) => g.name && g.variants.length)
+
+  /* ── Prix par combinaison (override) ── */
+  const addCombo = () => setVariantCombos((c) => [...c, { id: crypto.randomUUID(), sel: {}, tiers: [{ min_qty: '', price_tnd: '', old_price_tnd: '' }] }])
+  const removeCombo = (id) => setVariantCombos((c) => c.filter((x) => x.id !== id))
+  const setComboSel = (id, gi, val) => setVariantCombos((c) => c.map((x) => (x.id === id ? { ...x, sel: { ...x.sel, [gi]: val } } : x)))
+  const addComboTier = (id) => setVariantCombos((c) => c.map((x) => (x.id === id ? { ...x, tiers: [...x.tiers, { min_qty: '', price_tnd: '', old_price_tnd: '' }] } : x)))
+  const setComboTier = (id, i, k, val) => setVariantCombos((c) => c.map((x) => (x.id === id ? { ...x, tiers: x.tiers.map((t, idx) => (idx === i ? { ...t, [k]: val } : t)) } : x)))
+  const removeComboTier = (id, i) => setVariantCombos((c) => c.map((x) => (x.id === id ? { ...x, tiers: x.tiers.length <= 1 ? x.tiers : x.tiers.filter((_, idx) => idx !== i) } : x)))
+
   const { errs: tierErrs, ok: tierOk } = priceTierIssues(tiers)
-  const [videoUploading, setVideoUploading] = useState(false)
 
   async function handleVideo(file) {
     if (!file) return
@@ -158,13 +170,14 @@ export default function AddProductPage() {
     }
   }
   const removeVideo = () => setForm((f) => ({ ...f, video_url: '', video_poster_url: '' }))
-  
+
   /* ── Soumission ── */
   async function submit(status) {
     const errs = {}
     if (!form.name.trim()) errs.name = 'Nom requis'
     if (!form.category)    errs.category = 'Catégorie requise'
     if (videoUploading) errs.images = 'Attends la fin de la compression vidéo'
+
     const completeTiers = tiers.filter((t) => t.min_qty && t.price_tnd)
     if (!completeTiers.length) errs.price_tiers = 'Ajoute au moins une tranche de prix'
     else if (!tierOk)          errs.price_tiers = 'Corrige les tranches en rouge (quantité croissante, prix décroissant)'
@@ -175,6 +188,20 @@ export default function AddProductPage() {
       errs.shipping = 'Renseigne le palier et le frais par palier'
     if (images.some((im) => im.uploading)) errs.images = 'Attends la fin des uploads'
 
+    // ── Validation des combinaisons ──
+    const comboKeys = []
+    for (const c of variantCombos) {
+      const picked = namedGroups.filter((g) => c.sel[g.gi])
+      const hasTiers = c.tiers.some((t) => t.min_qty && t.price_tnd)
+      if (picked.length === 0 && !hasTiers) continue          // ligne vide → ignorée
+      if (picked.length !== namedGroups.length) { errs.combos = 'Choisis une option par groupe pour chaque prix spécifique'; break }
+      const { ok } = priceTierIssues(c.tiers)
+      if (!ok || !hasTiers) { errs.combos = 'Corrige les tranches des prix par variante'; break }
+      comboKeys.push(namedGroups.map((g) => c.sel[g.gi]).join('|'))
+    }
+    if (!errs.combos && new Set(comboKeys).size !== comboKeys.length)
+      errs.combos = 'Deux prix spécifiques visent la même combinaison'
+
     setErrors(errs)
     if (Object.keys(errs).length) { window.scrollTo({ top: 0, behavior: 'smooth' }); return }
 
@@ -183,7 +210,6 @@ export default function AddProductPage() {
       name: form.name, category: form.category, description: form.description,
       brand: form.brand, reference: form.reference, unit: form.unit,
       specs_raw: form.specs_raw, video_url: form.video_url, video_poster_url: form.video_poster_url,
-      
       in_stock: form.in_stock,
       delivery_days: Number(form.delivery_days) || 3,
       shipping_mode: form.shipping_mode,
@@ -207,6 +233,16 @@ export default function AddProductPage() {
           variants: g.variants.filter((v) => v.name.trim())
             .map((v, vi) => ({ name: v.name.trim(), image_url: v.image_url || '', sort_order: vi })),
         })),
+      variant_combos: variantCombos
+        .map((c) => ({
+          selections: namedGroups.map((g) => ({ group: g.name, variant: c.sel[g.gi] })).filter((s) => s.variant),
+          price_tiers: c.tiers.filter((t) => t.min_qty && t.price_tnd).map((t) => ({
+            min_qty: Number(t.min_qty),
+            price_tnd: Number(t.price_tnd),
+            old_price_tnd: t.old_price_tnd === '' ? null : Number(t.old_price_tnd),
+          })),
+        }))
+        .filter((c) => c.selections.length === namedGroups.length && c.selections.length > 0 && c.price_tiers.length > 0),
     }
 
     try {
@@ -325,6 +361,68 @@ export default function AddProductPage() {
             <p style={{ ...S.helper, marginTop: 12 }}>Le prix doit diminuer quand la quantité augmente. La borne haute de chaque tranche se calcule toute seule.</p>
           </section>
 
+          {/* PRIX PAR VARIANTE (OVERRIDE) */}
+          <section style={S.card}>
+            <SectionTitle icon={<Tag size={18} />} title="Prix par variante (optionnel)" />
+            {namedGroups.length === 0 ? (
+              <p style={S.helper}>Ajoute d'abord tes choix &amp; variantes (Couleur, Taille…) pour pouvoir fixer un prix spécifique à une combinaison. Par défaut, toutes les variantes utilisent le barème du produit.</p>
+            ) : (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#F5F5F0', borderRadius: 8, padding: '10px 12px', marginBottom: 16 }}>
+                  <CheckCircle2 size={15} color="#6B7785" style={{ flexShrink: 0 }} />
+                  <span style={{ fontSize: 12.5, color: '#6B7785' }}>Par défaut, toutes les combinaisons utilisent le barème du produit. Ajoutes-en une seulement si son prix diffère.</span>
+                </div>
+
+                {variantCombos.map((c) => {
+                  const { errs: cErrs } = priceTierIssues(c.tiers)
+                  return (
+                    <div key={c.id} style={{ border: '1px solid #ECEEF2', borderRadius: 12, padding: 14, marginBottom: 12 }}>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
+                        {namedGroups.map((g) => (
+                          <div key={g.gi} style={S.selectWrap}>
+                            <select style={{ ...S.select, height: 40, minWidth: 130 }} className="ap-in" value={c.sel[g.gi] || ''} onChange={(e) => setComboSel(c.id, g.gi, e.target.value)}>
+                              <option value="">{g.name}…</option>
+                              {g.variants.map((vn) => <option key={vn} value={vn}>{vn}</option>)}
+                            </select>
+                          </div>
+                        ))}
+                        <div style={{ flex: 1 }} />
+                        <button type="button" style={S.iconDanger} onClick={() => removeCombo(c.id)}><Trash2 size={16} /></button>
+                      </div>
+
+                      <div style={{ ...S.priceRow, marginBottom: 6 }}>
+                        <span style={S.colHead}>À partir de</span>
+                        <span style={S.colHead}>Prix (TND)</span>
+                        <span style={S.colHead}>Ancien prix</span>
+                        <span style={S.colHead}>Plage</span>
+                        <span />
+                      </div>
+                      {c.tiers.map((t, i) => {
+                        const err = cErrs[i]
+                        return (
+                          <div key={i}>
+                            <div style={S.priceRow}>
+                              <input type="number" min="1" style={{ ...S.input, height: 40, textAlign: 'center' }} className="ap-in" placeholder="1" value={t.min_qty} onChange={(e) => setComboTier(c.id, i, 'min_qty', e.target.value)} />
+                              <input type="number" step="0.001" style={{ ...S.input, height: 40, textAlign: 'center', ...(err ? { borderColor: '#E11900' } : null) }} className="ap-in" placeholder="0.000" value={t.price_tnd} onChange={(e) => setComboTier(c.id, i, 'price_tnd', e.target.value)} />
+                              <input type="number" step="0.001" style={{ ...S.input, height: 40, textAlign: 'center' }} className="ap-in" placeholder="—" value={t.old_price_tnd} onChange={(e) => setComboTier(c.id, i, 'old_price_tnd', e.target.value)} />
+                              <span style={S.rangePill}>{tierRange(c.tiers, i)}</span>
+                              <button style={{ ...S.iconDanger, opacity: c.tiers.length <= 1 ? 0.4 : 1 }} onClick={() => removeComboTier(c.id, i)} type="button" disabled={c.tiers.length <= 1}><Trash2 size={16} /></button>
+                            </div>
+                            {err && <div style={S.tierErr}><AlertTriangle size={13} /> {err}</div>}
+                          </div>
+                        )
+                      })}
+                      <button style={S.addBtn} onClick={() => addComboTier(c.id)} type="button"><Plus size={15} /> Ajouter une tranche</button>
+                    </div>
+                  )
+                })}
+
+                <button style={S.addBtn} onClick={addCombo} type="button"><Plus size={15} /> Prix spécifique pour une combinaison</button>
+                {errors.combos && <div style={{ ...S.errText, marginTop: 8 }}>{errors.combos}</div>}
+              </>
+            )}
+          </section>
+
           {/* DISPONIBILITÉ */}
           <section style={S.card}>
             <SectionTitle icon={<Layers size={18} />} title="Disponibilité" />
@@ -439,7 +537,7 @@ export default function AddProductPage() {
             )}
             <p style={S.helper}>La 1ʳᵉ image (★) est la principale, affichée sur la carte produit.</p>
 
-<div style={{ marginTop: 14 }}>
+            <div style={{ marginTop: 14 }}>
               <label style={{ display: 'block', fontSize: 12.5, fontWeight: 600, color: '#3D4853', marginBottom: 7 }}>Vidéo produit</label>
               {form.video_url ? (
                 <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', background: '#000' }}>

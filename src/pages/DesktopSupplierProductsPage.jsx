@@ -2,7 +2,8 @@
 // Connecté au backend : /api/products/mine/ (via lib/api.js — cookies + CSRF).
 // Style Donezo/Recent Activity conservé.
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import * as Icons from 'lucide-react'
 import { products as productsApi } from '../lib/api'
@@ -57,22 +58,17 @@ const PER_PAGE = 10
 // PAGE
 // ═══════════════════════════════════════════════════════════════════
 export default function DesktopSupplierProductsPage() {
-  const [items, setItems]     = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError]     = useState(null)
   const [search, setSearch]   = useState('')
   const [statsOpen, setStatsOpen] = useState(true)
   const [page, setPage]       = useState(1)
 
-  useEffect(() => {
-    let alive = true
-    setLoading(true)
-    productsApi.mine()
-      .then((data) => { if (alive) setItems(Array.isArray(data) ? data : (data?.results || [])) })
-      .catch((e) => { if (alive) setError(e.message || 'Erreur de chargement') })
-      .finally(() => { if (alive) setLoading(false) })
-    return () => { alive = false }
-  }, [])
+  // Même clé que MobileSupplierProducts, SupplierDashboardPage, MobileSupplierDashboard → cache partagé
+  const { data, isLoading: loading, isError, error: queryError } = useQuery({
+    queryKey: ['products', 'mine'],
+    queryFn: () => productsApi.mine(),
+  })
+  const items = Array.isArray(data) ? data : (data?.results || [])
+  const error = isError ? (queryError?.message || 'Erreur de chargement') : null
 
   const filtered = useMemo(
     () => items.filter((p) => (p.name || '').toLowerCase().includes(search.toLowerCase())),
@@ -245,7 +241,7 @@ function ProductRow({ product, cols, isLast }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
         <div style={{ width: 44, height: 44, borderRadius: 12, background: '#F5F3EE', flexShrink: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           {product.primary_image
-            ? <img src={product.primary_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ? <img src={product.primary_image} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             : <Icons.Package size={18} color="#B8BCC4" strokeWidth={1.8} />}
         </div>
         <div style={{ minWidth: 0 }}>

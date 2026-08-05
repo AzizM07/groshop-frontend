@@ -1,5 +1,6 @@
 // src/pages/MobileCategoriesPage.jsx
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useNavigate, Navigate } from 'react-router-dom'
 import { products as productsApi } from '../lib/api'
 import { useIsMobile } from '../hooks/useIsMobile'
@@ -7,29 +8,25 @@ import MobileBottomNav from '../components/MobileBottomNav'
 
 const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
 const POUR_VOUS_ID = '__pour_vous__'
-let _cache = null   // categories + children (fetch lent → mis en cache)
-let _inspoCache = null
 
 export default function MobileCategoriesPage() {
   const isMobile = useIsMobile()
   const navigate = useNavigate()
-  const [cats, setCats]       = useState(_cache || [])
-  const [loading, setLoading] = useState(!_cache)
-  const [inspo, setInspo]     = useState(_inspoCache || [])
   const [activeId, setActiveId] = useState(POUR_VOUS_ID)
 
-  useEffect(() => {
-    if (!_cache) {
-      productsApi.categories()
-        .then(d => { _cache = d || []; setCats(_cache); setLoading(false) })
-        .catch(() => setLoading(false))
-    }
-    if (!_inspoCache) {
-      productsApi.recommended()
-        .then(d => { _inspoCache = (d?.results || []).slice(0, 8); setInspo(_inspoCache) })
-        .catch(() => {})
-    }
-  }, [])
+  // productsApi.categories() a déjà son propre cache interne (voir lib/api.js),
+  // useQuery ajoute simplement la gestion loading/cache côté composant.
+  const { data: cats = [], isLoading: loading } = useQuery({
+    queryKey: ['products', 'categories'],
+    queryFn: () => productsApi.categories(),
+  })
+
+  // Même clé que HomePage / FavorisPage / CartPage → cache partagé
+  const { data: recoData } = useQuery({
+    queryKey: ['products', 'recommended'],
+    queryFn: () => productsApi.recommended(),
+  })
+  const inspo = recoData ? (recoData.results || []).slice(0, 8) : []
 
   if (!isMobile) return <Navigate to="/" replace />
 
@@ -106,7 +103,7 @@ export default function MobileCategoriesPage() {
                       style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'center', minWidth: 0 }}>
                       <div style={{ width: '100%', aspectRatio: '1', maxWidth: 88, borderRadius: '50%', overflow: 'hidden', margin: '0 auto 8px', background: '#F2F3F5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         {sub.image_url ? (
-                          <img src={sub.image_url} alt={sub.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.currentTarget.style.display = 'none' }} />
+                          <img src={sub.image_url} alt={sub.name} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.currentTarget.style.display = 'none' }} />
                         ) : (
                           <span style={{ fontSize: 28 }}>{sub.emoji || (sub.name && sub.name[0])}</span>
                         )}

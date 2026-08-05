@@ -2,9 +2,11 @@
 // Connecté au backend : /api/orders/supplier/ (via lib/api.js — cookies + CSRF).
 // Style Donezo/Recent Activity conservé.
 
-import { useState, useEffect, useMemo, useRef } from 'react'
-import * as Icons from 'lucide-react'
 import { orders as ordersApi } from '../lib/api'
+import { useState, useEffect, useMemo, useRef } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import * as Icons from 'lucide-react'
+
 
 // ── Inject styles ──────────────────────────────────────────────────
 if (typeof document !== 'undefined' && !document.getElementById('gs-orders-styles')) {
@@ -83,22 +85,17 @@ function fmtDate(iso) {
 
 // ═══════════════════════════════════════════════════════════════════
 export default function DesktopSupplierOrdersPage() {
-  const [all, setAll]         = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError]     = useState(null)
+  const queryClient = useQueryClient()
   const [activeTab, setTab]   = useState('all')
   const [search, setSearch]   = useState('')
   const [page, setPage]       = useState(1)
 
-  useEffect(() => {
-    let alive = true
-    setLoading(true)
-    ordersApi.supplier()
-      .then((d) => { if (alive) setAll(Array.isArray(d) ? d : (d?.results || [])) })
-      .catch((e) => { if (alive) setError(e.message || 'Erreur de chargement') })
-      .finally(() => { if (alive) setLoading(false) })
-    return () => { alive = false }
-  }, [])
+  const { data, isLoading: loading, isError, error: queryError } = useQuery({
+    queryKey: ['orders', 'supplier'],
+    queryFn: () => ordersApi.supplier(),
+  })
+  const all = Array.isArray(data) ? data : (data?.results || [])
+  const error = isError ? (queryError?.message || 'Erreur de chargement') : null
 
   useEffect(() => { setPage(1) }, [activeTab, search])
 
@@ -138,14 +135,16 @@ export default function DesktopSupplierOrdersPage() {
   }, [all, counts])
 
   async function changeStatus(id, newStatus) {
-    // maj optimiste
-    setAll((prev) => prev.map((o) => (o.id === id ? { ...o, status: newStatus } : o)))
+    queryClient.setQueryData(['orders', 'supplier'], (old) => {
+      const list = Array.isArray(old) ? old : (old?.results || [])
+      const next = list.map((o) => (o.id === id ? { ...o, status: newStatus } : o))
+      return old?.results ? { ...old, results: next } : next
+    })
     try {
       await ordersApi.updateSubOrderStatus(id, newStatus)
     } catch (e) {
       alert('Erreur : ' + e.message)
-      // rechargement en cas d'échec
-      ordersApi.supplier().then((d) => setAll(Array.isArray(d) ? d : (d?.results || []))).catch(() => {})
+      queryClient.invalidateQueries({ queryKey: ['orders', 'supplier'] })
     }
   }
 

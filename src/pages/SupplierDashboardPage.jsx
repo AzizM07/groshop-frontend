@@ -4,7 +4,8 @@
 //   /products/mine/              → produits actifs
 //   /analytics/supplier/stats/   → visiteurs, vues produits (séries journalières)
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import * as Icons from 'lucide-react'
 import { orders as ordersApi, products as productsApi, analytics as analyticsApi } from '../lib/api'
@@ -52,26 +53,22 @@ export default function SupplierDashboardPage() {
 }
 
 function DesktopSupplierDashboard() {
-  const [subOrders, setSubOrders] = useState([])
-  const [prods, setProds]         = useState([])
-  const [stats, setStats]         = useState(null)
+  const { data: ordersData, isLoading: loadOrders } = useQuery({
+    queryKey: ['orders', 'supplier'],
+    queryFn: () => ordersApi.supplier(),
+  })
+  const subOrders = ordersData?.results || (Array.isArray(ordersData) ? ordersData : [])
 
-  const [loadOrders, setLoadOrders] = useState(true)
-  const [loadProds,  setLoadProds]  = useState(true)
-  const [loadStats,  setLoadStats]  = useState(true)
+  const { data: prodsData, isLoading: loadProds } = useQuery({
+    queryKey: ['products', 'mine'],
+    queryFn: () => productsApi.mine(),
+  })
+  const prods = Array.isArray(prodsData) ? prodsData : (prodsData?.results || [])
 
-  useEffect(() => {
-    let alive = true
-    const go = (p, set, done) => p
-      .then(d => { if (alive) set(d) })
-      .catch(() => {})
-      .finally(() => { if (alive) done(false) })
-
-    go(ordersApi.supplier(),         d => setSubOrders(d?.results || (Array.isArray(d) ? d : [])), setLoadOrders)
-    go(productsApi.mine(),           d => setProds(Array.isArray(d) ? d : (d?.results || [])),     setLoadProds)
-    go(analyticsApi.supplierStats(), setStats, setLoadStats)
-    return () => { alive = false }
-  }, [])
+  const { data: stats, isLoading: loadStats } = useQuery({
+    queryKey: ['analytics', 'supplierStats'],
+    queryFn: () => analyticsApi.supplierStats(),
+  })
 
   return (
     <div className="gs-dash">

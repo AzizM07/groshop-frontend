@@ -137,6 +137,12 @@ export default function DesktopSupplierSettingsPage() {
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: verif.bg, color: verif.color, padding: '4px 11px', borderRadius: 999, fontSize: 12, fontWeight: 700 }}>
               <VerifIcon size={13} /> {verif.label}
             </span>
+            {profile.verification_status !== 'approved' && (
+              <button onClick={() => navigate('/supplier/shop')}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: SOFT, color: ORANGE, border: `1px solid ${ORANGE}`, padding: '4px 11px', borderRadius: 999, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: FONT }}>
+                <ShieldCheck size={13} /> Se faire vérifier
+              </button>
+            )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, marginBottom: 6 }}>
             <span style={{ color: MUTE }}>E-mail</span>

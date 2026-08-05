@@ -1,4 +1,6 @@
-// src/components/MobileSupplierProfilePage.jsx — GROSHOP.tn
+// src/components/supplier/MobileSupplierProfilePage.jsx — GROSHOP.tn
+// Vitrine PUBLIQUE d'un fournisseur (mobile) — branchée au backend, comme le
+// desktop : suppliers.profile(slug) + suppliers.products(slug) + avis du profil.
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
@@ -6,6 +8,7 @@ import {
   Eye, Users, Clock, Package, Award, ChevronRight, ChevronDown, Calendar,
 } from 'lucide-react'
 import { usePageTracking } from '../../hooks/usePageTracking'
+import { suppliers as suppliersApi, messaging as messagingApi } from '../../lib/api'
 import Footer from '../Footer'
 
 /* Même teinte orange que le reste du projet */
@@ -33,12 +36,30 @@ const fmtCount = (n) => {
   return String(v)
 }
 
+/* ── Helpers backend (mêmes règles que DesktopSupplierProfilePage) ── */
+const pickStore = (d) => d?.store ?? d?.supplier_store ?? d ?? {}
+const unwrap = (r) => (Array.isArray(r) ? r : r?.results ?? [])
+const computePrice = (p) => {
+  const prices = (p.price_tiers || []).map((t) => parseFloat(t.price_tnd)).filter((n) => !isNaN(n))
+  if (prices.length) return Math.min(...prices)
+  return parseFloat(p.base_price_tnd) || 0
+}
+
+/* Spinner (keyframes injectées une seule fois) */
+if (typeof document !== 'undefined' && !document.getElementById('gs-spin-style')) {
+  const s = document.createElement('style')
+  s.id = 'gs-spin-style'
+  s.textContent = `@keyframes gs-spin { to { transform: rotate(360deg) } }`
+  document.head.appendChild(s)
+}
+
 export default function MobileSupplierProfilePage() {
   const { slug } = useParams()
   const navigate = useNavigate()
 
   const [activeTab, setActiveTab] = useState('home')
   const [loading, setLoading]     = useState(true)
+  const [notFound, setNotFound]   = useState(false)
 
   const [supplier, setSupplier] = useState(null)
   const [store, setStore]       = useState(null)
@@ -49,71 +70,89 @@ export default function MobileSupplierProfilePage() {
   const [copied, setCopied]       = useState(false)
   const [lightbox, setLightbox]   = useState(null)
 
-  /* ── Chargement des données (même mock que la version desktop) ── */
+  /* ── Chargement depuis le backend (identique au desktop) ── */
   useEffect(() => {
+    let cancelled = false
+
     async function loadSupplier() {
       setLoading(true)
-      await new Promise((r) => setTimeout(r, 200))
+      setNotFound(false)
+      try {
+        const [profileRes, productsRes] = await Promise.all([
+          suppliersApi.profile(slug),
+          suppliersApi.products(slug, { page_size: 12 }).catch(() => []),
+        ])
 
-      setSupplier({
-        company_name: 'Sfax Textile Co.',
-        slug: slug || 'sfax-textile-co',
-        city: 'Sfax',
-        wilaya: 'Sfax',
-        verification_status: 'verified',
-        rating_avg: 4.6,
-        rating_count: 128,
-        followers_count: 1240,
-        created_at: '2012-03-15',
-      })
+        if (cancelled) return
 
-      setStore({
-        brand_logo_url: 'https://www.livinx.com/img/livinx-logo-1738657124.jpg',
-        banner_url: 'https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?w=1600&q=80',
-        hero_title: 'Un fournisseur de confiance\nsur lequel vous pouvez compter.',
+        // request() renvoie null si la session a expiré / 401 non récupérable
+        if (!profileRes) {
+          setNotFound(true)
+          setLoading(false)
+          return
+        }
 
-        stats_title: "Sfax Textile Co.,\nl'expertise grossiste\nau service des pros.",
-        stats_description: "Notre savoir-faire allie production de qualité, logistique fiable et accompagnement personnalisé. À chaque étape, nous garantissons un service à la hauteur des exigences professionnelles.",
-        highlight_image_1: 'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=800&q=80',
-        highlight_image_2: 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?w=800&q=80',
+        const raw = pickStore(profileRes)
 
-        about_title_main: 'Un fournisseur de confiance.',
-        about_title_accent: 'Une vision claire.',
-        about_image_url: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=1200&q=80',
-        about_images: [
-          'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=400&q=80',
-          'https://images.unsplash.com/photo-1581094794329-c8112a89af12?w=400&q=80',
-          'https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?w=400&q=80',
-          'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=900&q=80',
-        ],
+        // ── Entête fournisseur ──
+        setSupplier({
+          id:                  profileRes.id,
+          company_name:        profileRes.company_name || profileRes.name || '',
+          slug:                profileRes.slug || slug,
+          city:                profileRes.city || '',
+          wilaya:              profileRes.wilaya || '',
+          verification_status: profileRes.verification_status || 'pending',
+          rating_avg:          Number(profileRes.rating_avg ?? profileRes.rating ?? 0),
+          rating_count:        Number(profileRes.rating_count ?? 0),
+          followers_count:     Number(profileRes.followers_count ?? 0),
+          created_at:          profileRes.created_at || null,
+        })
 
-        description: "Sfax Textile Co. est un fournisseur grossiste spécialisé dans la fabrication et distribution de textiles de qualité supérieure depuis 2012. Notre usine basée à Sfax dispose d'une capacité de production de 50 000 pièces/mois, garantissant des délais compétitifs et une traçabilité complète de nos produits. Nous accompagnons les professionnels en Tunisie et au Maghreb avec un service personnalisé.",
-        mission: "Offrir aux professionnels tunisiens et maghrébins un textile de qualité industrielle, à prix juste, avec un service humain et une traçabilité totale.",
-        founded_year: 2012,
-        certifications: ['ISO 9001:2015', 'OEKO-TEX', 'INNORPI'],
-        page_views: 142000,
-        response_rate: 94,
-        response_time_hrs: 2,
-      })
+        // ── Vitrine : on garde tout le store tel quel, on normalise
+        //    seulement logo/bannière/certifications/about_images. ──
+        setStore({
+          ...raw,
+          brand_logo_url: raw.brand_logo_url || raw.logo_url || raw.logo || '',
+          banner_url:     raw.banner_url     || raw.banner    || '',
+          certifications: Array.isArray(raw.certifications)
+            ? raw.certifications
+            : (raw.certifications || '').split(',').map((s) => s.trim()).filter(Boolean),
+          about_images: Array.isArray(raw.about_images) ? raw.about_images : [],
+        })
 
-      setProducts([
-        { id: 1, name: 'T-shirt coton premium',         subtitle: 'Lot de 12 unités', price: 84,  currency: 'TND', image_url: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=600&q=80' },
-        { id: 2, name: 'Chemise Oxford homme',          subtitle: 'Lot de 6 unités',  price: 138, currency: 'TND', image_url: 'https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=600&q=80' },
-        { id: 3, name: 'Polo piqué bicolore',           subtitle: 'Lot de 12 unités', price: 108, currency: 'TND', image_url: 'https://images.unsplash.com/photo-1586790170083-2f9ceadc732d?w=600&q=80' },
-        { id: 4, name: 'Jean slim stretch',             subtitle: 'Lot de 6 unités',  price: 192, currency: 'TND', image_url: 'https://images.unsplash.com/photo-1542272604-787c3835535d?w=600&q=80' },
-        { id: 5, name: 'Hoodie zip intérieur molleton', subtitle: 'Lot de 6 unités',  price: 174, currency: 'TND', image_url: 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=600&q=80' },
-        { id: 6, name: 'Veste légère coupe-vent',       subtitle: 'Lot de 4 unités',  price: 236, currency: 'TND', image_url: 'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=600&q=80' },
-      ])
+        // ── Produits → forme attendue par la grille mobile ──
+        setProducts(
+          unwrap(productsRes).map((p) => ({
+            id:        p.id,
+            name:      p.name,
+            subtitle:  p.moq ? `MOQ ${p.moq} ${p.unit || 'pièces'}` : p.category_name || '',
+            price:     computePrice(p),
+            currency:  'TND',
+            image_url: p.primary_image || p.images?.[0]?.url || '',
+          }))
+        )
 
-      setReviews([
-        { id: 1, rating: 5, text: "Qualité irréprochable et livraison rapide depuis Sfax. Les lots de t-shirts sont conformes à la description, finitions soignées.", author_name: 'Karim Ben Salah', city: 'Tunis',  avatar_url: 'https://i.pravatar.cc/150?img=12', attached_images: [] },
-        { id: 2, rating: 4, text: "Bons produits, tissu conforme à la description et délai respecté. Je recommande pour les commandes en volume.",                     author_name: 'Sonia Mhiri',     city: 'Sousse', avatar_url: 'https://i.pravatar.cc/150?img=47', attached_images: [] },
-        { id: 3, rating: 5, text: "Fournisseur de confiance avec lequel je travaille depuis 2 ans. Les certifications sont un vrai gage de qualité.",                 author_name: 'Nabil Trabelsi',  city: 'Sfax',   avatar_url: 'https://i.pravatar.cc/150?img=33', attached_images: [] },
-      ])
-
-      setLoading(false)
+        // ── Avis embarqués dans la réponse profil ──
+        setReviews(
+          (profileRes.reviews || []).map((r) => ({
+            id:              r.id,
+            rating:          Number(r.rating) || 0,
+            text:            r.text || r.comment || '',
+            author_name:     r.author_name || r.reviewer_name || 'Client',
+            city:            r.city || '',
+            avatar_url:      r.avatar_url || '',
+            attached_images: r.attached_images || (r.photos ? r.photos.map((ph) => ph.url) : []),
+          }))
+        )
+      } catch {
+        if (!cancelled) setNotFound(true)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
     }
+
     loadSupplier()
+    return () => { cancelled = true }
   }, [slug])
 
   usePageTracking({ pageType: 'supplier_shop', supplierId: supplier?.id })
@@ -140,7 +179,16 @@ export default function MobileSupplierProfilePage() {
     setActiveTab(id)
     document.getElementById(`section-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
-  const handleContact = () => alert('Fonctionnalité de contact bientôt disponible.')
+  const handleContact = async () => {
+    if (!supplier?.slug) return
+    try {
+      await messagingApi.startConversation(supplier.slug)
+      navigate('/dashboard/messages') // ← ajuste la route si ta messagerie mobile diffère
+    } catch (e) {
+      if (e?.status === 401) navigate('/login')
+      else alert("Impossible d'ouvrir la messagerie pour le moment.")
+    }
+  }
   const handleSeeAllProducts = () => navigate(`/fournisseur/${supplier.slug}/catalogue`)
   const share = () => { navigator.clipboard?.writeText(window.location.href); setCopied(true); setTimeout(() => setCopied(false), 1800) }
 
@@ -150,9 +198,28 @@ export default function MobileSupplierProfilePage() {
     </div>
   )
 
+  if (notFound || !supplier || !store) return (
+    <div style={{ minHeight: '70dvh', display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center', justifyContent: 'center', background: BG, fontFamily: FONT, textAlign: 'center', padding: 24 }}>
+      <span style={{ fontSize: 15, color: SUB }}>Ce fournisseur est introuvable.</span>
+      <button onClick={() => navigate('/')} style={{ background: 'none', border: 'none', color: ORANGE, fontWeight: 700, cursor: 'pointer' }}>
+        Retour à l'accueil
+      </button>
+    </div>
+  )
+
   const rating = toNum(supplier.rating_avg)
   const dist = [5, 4, 3, 2, 1].map((star) => ({ star, n: reviews.filter((r) => Math.round(toNum(r.rating)) === star).length }))
   const yearsActive = new Date().getFullYear() - (store.founded_year || new Date().getFullYear())
+
+  /* Tuiles de stats : uniquement celles pour lesquelles on a une donnée réelle. */
+  const statTiles = [
+    { icon: Package,  value: products.length,                     label: 'Produits en ligne' },
+    { icon: Star,     value: `${rating.toFixed(1)} / 5`,          label: `${supplier.rating_count} avis` },
+    store.response_rate != null && { icon: Clock, value: `${store.response_rate} %`, label: `Réponse sous ${store.response_time_hrs ?? '—'} h` },
+    store.page_views != null && { icon: Eye, value: fmtCount(store.page_views), label: 'Vues de la boutique' },
+    { icon: Users,    value: fmtCount(supplier.followers_count),  label: 'Abonnés' },
+    store.founded_year && { icon: Calendar, value: store.founded_year, label: `${yearsActive} ans d'activité` },
+  ].filter(Boolean)
 
   return (
     <div style={{ background: BG, minHeight: '100dvh', fontFamily: FONT, paddingBottom: 'calc(78px + env(safe-area-inset-bottom))' }}>
@@ -163,7 +230,7 @@ export default function MobileSupplierProfilePage() {
         {/* Bannière + identité */}
         <div style={{ position: 'relative' }}>
           <div style={{ width: '100%', aspectRatio: '16 / 9', background: '#E6E6E6', overflow: 'hidden' }}>
-            <img src={store.banner_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
+            {store.banner_url && <img src={store.banner_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>}
             <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,.10) 0%, rgba(0,0,0,.55) 100%)' }} />
           </div>
 
@@ -172,9 +239,11 @@ export default function MobileSupplierProfilePage() {
             {copied ? <Check size={17} color={GREEN} /> : <Share2 size={16} color={INK} />}
           </button>
 
-          <p style={{ position: 'absolute', left: 16, right: 16, bottom: 34, margin: 0, color: '#fff', fontSize: 15, fontWeight: 600, lineHeight: 1.35, whiteSpace: 'pre-line', textShadow: '0 1px 6px rgba(0,0,0,.35)' }}>
-            {store.hero_title}
-          </p>
+          {store.hero_title && (
+            <p style={{ position: 'absolute', left: 16, right: 16, bottom: 34, margin: 0, color: '#fff', fontSize: 15, fontWeight: 600, lineHeight: 1.35, whiteSpace: 'pre-line', textShadow: '0 1px 6px rgba(0,0,0,.35)' }}>
+              {store.hero_title}
+            </p>
+          )}
         </div>
 
         {/* Carte identité qui chevauche la bannière */}
@@ -184,7 +253,7 @@ export default function MobileSupplierProfilePage() {
               <div style={{ width: 58, height: 58, borderRadius: 16, background: ORANGE_FILM, flexShrink: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {store.brand_logo_url
                   ? <img src={store.brand_logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
-                  : <span style={{ fontSize: 24, fontWeight: 700, color: ORANGE }}>{supplier.company_name[0]}</span>}
+                  : <span style={{ fontSize: 24, fontWeight: 700, color: ORANGE }}>{(supplier.company_name || '?')[0]}</span>}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -240,29 +309,32 @@ export default function MobileSupplierProfilePage() {
         <div style={{ padding: '10px 10px 0' }}>
           <div style={{ background: '#fff', borderRadius: 18, padding: 16 }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <StatTile icon={Package}  value={products.length || 48}                 label="Produits en ligne" />
-              <StatTile icon={Star}     value={`${rating.toFixed(1)} / 5`}            label={`${supplier.rating_count} avis`} />
-              <StatTile icon={Clock}    value={`${store.response_rate} %`}            label={`Réponse sous ${store.response_time_hrs} h`} />
-              <StatTile icon={Eye}      value={fmtCount(store.page_views)}            label="Vues de la boutique" />
-              <StatTile icon={Users}    value={fmtCount(supplier.followers_count)}    label="Abonnés" />
-              <StatTile icon={Calendar} value={store.founded_year}                    label={`${yearsActive} ans d'activité`} />
+              {statTiles.map((t, i) => <StatTile key={i} icon={t.icon} value={t.value} label={t.label} />)}
             </div>
           </div>
 
-          {/* Bloc éditorial */}
-          <div style={{ background: '#fff', borderRadius: 18, padding: 16, marginTop: 10 }}>
-            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: INK, lineHeight: 1.25, letterSpacing: '-0.3px', whiteSpace: 'pre-line' }}>
-              {store.stats_title}
-            </h2>
-            <p style={{ margin: '10px 0 0', fontSize: 13.5, color: SUB, lineHeight: 1.65 }}>{store.stats_description}</p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 14 }}>
-              {[store.highlight_image_1, store.highlight_image_2].filter(Boolean).map((src, i) => (
-                <div key={i} style={{ width: '100%', aspectRatio: '1', borderRadius: 12, overflow: 'hidden', background: '#F5F5F5' }}>
-                  <img src={src} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
+          {/* Bloc éditorial (affiché seulement si le store le fournit) */}
+          {(store.stats_title || store.stats_description) && (
+            <div style={{ background: '#fff', borderRadius: 18, padding: 16, marginTop: 10 }}>
+              {store.stats_title && (
+                <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: INK, lineHeight: 1.25, letterSpacing: '-0.3px', whiteSpace: 'pre-line' }}>
+                  {store.stats_title}
+                </h2>
+              )}
+              {store.stats_description && (
+                <p style={{ margin: '10px 0 0', fontSize: 13.5, color: SUB, lineHeight: 1.65 }}>{store.stats_description}</p>
+              )}
+              {[store.highlight_image_1, store.highlight_image_2].filter(Boolean).length > 0 && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 14 }}>
+                  {[store.highlight_image_1, store.highlight_image_2].filter(Boolean).map((src, i) => (
+                    <div key={i} style={{ width: '100%', aspectRatio: '1', borderRadius: 12, overflow: 'hidden', background: '#F5F5F5' }}>
+                      <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
-          </div>
+          )}
         </div>
       </section>
 
@@ -271,23 +343,27 @@ export default function MobileSupplierProfilePage() {
         <SectionTitle small="Catalogue" title="Nos produits" subtitle="La gamme complète disponible en gros pour les professionnels." />
 
         <div style={{ background: '#fff', borderRadius: 18, padding: 16, marginTop: 10 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            {products.map((p) => (
-              <div key={p.id} onClick={() => navigate(`/produit/${p.id}`)} style={{ cursor: 'pointer' }}>
-                <div style={{ width: '100%', aspectRatio: '1', borderRadius: 12, overflow: 'hidden', background: '#F5F5F5' }}>
-                  {p.image_url
-                    ? <img src={p.image_url} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
-                    : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>📦</div>}
+          {products.length === 0 ? (
+            <p style={{ margin: 0, fontSize: 13, color: FAINT, textAlign: 'center', padding: '16px 0' }}>Aucun produit pour le moment.</p>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              {products.map((p) => (
+                <div key={p.id} onClick={() => navigate(`/produit/${p.id}`)} style={{ cursor: 'pointer' }}>
+                  <div style={{ width: '100%', aspectRatio: '1', borderRadius: 12, overflow: 'hidden', background: '#F5F5F5' }}>
+                    {p.image_url
+                      ? <img src={p.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
+                      : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>📦</div>}
+                  </div>
+                  <div style={{ fontSize: 13, color: SUB, lineHeight: 1.3, marginTop: 8, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', minHeight: 34 }}>{p.name}</div>
+                  {p.subtitle && <div style={{ fontSize: 11.5, color: FAINT, marginTop: 3 }}>{p.subtitle}</div>}
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 3, marginTop: 6 }}>
+                    <span style={{ fontSize: 16, fontWeight: 900, color: ORANGE }}>{fmtNum(p.price)}</span>
+                    <span style={{ fontSize: 10.5, fontWeight: 700, color: ORANGE }}>{p.currency}</span>
+                  </div>
                 </div>
-                <div style={{ fontSize: 13, color: SUB, lineHeight: 1.3, marginTop: 8, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', minHeight: 34 }}>{p.name}</div>
-                {p.subtitle && <div style={{ fontSize: 11.5, color: FAINT, marginTop: 3 }}>{p.subtitle}</div>}
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 3, marginTop: 6 }}>
-                  <span style={{ fontSize: 16, fontWeight: 900, color: ORANGE }}>{fmtNum(p.price)}</span>
-                  <span style={{ fontSize: 10.5, fontWeight: 700, color: ORANGE }}>{p.currency}</span>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
 
           <button onClick={handleSeeAllProducts}
             style={{ width: '100%', marginTop: 16, height: 46, borderRadius: 12, background: '#fff', border: `1.5px solid ${ORANGE}`, color: ORANGE, fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
@@ -303,15 +379,16 @@ export default function MobileSupplierProfilePage() {
         <div style={{ background: '#fff', borderRadius: 18, overflow: 'hidden', marginTop: 10 }}>
           {store.about_image_url && (
             <div style={{ width: '100%', aspectRatio: '16 / 10', background: '#F5F5F5' }}>
-              <img src={store.about_image_url} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
+              <img src={store.about_image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
             </div>
           )}
           <div style={{ padding: 16 }}>
-            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: INK, lineHeight: 1.25, letterSpacing: '-0.3px' }}>
-              {store.about_title_main}<br />
-              <span style={{ color: ORANGE }}>{store.about_title_accent}</span>
-            </h2>
-            <p style={{ margin: '12px 0 0', fontSize: 13.5, color: SUB, lineHeight: 1.7 }}>{store.description}</p>
+            {(store.about_title_main || store.about_title_accent) && (
+              <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: INK, lineHeight: 1.25, letterSpacing: '-0.3px' }}>
+                {store.about_title_main}{store.about_title_accent && <><br /><span style={{ color: ORANGE }}>{store.about_title_accent}</span></>}
+              </h2>
+            )}
+            {store.description && <p style={{ margin: '12px 0 0', fontSize: 13.5, color: SUB, lineHeight: 1.7 }}>{store.description}</p>}
 
             {store.mission && (
               <div style={{ marginTop: 14, padding: '14px 16px', borderRadius: 14, background: ORANGE_FILM, borderLeft: `3px solid ${ORANGE}` }}>
@@ -345,7 +422,7 @@ export default function MobileSupplierProfilePage() {
               {store.about_images.map((src, i) => (
                 <button key={i} onClick={() => setLightbox({ photos: store.about_images, index: i })}
                   style={{ flex: '0 0 150px', width: 150, height: 150, borderRadius: 12, overflow: 'hidden', padding: 0, border: `1px solid ${LINE}`, background: '#F5F5F5', cursor: 'pointer' }}>
-                  <img src={src} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
+                  <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
                 </button>
               ))}
             </div>
@@ -411,7 +488,7 @@ export default function MobileSupplierProfilePage() {
                       {r.attached_images.map((src, i) => (
                         <button key={i} onClick={() => setLightbox({ photos: r.attached_images, index: i })}
                           style={{ width: 64, height: 64, borderRadius: 8, overflow: 'hidden', padding: 0, border: `1px solid ${LINE}`, cursor: 'pointer', background: '#F7F8FA' }}>
-                          <img src={src} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
+                          <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
                         </button>
                       ))}
                     </div>

@@ -131,9 +131,17 @@ export default function MobileSupplierSettingsPage() {
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <h1 style={{ margin: '0 0 5px', fontSize: 19, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{company || name}</h1>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: verif.bg, color: verif.color, padding: '3px 10px', borderRadius: 999, fontSize: 11.5, fontWeight: 700 }}>
-              <VerifIcon size={12} /> {verif.label}
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: verif.bg, color: verif.color, padding: '3px 10px', borderRadius: 999, fontSize: 11.5, fontWeight: 700 }}>
+                <VerifIcon size={12} /> {verif.label}
+              </span>
+              {profile.verification_status !== 'approved' && (
+                <button onClick={() => navigate('/supplier/shop')} className="msup-tap"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: SOFT, color: ORANGE, border: `1px solid ${ORANGE}`, padding: '3px 10px', borderRadius: 999, fontSize: 11.5, fontWeight: 700, cursor: 'pointer', fontFamily: FONT }}>
+                  <ShieldCheck size={12} /> Se faire vérifier
+                </button>
+              )}
+            </div>
           </div>
         </div>
 

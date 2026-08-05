@@ -235,6 +235,12 @@ function Bubble({ msg, mine, buyer, name }) {
         <div style={{ maxWidth: '78%', display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
           <div style={{ background: ORANGE, color: '#fff', padding: '10px 13px', borderRadius: 15, borderBottomRightRadius: 4, fontSize: 13.5, lineHeight: 1.5 }}>
             {msg.content}
+            {msg.attachment_url && (
+              <a href={msg.attachment_url} target="_blank" rel="noreferrer"
+                style={{ display: 'block', marginTop: 6, fontSize: 11.5, color: '#fff', textDecoration: 'underline' }}>
+                Pièce jointe
+              </a>
+            )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 9.5, color: FAINT, marginTop: 3, paddingRight: 2 }}>
             {fmtTime(msg.created_at)}
@@ -252,6 +258,12 @@ function Bubble({ msg, mine, buyer, name }) {
       <div style={{ maxWidth: '78%', display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
         <div style={{ background: '#F7F7F5', color: INK, border: '1px solid #EAE7DF', padding: '10px 13px', borderRadius: 15, borderBottomLeftRadius: 4, fontSize: 13.5, lineHeight: 1.5 }}>
           {msg.content}
+          {msg.attachment_url && (
+            <a href={msg.attachment_url} target="_blank" rel="noreferrer"
+              style={{ display: 'block', marginTop: 6, fontSize: 11.5, color: ORANGE, textDecoration: 'underline' }}>
+              Pièce jointe
+            </a>
+          )}
         </div>
         <div style={{ fontSize: 9.5, color: FAINT, marginTop: 3, paddingLeft: 4 }}>{fmtTime(msg.created_at)}</div>
       </div>

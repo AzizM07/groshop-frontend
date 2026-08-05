@@ -427,123 +427,75 @@ function VisitorsCard({ stats, loading }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// VUES PRODUITS — 7 jours, cette semaine vs semaine dernière
-// Sur 320 px, 7 groupes × 2 barres tient si les barres sont fines (8 px).
+// VUES PRODUITS — classement 7 jours (même source que le desktop : product_views_ranked)
 // ═══════════════════════════════════════════════════════════════════
 function ProductViewsCard({ stats, loading }) {
-  const [hovered, setHovered] = useState(null)
+  const rows = stats?.product_views_ranked || []
+  const hasData = rows.length > 0
+  const maxViews = Math.max(...rows.map(r => r.views), 1)
 
-  const data = useMemo(() => {
-    const src = stats?.product_views_by_day || []
-    const map = Object.fromEntries(src.map(r => [r.date, r.views]))
-    const key = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-    const now = new Date()
-    const out = []
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(now); d.setDate(d.getDate() - i)
-      const p = new Date(now); p.setDate(p.getDate() - i - 7)
-      out.push({ day: DAY_LABELS[d.getDay()], thisWeek: map[key(d)] ?? 0, lastWeek: map[key(p)] ?? 0 })
-    }
-    return out
-  }, [stats])
+  const fmtDuration = (s) => {
+    s = Math.round(s || 0)
+    if (s <= 0) return '—'
+    const m = Math.floor(s / 60), r = s % 60
+    return m ? `${m}m ${String(r).padStart(2, '0')}s` : `${r}s`
+  }
 
-  const totals = useMemo(() => {
-    const sum = (k) => data.reduce((s, d) => s + d[k], 0)
-    return { cur: sum('thisWeek'), prev: sum('lastWeek') }
-  }, [data])
-
-  const trend = pctChange(totals.cur, totals.prev)
-  const hasData = totals.cur > 0 || totals.prev > 0
-
-  const W = 320, H = 140
-  const pad = { top: 10, bottom: 22, left: 30, right: 6 }
-  const cw = W - pad.left - pad.right
-  const ch = H - pad.top - pad.bottom
-  const barW = 8, gap = 3
-  const rawMax = Math.max(...data.map(d => Math.max(d.thisWeek, d.lastWeek)), 1)
-  const maxValue = Math.ceil(rawMax / 4 / 10) * 10 * 4 || 4
-  const yTicks = [0, 0.5, 1].map(t => Math.round(maxValue * t))
+  const shown = rows.slice(0, 6)
 
   return (
     <Card>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
         <span style={{ fontSize: 14.5, fontWeight: 800, color: INK }}>Vues produits</span>
         <span style={{ flex: 1 }} />
-        <div style={{ display: 'flex', gap: 9, alignItems: 'center' }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, color: MUTE }}>
-            <span style={{ width: 8, height: 8, borderRadius: 2, background: ORANGE }} /> Cette sem.
-          </span>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, color: MUTE }}>
-            <span style={{ width: 8, height: 8, borderRadius: 2, background: ORANGE_SOFT }} /> Sem. dern.
-          </span>
-        </div>
+        <span style={{ fontSize: 10.5, color: FAINT, fontWeight: 500 }}>7 derniers jours</span>
       </div>
 
-      {loading ? <div style={{ marginTop: 10 }}><Skel h={110} /></div>
-        : !hasData ? <Empty icon="Eye" text="Aucune vue produit." />
-        : (
-          <>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
-              <span style={{ fontSize: 22, fontWeight: 800, color: INK, letterSpacing: '-0.03em' }}>{fmt(totals.cur)}</span>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, fontSize: 10.5, fontWeight: 700, color: trend >= 0 ? GREEN : RED }}>
-                {trend >= 0 ? <Icons.TrendingUp size={10} strokeWidth={2.6} /> : <Icons.TrendingDown size={10} strokeWidth={2.6} />}
-                {fmtTrend(trend)}
-              </span>
-              <span style={{ fontSize: 10.5, color: FAINT }}>vues · 7 j</span>
-            </div>
+      {loading ? (
+        <div style={{ marginTop: 10 }}><Skel h={110} /></div>
+      ) : !hasData ? (
+        <Empty icon="Eye" text="Aucune vue produit." />
+      ) : (
+        <div style={{ marginTop: 6 }}>
+          {shown.map((r, i) => {
+            const pct = Math.round((r.views / maxViews) * 100)
+            return (
+              <div key={r.product_id || i} style={{
+                display: 'flex', alignItems: 'center', gap: 11,
+                padding: '11px 0',
+                borderBottom: i < shown.length - 1 ? '1px solid #F5F3EE' : 'none',
+              }}>
+                {/* Nom + barre de proportion + uniques/temps */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 600, color: INK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {r.name}
+                  </div>
+                  <div style={{ height: 3, background: '#F1EFE9', borderRadius: 2, marginTop: 6, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${pct}%`, background: ORANGE, borderRadius: 2 }} />
+                  </div>
+                  <div style={{ fontSize: 10, color: FAINT, marginTop: 4 }}>
+                    {fmt(r.uniques)} uniq. · {fmtDuration(r.avg_seconds)}
+                  </div>
+                </div>
 
-            <svg viewBox={`0 0 ${W} ${H}`} width="100%" preserveAspectRatio="xMidYMid meet" style={{ display: 'block' }}>
-              {yTicks.map(v => {
-                const y = pad.top + ch - (v / maxValue) * ch
-                return (
-                  <g key={v}>
-                    <line x1={pad.left} y1={y} x2={W - pad.right} y2={y} stroke={LINE} strokeWidth="1" />
-                    <text x={pad.left - 4} y={y + 3} textAnchor="end" fontSize="8.5" fill={FAINT} fontFamily="DM Sans" fontWeight="500">
-                      {v === 0 ? '0' : v >= 1000 ? `${(v / 1000).toLocaleString('fr-FR')}k` : v}
-                    </text>
-                  </g>
-                )
-              })}
-
-              {data.map((d, i) => {
-                const groupW = cw / data.length
-                const groupCenter = pad.left + (i + 0.5) * groupW
-                const x1 = groupCenter - barW - gap / 2
-                const x2 = groupCenter + gap / 2
-                const h1 = (d.thisWeek / maxValue) * ch
-                const h2 = (d.lastWeek / maxValue) * ch
-                const on = i === hovered
-                const tipX = Math.min(Math.max(groupCenter, 42), W - 42)
-
-                return (
-                  <g key={i} onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)} style={{ cursor: 'pointer' }}>
-                    <rect x={groupCenter - groupW / 2} y={pad.top} width={groupW} height={ch} fill="transparent" />
-                    <rect x={x1} y={pad.top + ch - h1} width={barW} height={h1} rx={3} fill={ORANGE} opacity={on ? 1 : 0.9} />
-                    <rect x={x2} y={pad.top + ch - h2} width={barW} height={h2} rx={3} fill={ORANGE_SOFT} opacity={on ? 1 : 0.85} />
-
-                    {on && (
-                      <g style={{ pointerEvents: 'none' }}>
-                        <rect x={tipX - 40} y={2} width="80" height="30" rx="8" fill={INK} />
-                        <text x={tipX} y="14" textAnchor="middle" fontSize="10" fill="#fff" fontWeight="700" fontFamily="DM Sans">
-                          {d.thisWeek} vs {d.lastWeek}
-                        </text>
-                        <text x={tipX} y="26" textAnchor="middle" fontSize="8" fill="#fff" opacity="0.7" fontFamily="DM Sans">
-                          {d.day}
-                        </text>
-                      </g>
-                    )}
-
-                    <text x={groupCenter} y={H - 6} textAnchor="middle" fontSize="9.5"
-                          fill={on ? INK : FAINT} fontWeight={on ? 600 : 500}
-                          fontFamily="DM Sans" style={{ pointerEvents: 'none' }}>
-                      {d.day}
-                    </text>
-                  </g>
-                )
-              })}
-            </svg>
-          </>
-        )}
+                {/* Vues + engagement */}
+                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: INK, fontVariantNumeric: 'tabular-nums' }}>
+                    {fmt(r.views)}
+                  </div>
+                  <span style={{
+                    display: 'inline-block', marginTop: 3,
+                    fontSize: 10, fontWeight: 600, color: ORANGE,
+                    background: ORANGE_TINT, borderRadius: 999, padding: '2px 8px',
+                  }}>
+                    {r.engagement_pct}%
+                  </span>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
     </Card>
   )
 }

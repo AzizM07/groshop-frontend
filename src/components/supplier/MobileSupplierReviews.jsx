@@ -1,7 +1,7 @@
 // src/components/supplier/MobileSupplierReviews.jsx — GROSHOP.tn
-// Version téléphone de la page Avis. Résumé + distribution en carte hero,
-// filtres par étoiles en chips, chaque avis en carte avec réponse dépliable.
-// Suppose `productsApi.reviewsMine()` — adapte à ta signature.
+// Version téléphone de la page Avis (lecture seule, comme le desktop).
+// Avis agrégés front : products.mine() puis products.reviews(id) par produit noté.
+// Résumé + distribution en carte hero, filtres par étoiles en chips.
 
 import { useState, useEffect, useMemo } from 'react'
 import * as Icons from 'lucide-react'
@@ -16,18 +16,16 @@ const INK='#0F1419', SUB='#3D4853', MUTE='#6B7280', FAINT='#9AA3AE'
 const FONT='"DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
 
 const PAGE_SIZE = 8
+const MAX_PRODUCTS = 40   // garde-fou : évite un N+1 sur un très gros catalogue
 
 const FILTERS = [
-  { key: 'all',      label: 'Tous' },
-  { key: 'unreplied', label: 'Sans réponse' },
-  { key: '5',        label: '5 ★' },
-  { key: '4',        label: '4 ★' },
-  { key: '3',        label: '3 ★' },
-  { key: '2',        label: '2 ★' },
-  { key: '1',        label: '1 ★' },
+  { key: 'all', label: 'Tous' },
+  { key: '5',   label: '5 ★' },
+  { key: '4',   label: '4 ★' },
+  { key: '3',   label: '3 ★' },
+  { key: '2',   label: '2 ★' },
+  { key: '1',   label: '1 ★' },
 ]
-
-const fmt = (n) => Number(n || 0).toLocaleString('fr-FR')
 
 function timeAgo(iso) {
   const diff = (Date.now() - new Date(iso)) / 1000
@@ -61,22 +59,44 @@ export default function MobileSupplierReviews() {
   const [search, setSearch]   = useState('')
   const [filter, setFilter]   = useState('all')
   const [visible, setVisible] = useState(PAGE_SIZE)
-  const [replyOpen, setReplyOpen] = useState(null)   // id de l'avis en cours de réponse
 
+  /* Avis agrégés front, comme le desktop : products.mine() puis
+     products.reviews(id) pour chaque produit ayant au moins un avis. */
   useEffect(() => {
     let alive = true
-    setLoading(true)
-    /* Nom probable — adapte si ton API expose autre chose. */
-    const fetcher = productsApi.reviewsMine || productsApi.supplierReviews
-    if (!fetcher) {
-      setError("Endpoint des avis introuvable.")
-      setLoading(false)
-      return
-    }
-    fetcher()
-      .then((d) => { if (alive) setReviews(Array.isArray(d) ? d : (d?.results || [])) })
-      .catch((e) => { if (alive) setError(e.message || 'Erreur de chargement') })
-      .finally(() => { if (alive) setLoading(false) })
+    setLoading(true); setError(null)
+    ;(async () => {
+      try {
+        const mineRaw = await productsApi.mine()
+        const mine = Array.isArray(mineRaw) ? mineRaw : (mineRaw?.results || [])
+        const withReviews = mine
+          .filter((p) => (Number(p.rating_count) || 0) > 0)
+          .slice(0, MAX_PRODUCTS)
+
+        const lists = await Promise.all(
+          withReviews.map((p) =>
+            productsApi.reviews(p.id)
+              .then((rs) => (Array.isArray(rs) ? rs : (rs?.results || [])).map((r) => ({
+                ...r,
+                product_id:    p.id,
+                product_name:  p.name,
+                product_image: p.primary_image || null,
+              })))
+              .catch(() => [])
+          )
+        )
+
+        if (!alive) return
+        const flat = lists.flat().sort(
+          (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)
+        )
+        setReviews(flat)
+      } catch (e) {
+        if (alive) setError(e.message || 'Erreur de chargement')
+      } finally {
+        if (alive) setLoading(false)
+      }
+    })()
     return () => { alive = false }
   }, [])
 
@@ -89,20 +109,18 @@ export default function MobileSupplierReviews() {
       star,
       n: reviews.filter(r => Math.round(Number(r.rating || 0)) === star).length,
     }))
-    const unreplied = reviews.filter(r => !r.reply && !r.supplier_reply).length
-    return { n, avg, dist, unreplied }
+    return { n, avg, dist }
   }, [reviews])
 
   const counts = useMemo(() => {
-    const c = { all: reviews.length, unreplied: summary.unreplied }
+    const c = { all: reviews.length }
     for (let s = 1; s <= 5; s++) {
       c[String(s)] = reviews.filter(r => Math.round(Number(r.rating || 0)) === s).length
     }
     return c
-  }, [reviews, summary])
+  }, [reviews])
 
   const filtered = useMemo(() => reviews.filter(r => {
-    if (filter === 'unreplied' && (r.reply || r.supplier_reply)) return false
     if (['1','2','3','4','5'].includes(filter) && Math.round(Number(r.rating || 0)) !== Number(filter)) return false
     if (search) {
       const q = search.toLowerCase()
@@ -114,19 +132,6 @@ export default function MobileSupplierReviews() {
 
   const rows = filtered.slice(0, visible)
 
-  async function submitReply(reviewId, text) {
-    /* Optimiste : on injecte la réponse localement et on refetch en cas d'erreur. */
-    setReviews(prev => prev.map(r => r.id === reviewId ? { ...r, reply: text, reply_at: new Date().toISOString() } : r))
-    setReplyOpen(null)
-    try {
-      await (productsApi.replyReview?.(reviewId, text) ?? Promise.reject(new Error('replyReview manquant')))
-    } catch (e) {
-      alert('Erreur : ' + e.message)
-      const fetcher = productsApi.reviewsMine || productsApi.supplierReviews
-      if (fetcher) fetcher().then((d) => setReviews(Array.isArray(d) ? d : (d?.results || []))).catch(() => {})
-    }
-  }
-
   return (
     <div style={{ fontFamily: FONT }}>
       <h1 style={{ fontSize: 26, fontWeight: 800, color: INK, letterSpacing: '-0.03em', margin: '0 0 4px' }}>
@@ -134,7 +139,7 @@ export default function MobileSupplierReviews() {
       </h1>
       <p style={{ margin: '0 0 14px', fontSize: 12.5, color: MUTE }}>
         {loading ? 'Chargement…' : summary.n > 0
-          ? `${summary.n} avis · ${summary.unreplied} sans réponse.`
+          ? `${summary.n} avis sur l'ensemble de vos produits.`
           : 'Aucun avis pour l\'instant.'}
       </p>
 
@@ -226,13 +231,7 @@ export default function MobileSupplierReviews() {
           : <StateBox icon="Search" title="Aucun résultat" sub="Essaie d'autres filtres." />
       ) : (
         <>
-          {rows.map((r) => (
-            <ReviewCard key={r.id} review={r}
-              expanded={replyOpen === r.id}
-              onOpen={() => setReplyOpen(r.id)}
-              onCancel={() => setReplyOpen(null)}
-              onSubmit={(text) => submitReply(r.id, text)} />
-          ))}
+          {rows.map((r) => <ReviewCard key={r.id} review={r} />)}
 
           {visible < filtered.length && (
             <button onClick={() => setVisible(v => v + PAGE_SIZE)}
@@ -251,10 +250,7 @@ export default function MobileSupplierReviews() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-function ReviewCard({ review, expanded, onOpen, onCancel, onSubmit }) {
-  const [text, setText] = useState('')
-  const existingReply = review.reply || review.supplier_reply
-
+function ReviewCard({ review }) {
   return (
     <div style={{
       background: '#fff', borderRadius: 16, padding: 14,
@@ -312,77 +308,10 @@ function ReviewCard({ review, expanded, onOpen, onCancel, onSubmit }) {
         <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
           {review.photos.map((ph, i) => (
             <div key={ph.id || i} style={{ width: 54, height: 54, borderRadius: 8, overflow: 'hidden', background: '#F5F3EE' }}>
-              <img src={ph.url} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
+              <img src={ph.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
             </div>
           ))}
         </div>
-      )}
-
-      {/* Réponse existante */}
-      {existingReply && (
-        <div style={{
-          marginTop: 12, padding: 11,
-          background: ORANGE_TINT, borderRadius: 10,
-          borderLeft: `3px solid ${ORANGE}`,
-        }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: ORANGE, marginBottom: 4, letterSpacing: '.02em' }}>
-            VOTRE RÉPONSE
-          </div>
-          <p style={{ margin: 0, fontSize: 12.5, color: SUB, lineHeight: 1.5 }}>
-            {existingReply}
-          </p>
-        </div>
-      )}
-
-      {/* Zone de réponse */}
-      {!existingReply && (
-        <>
-          {!expanded ? (
-            <button onClick={onOpen}
-              style={{
-                marginTop: 12, width: '100%',
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                background: '#fff', border: `1px solid ${ORANGE}`, color: ORANGE,
-                borderRadius: 12, padding: '10px 0',
-                fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-              }}>
-              <Icons.MessageCircle size={14} strokeWidth={2.2} />
-              Répondre
-            </button>
-          ) : (
-            <div style={{ marginTop: 12 }}>
-              <textarea
-                autoFocus
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                rows={3}
-                placeholder="Votre réponse…"
-                style={{
-                  width: '100%', padding: 10, boxSizing: 'border-box',
-                  background: '#FAFAF7', border: `1px solid #EFECE4`, borderRadius: 10,
-                  fontSize: 13, color: INK, resize: 'vertical',
-                  fontFamily: 'inherit', outline: 'none',
-                }}
-              />
-              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                <button onClick={onCancel}
-                  style={{
-                    flex: 1, background: '#fff', border: '1px solid #EFECE4', color: MUTE,
-                    borderRadius: 10, padding: '9px 0', fontSize: 12.5, fontWeight: 600,
-                    cursor: 'pointer', fontFamily: 'inherit',
-                  }}>Annuler</button>
-                <button onClick={() => text.trim() && onSubmit(text.trim())}
-                  disabled={!text.trim()}
-                  style={{
-                    flex: 1, background: ORANGE, border: 'none', color: '#fff',
-                    borderRadius: 10, padding: '9px 0', fontSize: 12.5, fontWeight: 700,
-                    cursor: text.trim() ? 'pointer' : 'not-allowed', opacity: text.trim() ? 1 : 0.55,
-                    fontFamily: 'inherit',
-                  }}>Envoyer</button>
-              </div>
-            </div>
-          )}
-        </>
       )}
     </div>
   )

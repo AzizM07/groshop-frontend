@@ -1,9 +1,9 @@
 // src/pages/supplier-landing/SupplierLandingPage.jsx
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { C } from '../auth/_shared/constants'
 import SupplierLandingHeader from './SupplierLandingHeader'
-
+import { store } from '../../lib/api' 
 import HERO_VIDEO_MP4 from '../../assets/hero-video.mp4'
 
 // ── PALETTE (un peu plus éclairée) ──
@@ -16,6 +16,11 @@ const GRAD = `linear-gradient(135deg, ${ACCENT} 0%, ${ACCENT_LIGHT} 100%)`
 
 export default function SupplierLandingPage() {
   const navigate = useNavigate()
+
+  const [plans, setPlans] = useState([])
+  useEffect(() => {
+    store.plans().then(setPlans).catch(() => setPlans([]))
+  }, [])
 
   return (
     <div className="gh-root" style={{ minHeight: '100vh', background: PAGE_BG, overflowX: 'hidden' }}>
@@ -557,56 +562,32 @@ export default function SupplierLandingPage() {
           {/* Toggle + lien */}
           <BillingToggleRow />
 
-          {/* Cards */}
+{/* Cards — pilotées par l'admin */}
           <div className="gh-pricing-grid" style={{ marginTop: 'clamp(36px, 6vw, 48px)' }}>
-            <PricingCard
-              plan="Découverte"
-              price="0"
-              period="/mois"
-              description="Pour démarrer et tester la marketplace."
-              features={[
-                { text: 'Commission 8% par vente', strong: false },
-                { text: 'Jusqu’à 20 produits', strong: true },
-                { text: 'Boutique standard', strong: false },
-                { text: 'Support par email', strong: false },
-                { text: '1 utilisateur', strong: false },
-              ]}
-              ctaLabel="Démarrer gratuitement"
-              highlighted={false}
-            />
-            <PricingCard
-              plan="Pro"
-              badge="Populaire"
-              price="89"
-              period="/mois"
-              description="Pour faire grandir votre activité B2B."
-              features={[
-                { text: 'Commission 5% par vente', strong: true },
-                { text: 'Produits illimités', strong: true },
-                { text: 'Boutique premium personnalisable', strong: false },
-                { text: 'Mise en avant prioritaire', strong: false },
-                { text: 'Statistiques avancées', strong: false },
-                { text: 'Support 7j/7 prioritaire', strong: false },
-              ]}
-              ctaLabel="Choisir Pro"
-              highlighted={true}
-            />
-            <PricingCard
-              plan="Entreprise"
-              price="249"
-              period="/mois"
-              description="Pour les grossistes et marques établies."
-              features={[
-                { text: 'Commission 3% par vente', strong: true },
-                { text: 'Produits illimités', strong: false },
-                { text: 'Placement sponsorisé inclus', strong: true },
-                { text: 'API & intégrations ERP', strong: false },
-                { text: 'Account manager dédié', strong: false },
-                { text: 'Utilisateurs illimités', strong: false },
-              ]}
-              ctaLabel="Contacter les ventes"
-              highlighted={false}
-            />
+            {plans.map(p => {
+              const priceNum = Number(p.price_tnd)
+              const productsLine = p.max_products == null
+                ? 'Produits illimités'
+                : `Jusqu'à ${p.max_products} produits`
+              const features = [
+                { text: `Commission ${Number(p.commission_pct)}% par vente`, strong: true },
+                { text: productsLine, strong: true },
+                ...(p.features || []).map(text => ({ text, strong: false })),
+              ]
+              return (
+                <PricingCard
+                  key={p.id}
+                  plan={p.name}
+                  badge={p.highlighted ? (p.badge || 'Populaire') : undefined}
+                  price={String(priceNum)}
+                  period="/mois"
+                  description={p.description || ''}
+                  features={features}
+                  ctaLabel={priceNum === 0 ? 'Démarrer gratuitement' : `Choisir ${p.name}`}
+                  highlighted={!!p.highlighted}
+                />
+              )
+            })}
           </div>
         </div>
       </section>

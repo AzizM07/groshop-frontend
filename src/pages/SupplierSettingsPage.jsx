@@ -1,8 +1,9 @@
+// pages/SupplierSettingsPage.jsx — wrapper responsive
 import { useIsMobile } from '../hooks/useIsMobile'
-import DesktopSupplierMessagesPage from './DesktopSupplierMessagesPage'
-import MobileSupplierMessages from '../components/supplier/MobileSupplierMessages'
+import DesktopSupplierSettingsPage from './DesktopSupplierSettingsPage'
+import MobileSupplierSettingsPage from '../components/supplier/MobileSupplierSettingsPage'
 
 export default function SupplierSettingsPage() {
   const isMobile = useIsMobile()
-  return isMobile ? <MobileSupplierMessages /> : <DesktopSupplierMessagesPage />
+  return isMobile ? <MobileSupplierSettingsPage /> : <DesktopSupplierSettingsPage />
 }

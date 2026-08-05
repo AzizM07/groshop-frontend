@@ -121,6 +121,7 @@ function AppContent() {
           <Route index               element={<SupplierDashboardPage />} />
           <Route path="products"     element={<SupplierProductsPage />} />
           <Route path="products/new" element={<AddProductPage />} />
+          <Route path="products/:id/edit" element={<AddProductPage />} />   {/* ← à ajouter */}
           <Route path="orders"       element={<SupplierOrdersPage />} />
           <Route path="messages"     element={<SupplierMessagesPage />} />
           <Route path="stats"        element={<SupplierStatsPage />} />

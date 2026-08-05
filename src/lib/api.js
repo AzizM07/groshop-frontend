@@ -242,6 +242,12 @@ export const products = {
       body: JSON.stringify(data),
     })
   },
+  async update(id, data) {
+    return request(`/products/${id}/`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    })
+  },
   async mine(params = {}) {
     const q = new URLSearchParams(params).toString()
     return request(`/products/mine/${q ? '?' + q : ''}`)
@@ -265,7 +271,15 @@ export const products = {
     return request(`/products/favorites/${id}/`, { method: 'DELETE' })
   },
 }
-
+// ── Subscriptions (abonnement fournisseur) — app store, sous /api/store/ ──
+export const subscriptions = {
+  plans:      ()       => request('/store/subscriptions/plans/'),
+  mine:       ()       => request('/store/subscriptions/me/'),
+  changePlan: (planId) => request('/store/subscriptions/change/', {
+    method: 'POST',
+    body: JSON.stringify({ plan_id: planId }),
+  }),
+}
 // ── Cart ──────────────────────────────────────────────────────────
 
 export const cart = {
@@ -436,6 +450,7 @@ export const notifications = {
 
 // ── Store (recherche, etc.) ───────────────────────────────────────
 
+// ── Store (recherche, plans publics, etc.) ───────────────────────
 export const store = {
   async recentSearches() {
     return request('/store/recent-searches/')
@@ -443,6 +458,9 @@ export const store = {
   async clearRecentSearches() {
     return request('/store/recent-searches/clear/', { method: 'POST' })
   },
+  // Plans publics affichés sur la landing "devenir fournisseur" (AllowAny)
+  // Chemin sans '/api' : request() préfixe déjà BASE_URL (…/api) → /api/store/plans/
+  plans: () => request('/store/plans/'),
 }
 
 // ── Adresses (carnet acheteur) ────────────────────────────────────

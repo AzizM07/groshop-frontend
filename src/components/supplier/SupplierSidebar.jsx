@@ -77,7 +77,6 @@ const MENU_ITEMS = [
   { icon: 'MessageSquare',   label: 'Messages',        to: '/supplier/messages', badge: 3 },
   { icon: 'BarChart3',       label: 'Statistiques',    to: '/supplier/stats' },
   { icon: 'Star',            label: 'Avis',            to: '/supplier/reviews' },
-  { icon: 'Tag',             label: 'Promotions',      to: '/supplier/promotions' },
   { icon: 'Store',           label: 'Ma boutique',     to: '/supplier/shop' },
 ]
 

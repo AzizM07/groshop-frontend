@@ -1,9 +1,9 @@
-// AddProductPage.jsx — GROSHOP.tn
-// Formulaire fournisseur "Ajouter un produit".
-// Prix par tranche + override par combinaison, dispo booléenne, livraison multi-modes.
+// AddProductPage.jsx — GROSHOP.tn  (bi-mode : ajout + édition)
+// /supplier/products/new        → mode ajout
+// /supplier/products/:id/edit   → mode édition (charge + pré-remplit + update)
 
 import { useState, useEffect } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, useParams } from 'react-router-dom'
 import { products as productsApi, uploadFile } from '../lib/api'
 import {
   Upload, X, Plus, Trash2, Star, Package, Tag, Truck, Image as ImageIcon,
@@ -48,8 +48,86 @@ function priceTierIssues(rows) {
   return { errs, ok }
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// Remplit tous les états du formulaire à partir d'un produit renvoyé
+// par l'API. ⚠️ Seul endroit à adapter si tes noms de champs diffèrent.
+// ═══════════════════════════════════════════════════════════════════
+function hydrateForm(p, setters) {
+  const { setForm, setImages, setTiers, setShipTiers, setChoiceGroups, setVariantCombos } = setters
+
+  setForm({
+    name: p.name || '',
+    category: String(p.category ?? p.category_id ?? ''),
+    description: p.description || '',
+    brand: p.brand || '',
+    reference: p.reference || '',
+    unit: p.unit || '',
+    in_stock: p.in_stock ?? true,
+    shipping_mode: p.shipping_mode || 'flat',
+    shipping_price_tnd: p.shipping_price_tnd != null ? String(p.shipping_price_tnd) : '',
+    shipping_block_size: p.shipping_block_size ?? 10,
+    shipping_block_price: p.shipping_block_price != null ? String(p.shipping_block_price) : '',
+    delivery_days: p.delivery_days ?? 3,
+    video_url: p.video_url || '',
+    video_poster_url: p.video_poster_url || '',
+    specs_raw: p.specs_raw || '',
+  })
+
+  const imgs = (p.images || []).map((im) => ({
+    tempId: crypto.randomUUID(),
+    url: im.url || im.image || '',
+    is_primary: !!im.is_primary,
+    uploading: false,
+  })).filter((im) => im.url)
+  if (imgs.length && !imgs.some((i) => i.is_primary)) imgs[0].is_primary = true
+  setImages(imgs)
+
+  const tiers = (p.price_tiers || []).map((t) => ({
+    min_qty: String(t.min_qty ?? ''),
+    price_tnd: String(t.price_tnd ?? ''),
+    old_price_tnd: t.old_price_tnd == null ? '' : String(t.old_price_tnd),
+  }))
+  setTiers(tiers.length ? tiers : [{ min_qty: '', price_tnd: '', old_price_tnd: '' }])
+
+  const ship = (p.shipping_tiers || []).map((t) => ({
+    min_qty: String(t.min_qty ?? ''),
+    price_tnd: String(t.price_tnd ?? ''),
+  }))
+  setShipTiers(ship.length ? ship : [{ min_qty: '', price_tnd: '' }])
+
+  const groups = (p.choice_groups || []).map((g) => ({
+    name: g.name || '',
+    variants: (g.variants || []).map((v) => ({
+      name: v.name || '',
+      image_url: v.image_url || v.image || '',
+      uploading: false,
+    })),
+  }))
+  setChoiceGroups(groups)
+
+  const combos = (p.variant_combos || []).map((c) => {
+    const sel = {}
+    ;(c.selections || []).forEach((s) => {
+      const gi = groups.findIndex((g) => g.name === s.group)
+      if (gi >= 0) sel[gi] = s.variant
+    })
+    const ct = (c.price_tiers || []).map((t) => ({
+      min_qty: String(t.min_qty ?? ''),
+      price_tnd: String(t.price_tnd ?? ''),
+      old_price_tnd: t.old_price_tnd == null ? '' : String(t.old_price_tnd),
+    }))
+    return { id: crypto.randomUUID(), sel, tiers: ct.length ? ct : [{ min_qty: '', price_tnd: '', old_price_tnd: '' }] }
+  })
+  setVariantCombos(combos)
+}
+
 export default function AddProductPage() {
   const navigate = useNavigate()
+  const { id } = useParams()
+  const isEdit = Boolean(id)
+
+  const [pageLoading, setPageLoading] = useState(isEdit)   // chargement initial (édition)
+  const [loadError, setLoadError]     = useState(null)
 
   const [form, setForm] = useState({
     name: '', category: '', description: '', brand: '', reference: '', unit: '',
@@ -65,7 +143,7 @@ export default function AddProductPage() {
   const [tiers, setTiers]       = useState([{ min_qty: '', price_tnd: '', old_price_tnd: '' }])
   const [shipTiers, setShipTiers] = useState([{ min_qty: '', price_tnd: '' }])
   const [choiceGroups, setChoiceGroups] = useState([])
-  const [variantCombos, setVariantCombos] = useState([])   // [{ id, sel:{[gi]:variantName}, tiers:[…] }]
+  const [variantCombos, setVariantCombos] = useState([])
   const [categories, setCategories] = useState([])
   const [errors, setErrors]     = useState({})
   const [submitting, setSubmitting] = useState(false)
@@ -78,6 +156,21 @@ export default function AddProductPage() {
       .then((data) => setCategories(Array.isArray(data) ? data : []))
       .catch(() => setCategories([]))
   }, [])
+
+  /* ── Chargement du produit en mode édition ── */
+  useEffect(() => {
+    if (!isEdit) return
+    let alive = true
+    setPageLoading(true); setLoadError(null)
+    productsApi.detail(id)                                  // ⚠️ adapte le nom si besoin
+      .then((p) => {
+        if (!alive) return
+        hydrateForm(p, { setForm, setImages, setTiers, setShipTiers, setChoiceGroups, setVariantCombos })
+      })
+      .catch((e) => { if (alive) setLoadError(e.message || 'Produit introuvable') })
+      .finally(() => { if (alive) setPageLoading(false) })
+    return () => { alive = false }
+  }, [id, isEdit])
 
   /* ── Upload images produit ── */
   async function handleFiles(fileList) {
@@ -142,18 +235,18 @@ export default function AddProductPage() {
   const setShipTier = (i, k, val) => setShipTiers((t) => t.map((x, idx) => (idx === i ? { ...x, [k]: val } : x)))
   const removeShipTier = (i) => setShipTiers((t) => (t.length <= 1 ? t : t.filter((_, idx) => idx !== i)))
 
-  /* ── Groupes exploitables pour les combinaisons (nom + ≥1 variante nommée) ── */
+  /* ── Groupes exploitables pour les combinaisons ── */
   const namedGroups = choiceGroups
     .map((g, gi) => ({ gi, name: g.name.trim(), variants: g.variants.map((v) => v.name.trim()).filter(Boolean) }))
     .filter((g) => g.name && g.variants.length)
 
   /* ── Prix par combinaison (override) ── */
   const addCombo = () => setVariantCombos((c) => [...c, { id: crypto.randomUUID(), sel: {}, tiers: [{ min_qty: '', price_tnd: '', old_price_tnd: '' }] }])
-  const removeCombo = (id) => setVariantCombos((c) => c.filter((x) => x.id !== id))
-  const setComboSel = (id, gi, val) => setVariantCombos((c) => c.map((x) => (x.id === id ? { ...x, sel: { ...x.sel, [gi]: val } } : x)))
-  const addComboTier = (id) => setVariantCombos((c) => c.map((x) => (x.id === id ? { ...x, tiers: [...x.tiers, { min_qty: '', price_tnd: '', old_price_tnd: '' }] } : x)))
-  const setComboTier = (id, i, k, val) => setVariantCombos((c) => c.map((x) => (x.id === id ? { ...x, tiers: x.tiers.map((t, idx) => (idx === i ? { ...t, [k]: val } : t)) } : x)))
-  const removeComboTier = (id, i) => setVariantCombos((c) => c.map((x) => (x.id === id ? { ...x, tiers: x.tiers.length <= 1 ? x.tiers : x.tiers.filter((_, idx) => idx !== i) } : x)))
+  const removeCombo = (cid) => setVariantCombos((c) => c.filter((x) => x.id !== cid))
+  const setComboSel = (cid, gi, val) => setVariantCombos((c) => c.map((x) => (x.id === cid ? { ...x, sel: { ...x.sel, [gi]: val } } : x)))
+  const addComboTier = (cid) => setVariantCombos((c) => c.map((x) => (x.id === cid ? { ...x, tiers: [...x.tiers, { min_qty: '', price_tnd: '', old_price_tnd: '' }] } : x)))
+  const setComboTier = (cid, i, k, val) => setVariantCombos((c) => c.map((x) => (x.id === cid ? { ...x, tiers: x.tiers.map((t, idx) => (idx === i ? { ...t, [k]: val } : t)) } : x)))
+  const removeComboTier = (cid, i) => setVariantCombos((c) => c.map((x) => (x.id === cid ? { ...x, tiers: x.tiers.length <= 1 ? x.tiers : x.tiers.filter((_, idx) => idx !== i) } : x)))
 
   const { errs: tierErrs, ok: tierOk } = priceTierIssues(tiers)
 
@@ -171,7 +264,7 @@ export default function AddProductPage() {
   }
   const removeVideo = () => setForm((f) => ({ ...f, video_url: '', video_poster_url: '' }))
 
-  /* ── Soumission ── */
+  /* ── Soumission (create ou update selon le mode) ── */
   async function submit(status) {
     const errs = {}
     if (!form.name.trim()) errs.name = 'Nom requis'
@@ -188,12 +281,11 @@ export default function AddProductPage() {
       errs.shipping = 'Renseigne le palier et le frais par palier'
     if (images.some((im) => im.uploading)) errs.images = 'Attends la fin des uploads'
 
-    // ── Validation des combinaisons ──
     const comboKeys = []
     for (const c of variantCombos) {
       const picked = namedGroups.filter((g) => c.sel[g.gi])
       const hasTiers = c.tiers.some((t) => t.min_qty && t.price_tnd)
-      if (picked.length === 0 && !hasTiers) continue          // ligne vide → ignorée
+      if (picked.length === 0 && !hasTiers) continue
       if (picked.length !== namedGroups.length) { errs.combos = 'Choisis une option par groupe pour chaque prix spécifique'; break }
       const { ok } = priceTierIssues(c.tiers)
       if (!ok || !hasTiers) { errs.combos = 'Corrige les tranches des prix par variante'; break }
@@ -246,7 +338,9 @@ export default function AddProductPage() {
     }
 
     try {
-      const res = await productsApi.create(payload)
+      const res = isEdit
+  ? await productsApi.update(id, payload)   // ← cette méthode n'existe pas encore, on l'ajoute à l'étape 2
+  : await productsApi.create(payload)
       if (res === null) { alert('Session expirée. Reconnecte-toi puis réessaie.'); return }
       navigate('/supplier/products')
     } catch (e) {
@@ -256,18 +350,44 @@ export default function AddProductPage() {
     }
   }
 
+  /* ── Écrans de chargement / erreur (édition) ── */
+  if (isEdit && pageLoading) {
+    return (
+      <div style={{ ...S.page, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#6B7785' }}>
+          <Loader2 size={20} className="ap-spin" /> <span style={{ fontSize: 14 }}>Chargement du produit…</span>
+        </div>
+        <style>{`.ap-spin{animation:ap-rotate .8s linear infinite}@keyframes ap-rotate{to{transform:rotate(360deg)}}`}</style>
+      </div>
+    )
+  }
+  if (isEdit && loadError) {
+    return (
+      <div style={{ ...S.page, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ ...S.card, textAlign: 'center', maxWidth: 420 }}>
+          <AlertTriangle size={30} color="#E11900" style={{ marginBottom: 10 }} />
+          <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>Impossible de charger le produit</div>
+          <div style={{ fontSize: 13, color: '#6B7785', marginBottom: 16 }}>{loadError}</div>
+          <Link to="/supplier/products" style={{ ...S.btnGhost, display: 'inline-block', width: 'auto', padding: '10px 18px', textDecoration: 'none', lineHeight: '22px' }}>
+            Retour aux produits
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div style={S.page}>
       <div style={S.topbar}>
         <div>
-          <h1 style={S.topTitle}>Ajouter un produit</h1>
+          <h1 style={S.topTitle}>{isEdit ? 'Modifier le produit' : 'Ajouter un produit'}</h1>
           <div style={S.breadcrumb}>
             <Link to="/supplier/products" style={S.crumbLink}>Mes produits</Link>
             <span style={{ color: '#c7ccd3' }}>/</span>
-            <span style={{ color: ORANGE, fontWeight: 600 }}>Nouveau produit</span>
+            <span style={{ color: ORANGE, fontWeight: 600 }}>{isEdit ? 'Édition' : 'Nouveau produit'}</span>
           </div>
         </div>
-        <span style={S.draftBadge}>Brouillon</span>
+        <span style={S.draftBadge}>{isEdit ? 'Édition' : 'Brouillon'}</span>
       </div>
 
       <div style={S.layout} className="ap-layout">
@@ -607,12 +727,13 @@ export default function AddProductPage() {
           <section style={S.card}>
             <SectionTitle icon={<CheckCircle2 size={18} />} title="Publication" />
             <p style={{ fontSize: 13, color: '#6B7785', lineHeight: 1.6, margin: '0 0 16px' }}>
-              Enregistre en <b>brouillon</b> pour continuer plus tard, ou <b>soumets pour validation</b> :
-              un admin vérifie puis approuve ton produit.
+              {isEdit
+                ? <>Enregistre tes modifications. « <b>Soumettre</b> » renvoie le produit en validation ; « <b>brouillon</b> » le retire de la vente en attendant.</>
+                : <>Enregistre en <b>brouillon</b> pour continuer plus tard, ou <b>soumets pour validation</b> : un admin vérifie puis approuve ton produit.</>}
             </p>
             <button type="button" style={S.btnPrimary} className="ap-btn-primary" disabled={submitting} onClick={() => submit('pending_review')}>
               {submitting ? <Loader2 size={16} className="ap-spin" /> : <CheckCircle2 size={16} />}
-              Soumettre pour validation
+              {isEdit ? 'Enregistrer et soumettre' : 'Soumettre pour validation'}
             </button>
             <button type="button" style={S.btnGhost} className="ap-btn-ghost" disabled={submitting} onClick={() => submit('draft')}>
               Enregistrer en brouillon

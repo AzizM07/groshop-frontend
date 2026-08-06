@@ -448,8 +448,23 @@ export const notifications = {
     request('/notifications/unregister/', { method: 'POST', body: JSON.stringify({ token }) }),
 }
 
-// ── Store (recherche, etc.) ───────────────────────────────────────
+// ── Delivery (transporteurs & expéditions) — app `delivery` sous /api/delivery/ ──
+export const delivery = {
+  // Catalogue des transporteurs disponibles (code -> label)
+  carriers:            ()         => request('/delivery/carriers/'),
 
+  // Transporteurs activés par le fournisseur connecté (credentials write-only côté back)
+  carrierConfigs:      ()         => request('/delivery/carrier-configs/'),
+  createCarrierConfig: (data)     => request('/delivery/carrier-configs/', { method: 'POST', body: JSON.stringify(data) }),
+  updateCarrierConfig: (id, data) => request(`/delivery/carrier-configs/${id}/`, { method: 'PATCH', body: JSON.stringify(data) }),
+  removeCarrierConfig: (id)       => request(`/delivery/carrier-configs/${id}/`, { method: 'DELETE' }),
+
+  // Expéditions
+  shipments:           ()         => request('/delivery/shipments/'),
+  shipment:            (id)       => request(`/delivery/shipments/${id}/`),
+  createShipment:      (data)     => request('/delivery/shipments/', { method: 'POST', body: JSON.stringify(data) }),
+  refreshShipment:     (id)       => request(`/delivery/shipments/${id}/refresh/`, { method: 'POST' }),
+}
 // ── Store (recherche, plans publics, etc.) ───────────────────────
 export const store = {
   async recentSearches() {

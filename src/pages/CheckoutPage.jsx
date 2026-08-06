@@ -1,33 +1,130 @@
-// src/pages/CheckoutPage.jsx
-import { useState, useMemo } from 'react'
+// src/pages/CheckoutPage.jsx — GROSHOP.tn
+import { useState, useMemo, useEffect } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import {
-  MapPin, Truck, Ticket, Wallet, Store, Star, Check, ArrowRight,
-  ChevronDown, Lock, TrendingUp,
+  MapPin, Truck, Ticket, ChevronDown, Lock, Plus,
 } from 'lucide-react'
 import { useCart } from '../context/CartContext'
 import { useAuth } from '../context/AuthContext'
-import { orders as ordersApi } from '../lib/api'
+import { orders as ordersApi, addresses as addressesApi } from '../lib/api'
 import { useIsMobile } from '../hooks/useIsMobile'
 import PhoneVerifyModal from '../components/PhoneVerifyModal'
 
-const ORANGE='#FF5E00', INK='#1A1A1A', MUTE='#7A7A7A', FAINT='#A0A0A0', LINE='#EAEAEA', SOFT='#FFF0E8', GREEN='#0E9F6E'
-const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
-const CITIES = ['Tunis', 'Sfax', 'Sousse', 'Mahdia', 'Nabeul', 'Bizerte', 'Gabès', 'Monastir', 'Ariana', 'Ben Arous']
-const fmt = (n) => (Number(n) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+// --- Leaflet & Map Imports ---
+import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet'
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
 
-// Détecte le gate de vérif téléphone dans l'erreur renvoyée par orders.create.
-// Robuste à la forme exacte : cherche phone_required / phone_banned dans code/error/detail/message.
-function phoneGate(err) {
-  const d = err?.data || {}
-  const bag = [d.code, d.error, d.detail, err?.message]
-    .filter(Boolean).map(v => String(v).toLowerCase())
-  if (bag.some(s => s.includes('phone_required'))) return 'required'
-  if (bag.some(s => s.includes('phone_banned')))   return 'banned'
-  return null
+delete L.Icon.Default.prototype._getIconUrl
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+})
+
+const ORANGE = '#FF5E00', INK = '#1A1A1A', MUTE = '#7A7A7A', FAINT = '#A0A0A0', LINE = '#EAEAEA', SOFT = '#FFF0E8'
+const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
+
+// Pays / gouvernorats
+const COUNTRIES = [
+  { code: 'TN', flag: '🇹🇳', name: 'Tunisie' },
+  { code: 'FR', flag: '🇫🇷', name: 'France' },
+  { code: 'DZ', flag: '🇩🇿', name: 'Algérie' },
+  { code: 'MA', flag: '🇲🇦', name: 'Maroc' },
+  { code: 'IT', flag: '🇮🇹', name: 'Italie' },
+]
+const GOUVERNORATS_TN = [
+  'Ariana', 'Béja', 'Ben Arous', 'Bizerte', 'Gabès', 'Gafsa', 'Jendouba',
+  'Kairouan', 'Kasserine', 'Kébili', 'Le Kef', 'Mahdia', 'La Manouba', 'Médenine',
+  'Monastir', 'Nabeul', 'Sfax', 'Sidi Bouzid', 'Siliana', 'Sousse', 'Tataouine',
+  'Tozeur', 'Tunis', 'Zaghouan',
+]
+const countryName = (code) => (COUNTRIES.find(c => c.code === code) || {}).name || code || 'Tunisie'
+
+// ─── COMPOSANT CARTE LEAFLET (Corrigé pour s'afficher à 100%) ───
+function MapPicker({ initialLat = 36.8, initialLng = 10.18 }) {
+  const [position, setPosition] = useState({ lat: initialLat, lng: initialLng })
+  const [isLocating, setIsLocating] = useState(false)
+
+  useEffect(() => {
+    setPosition({ lat: initialLat, lng: initialLng })
+  }, [initialLat, initialLng])
+
+  function LocationMarker() {
+    const map = useMapEvents({
+      click(e) {
+        const { lat, lng } = e.latlng
+        setPosition({ lat, lng })
+        map.flyTo(e.latlng, map.getZoom())
+      },
+    })
+    return (
+      <Marker
+        position={[position.lat, position.lng]}
+        draggable
+        eventHandlers={{
+          dragend(e) {
+            const marker = e.target
+            const pos = marker.getLatLng()
+            setPosition({ lat: pos.lat, lng: pos.lng })
+          },
+        }}
+      />
+    )
+  }
+
+  const locateUser = () => {
+    if (!navigator.geolocation) { alert('Géolocalisation non supportée.'); return }
+    setIsLocating(true)
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords
+        setPosition({ lat: latitude, lng: longitude })
+        setIsLocating(false)
+      },
+      (err) => {
+        alert('Impossible de récupérer votre position : ' + err.message)
+        setIsLocating(false)
+      },
+      { enableHighAccuracy: true }
+    )
+  }
+
+  return (
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          onClick={locateUser}
+          disabled={isLocating}
+          style={{ padding: '4px 12px', background: ORANGE, color: '#fff', border: 'none', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
+        >
+          {isLocating ? 'Localisation…' : '📍 Ma position'}
+        </button>
+        <span style={{ fontSize: 11, color: MUTE, alignSelf: 'center' }}>
+          Lat: {position.lat.toFixed(5)}, Lng: {position.lng.toFixed(5)}
+        </span>
+      </div>
+      
+      {/* Le flex:1 avec min-height force la carte à prendre toute la place */}
+      <div style={{ flex: 1, minHeight: 0, borderRadius: 12, overflow: 'hidden', border: `1px solid ${LINE}` }}>
+        <MapContainer 
+          key={`${position.lat}-${position.lng}`} 
+          center={[position.lat, position.lng]} 
+          zoom={15} 
+          style={{ height: '100%', width: '100%' }} 
+          zoomControl={false}
+        >
+          <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+          <LocationMarker />
+        </MapContainer>
+      </div>
+      <div style={{ fontSize: 10, color: FAINT, marginTop: 4 }}>Cliquez sur la carte ou faites glisser le marqueur.</div>
+    </div>
+  )
 }
 
-// ══════════ Logique partagée ══════════
+// ─── LOGIQUE PARTAGÉE ───
 function useCheckout() {
   const { items, clear } = useCart()
   const { user } = useAuth()
@@ -40,126 +137,127 @@ function useCheckout() {
     [items, ids],
   )
 
-  const nameParts = (user?.full_name || '').split(' ')
-  const [firstName, setFirstName] = useState(nameParts[0] || '')
-  const [lastName, setLastName]   = useState(nameParts.slice(1).join(' ') || '')
-  const [phone, setPhone]         = useState(user?.phone || '')
-  const [city, setCity]           = useState('Tunis')
-  const [address, setAddress]     = useState('')
-  const [zip, setZip]             = useState('')
-  const [notes, setNotes]         = useState('')
-  const [shipping, setShipping]   = useState(0)   // 0 standard, 1 express
-  const [voucher, setVoucher]     = useState('')
-  const [applied, setApplied]     = useState(null)
-  const [discount, setDiscount]   = useState(0)
-  const [placing, setPlacing]     = useState(false)
-  const [error, setError]         = useState('')
-  const [verifyOpen, setVerifyOpen] = useState(false)   // ← modale OTP
+  const [addresses, setAddresses] = useState([])
+  const [addrLoading, setAddrLoading] = useState(true)
+  const [selectedAddressId, setSelectedAddressId] = useState(null)
+  const [addingAddress, setAddingAddress] = useState(false)
 
-  const subtotal = useMemo(
-    () => selected.reduce((t, i) => t + (parseFloat(i.unit_price_tnd) || 0) * (Number(i.quantity) || 0), 0),
-    [selected],
+  useEffect(() => {
+    if (!user) { setAddresses([]); setAddrLoading(false); return }
+    let alive = true
+    setAddrLoading(true)
+    addressesApi.list()
+      .then(d => {
+        if (!alive) return
+        const list = Array.isArray(d) ? d : (d?.results || [])
+        setAddresses(list)
+        setSelectedAddressId(prev => prev ?? (list.find(a => a.is_default) || list[0])?.id ?? null)
+      })
+      .catch(() => { if (alive) setAddresses([]) })
+      .finally(() => { if (alive) setAddrLoading(false) })
+    return () => { alive = false }
+  }, [user])
+
+  const selectedAddress = useMemo(
+    () => addresses.find(a => a.id === selectedAddressId) || null,
+    [addresses, selectedAddressId],
   )
-  const shippingFee = shipping === 1 ? 12 : 0
-  const total = Math.max(0, subtotal + shippingFee - discount)
-  const estimatedCashback = +(subtotal * 0.005).toFixed(3)
 
-  const applyVoucher = () => {
-    const c = voucher.trim().toUpperCase()
-    if (!c) return
-    // ⚠️ Démo : -10%. Remplace par ta vérif backend.
-    setApplied(c)
-    setDiscount(+(subtotal * 0.10).toFixed(2))
-  }
-  const removeVoucher = () => { setApplied(null); setDiscount(0); setVoucher('') }
-
-  // Envoi réel de la commande. Extrait pour être rejouable après vérif du numéro.
-  const submitOrder = async () => {
-    const order = await ordersApi.create({
-      items: selected.map(i => ({
-        product_id: i.product?.id || i.product_id,
-        quantity: Number(i.quantity) || 1,
-      })),
-      shipping_address: `${firstName} ${lastName} — ${phone}\n${address.trim()}, ${city}${zip ? ' ' + zip : ''}`,
-      payment_method: 'cod',           // paiement à la livraison
-      notes: notes.trim(),
-    })
-    clear()
-    navigate('/commande-confirmee', { state: { orderId: order?.id, total } })
-  }
-
-  const placeOrder = async () => {
-    if (!address.trim()) { setError('Veuillez entrer une adresse de livraison'); return }
-    if (!selected.length) { setError('Votre panier est vide'); return }
-    setPlacing(true); setError('')
+  const addAddress = async (form) => {
+    setAddingAddress(true)
     try {
-      await submitOrder()
-    } catch (e) {
-      const gate = phoneGate(e)
-      if (gate === 'required') { setVerifyOpen(true); return }   // ouvre la modale, pas d'erreur rouge
-      if (gate === 'banned') {
-        setError("Ce numéro n'est pas autorisé à passer commande. Contactez le support.")
-        return
+      const created = await addressesApi.create(form)
+      setAddresses(prev => {
+        const next = created.is_default ? prev.map(a => ({ ...a, is_default: false })) : prev
+        return [created, ...next.filter(a => a.id !== created.id)]
+      })
+      setSelectedAddressId(created.id)
+      return created
+    } finally {
+      setAddingAddress(false)
+    }
+  }
+
+  // ── Options de livraison ──
+  const [shippingOptions, setShippingOptions] = useState([])
+  const [shippingLoading, setShippingLoading] = useState(false)
+  const [shipping, setShipping] = useState(null)
+
+  useEffect(() => {
+    if (!selectedAddress) {
+      setShippingOptions([
+        { id: 0, title: 'Livraison standard', sub: 'Reçu en 3–5 jours', price: 0 },
+        { id: 1, title: 'Livraison express', sub: 'Reçu en 24–48 h', price: 12 }
+      ])
+      if (shipping === null) setShipping(0)
+      return
+    }
+    setShippingLoading(true)
+    const fetchOptions = async () => {
+      try {
+        const options = await ordersApi.shippingOptions(selectedAddress.id)
+        if (options && Array.isArray(options) && options.length > 0) {
+          setShippingOptions(options)
+          if (!options.some(o => o.id === shipping)) setShipping(options[0].id)
+        } else throw new Error('Empty options')
+      } catch (e) {
+        const fallback = [
+          { id: 0, title: 'Livraison standard', sub: 'Reçu en 3–5 jours', price: 0 },
+          { id: 1, title: 'Livraison express', sub: 'Reçu en 24–48 h', price: 12 }
+        ]
+        setShippingOptions(fallback)
+        if (![0,1].includes(shipping)) setShipping(0)
+      } finally {
+        setShippingLoading(false)
       }
-      console.error('placeOrder error:', e)
-      setError(e?.message || "Impossible de passer la commande. Réessayez.")
-    } finally {
-      setPlacing(false)
     }
-  }
+    fetchOptions()
+  }, [selectedAddress])
 
-  // Appelé par la modale une fois le numéro vérifié → on relance la commande.
-  const onVerified = async () => {
-    setVerifyOpen(false)
-    setPlacing(true); setError('')
-    try {
-      await submitOrder()
-    } catch (e) {
-      // Cas limite : banni entre-temps, ou autre. On affiche proprement.
-      const gate = phoneGate(e)
-      if (gate === 'banned') { setError("Ce numéro n'est pas autorisé à passer commande. Contactez le support.") }
-      else { console.error('placeOrder retry error:', e); setError(e?.message || "Impossible de passer la commande. Réessayez.") }
-    } finally {
-      setPlacing(false)
-    }
-  }
+  // ── Reste du checkout (épuré) ──
+  const [notes, setNotes] = useState('')
+  const [placing, setPlacing] = useState(false)
+  const [error, setError] = useState('')
+  const [verifyOpen, setVerifyOpen] = useState(false)
+
+  // La commande sera validée sur la page de paiement suivante
+  // On supprime tout ce qui est paiement/promo/total ici.
 
   return {
-    selected, firstName, setFirstName, lastName, setLastName, phone, setPhone,
-    city, setCity, address, setAddress, zip, setZip, notes, setNotes,
-    shipping, setShipping, voucher, setVoucher, applied, applyVoucher, removeVoucher,
-    subtotal, shippingFee, discount, total, estimatedCashback,
-    placing, error, placeOrder, navigate,
-    verifyOpen, closeVerify: () => setVerifyOpen(false), onVerified,
+    selected, user,
+    addresses, addrLoading, selectedAddress, selectAddress: setSelectedAddressId, addAddress, addingAddress,
+    shippingOptions, shippingLoading, shipping, setShipping,
+    notes, setNotes,
+    placing, error, setError, placeOrder: () => {}, // Désactivé ici car retiré
+    navigate,
+    verifyOpen, closeVerify: () => setVerifyOpen(false), onVerified: () => {},
   }
 }
 
-// ══════════ Petits composants partagés ══════════
-function Field({ label, value, onChange, placeholder, type = 'text' }) {
+// ─── COMPOSANTS UI PARTAGÉS ───
+function Field({ label, value, onChange, placeholder }) {
   return (
     <label style={{ display: 'block' }}>
       <span style={{ fontSize: 12.5, fontWeight: 600, color: MUTE, display: 'block', marginBottom: 6 }}>{label}</span>
-      <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} type={type}
+      <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
         style={{ width: '100%', boxSizing: 'border-box', border: `1px solid ${LINE}`, borderRadius: 10, padding: '11px 13px', fontSize: 14, fontFamily: FONT, outline: 'none', color: INK, background: '#fff' }} />
     </label>
   )
 }
-
-function CitySelect({ value, onChange }) {
+function Select({ label, value, onChange, options }) {
   return (
     <label style={{ display: 'block' }}>
-      <span style={{ fontSize: 12.5, fontWeight: 600, color: MUTE, display: 'block', marginBottom: 6 }}>Ville</span>
+      <span style={{ fontSize: 12.5, fontWeight: 600, color: MUTE, display: 'block', marginBottom: 6 }}>{label}</span>
       <div style={{ position: 'relative' }}>
         <select value={value} onChange={e => onChange(e.target.value)}
           style={{ width: '100%', appearance: 'none', border: `1px solid ${LINE}`, borderRadius: 10, padding: '11px 13px', fontSize: 14, fontFamily: FONT, outline: 'none', color: INK, background: '#fff' }}>
-          {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+          {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
         <ChevronDown size={16} color={MUTE} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
       </div>
     </label>
   )
 }
-
 function ShippingTile({ active, title, sub, price, onClick }) {
   return (
     <div onClick={onClick} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 14, borderRadius: 12, cursor: 'pointer', background: active ? '#FFF7F2' : '#fff', border: `1.5px solid ${active ? ORANGE : LINE}` }}>
@@ -168,7 +266,7 @@ function ShippingTile({ active, title, sub, price, onClick }) {
         <div style={{ fontSize: 13.5, fontWeight: 700, color: INK }}>{title}</div>
         <div style={{ fontSize: 11.5, color: MUTE, marginTop: 2 }}>{sub}</div>
       </div>
-      <span style={{ fontSize: 13, fontWeight: 800, color: price <= 0 ? GREEN : INK }}>{price <= 0 ? 'Gratuit' : `${fmt(price)} TND`}</span>
+      <span style={{ fontSize: 13, fontWeight: 800 }}>{price <= 0 ? 'Gratuit' : `${price.toLocaleString('fr-FR')} TND`}</span>
       <span style={{ width: 20, height: 20, borderRadius: '50%', flexShrink: 0, border: `2px solid ${active ? ORANGE : '#CCC'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         {active && <span style={{ width: 10, height: 10, borderRadius: '50%', background: ORANGE }} />}
       </span>
@@ -176,44 +274,125 @@ function ShippingTile({ active, title, sub, price, onClick }) {
   )
 }
 
-function TotalLine({ label, value, color = INK }) {
+// ─── FORMULAIRE ADRESSE ───
+function AddressForm({ onCancel, onSave, adding, allowCancel = true, initialCoords, onCoordsChange }) {
+  const [f, setF] = useState({ full_name: '', phone: '', country: 'TN', region: '', city: '', postal_code: '', street: '', additional: '', is_default: false })
+  const [isGeocoding, setIsGeocoding] = useState(false)
+  const set = (k, v) => setF(s => ({ ...s, [k]: v }))
+  const valid = f.full_name.trim() && f.phone.trim() && f.street.trim() && f.city.trim() && f.region.trim()
+
+  useEffect(() => { if (initialCoords) { set('latitude', initialCoords.lat); set('longitude', initialCoords.lng) } }, [initialCoords])
+  useEffect(() => {
+    if (!initialCoords?.lat || !initialCoords?.lng) return
+    const geocode = async () => {
+      setIsGeocoding(true)
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${initialCoords.lat}&lon=${initialCoords.lng}`)
+        const data = await res.json()
+        const addr = data?.address
+        if (addr) {
+          setF(prev => ({
+            ...prev, street: addr.road || prev.street, city: addr.city || addr.town || prev.city,
+            region: addr.state || addr.region || prev.region, postal_code: addr.postcode || prev.postal_code,
+            country: addr.country_code ? addr.country_code.toUpperCase() : prev.country,
+          }))
+        }
+      } catch (err) { console.error("Erreur Reverse Geocoding:", err) } 
+      finally { setIsGeocoding(false) }
+    }
+    geocode()
+  }, [initialCoords?.lat, initialCoords?.lng])
+
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-      <span style={{ fontSize: 13, color: MUTE }}>{label}</span>
-      <span style={{ fontSize: 13, fontWeight: 700, color }}>{value}</span>
+    <div style={{ border: `1px solid ${LINE}`, borderRadius: 12, padding: 14, display: 'flex', flexDirection: 'column', gap: 10, background: '#fff' }}>
+      <div style={{ fontSize: 14, fontWeight: 800 }}>Nouvelle adresse</div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <Field label="Nom complet" value={f.full_name} onChange={v => set('full_name', v)} placeholder="Nom du destinataire" />
+        <Field label="Téléphone" value={f.phone} onChange={v => set('phone', v)} placeholder="+216 …" />
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <Select label="Pays" value={f.country} onChange={v => set('country', v)} options={COUNTRIES.map(c => ({ value: c.code, label: `${c.flag} ${c.name}` }))} />
+        <div style={{ position: 'relative' }}>
+          <Select label="Gouvernorat" value={f.region} onChange={v => set('region', v)} options={[{ value: '', label: 'Choisir…' }, ...GOUVERNORATS_TN.map(g => ({ value: g, label: g }))]} />
+          {isGeocoding && <span style={{ position: 'absolute', right: 8, bottom: 12, fontSize: 11, color: FAINT, pointerEvents: 'none' }}>Chargement...</span>}
+        </div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <Field label="Ville" value={f.city} onChange={v => set('city', v)} placeholder="Ville" />
+        <Field label="Code postal" value={f.postal_code} onChange={v => set('postal_code', v)} placeholder="1000" />
+      </div>
+      <Field label="Adresse" value={f.street} onChange={v => set('street', v)} placeholder="Rue, numéro, quartier…" />
+      <Field label="Complément (optionnel)" value={f.additional} onChange={v => set('additional', v)} placeholder="Apt, étage, bâtiment" />
+      <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: MUTE }}><input type="checkbox" checked={f.is_default} onChange={e => set('is_default', e.target.checked)} /> Définir comme adresse par défaut</label>
+      <div style={{ display: 'flex', gap: 8, marginTop: 2 }}>
+        {allowCancel && <button type="button" onClick={onCancel} style={{ flex: 1, border: `1px solid ${LINE}`, borderRadius: 10, padding: '11px', fontSize: 13.5, fontWeight: 700, color: INK, background: '#fff', cursor: 'pointer' }}>Annuler</button>}
+        <button type="button" disabled={!valid || adding || isGeocoding} onClick={() => onSave(f)} style={{ flex: 1, border: 'none', borderRadius: 10, padding: '11px', fontSize: 13.5, fontWeight: 800, color: '#fff', background: ORANGE, cursor: (valid && !adding && !isGeocoding) ? 'pointer' : 'default', opacity: (valid && !adding && !isGeocoding) ? 1 : .6 }}>
+          {adding ? 'Enregistrement…' : "Enregistrer l'adresse"}
+        </button>
+      </div>
     </div>
   )
 }
 
-function VoucherRow({ voucher, setVoucher, applied, applyVoucher, removeVoucher }) {
+// ─── ADDRESS PICKER ───
+function AddressPicker({ addresses, loading, selectedId, onSelect, onAdd, adding, user, isFormOpen, setIsFormOpen, coords, onCoordsChange }) {
+  if (!user) return <div style={{ border: `1px dashed ${LINE}`, borderRadius: 12, padding: 16, fontSize: 13.5, color: MUTE, textAlign: 'center' }}><Link to="/login" style={{ color: ORANGE, fontWeight: 700, textDecoration: 'underline' }}>Connectez-vous</Link> pour utiliser vos adresses.</div>
+  if (loading) return <div style={{ padding: '18px 0', fontSize: 13, color: FAINT }}>Chargement de vos adresses…</div>
+  
+  const empty = addresses.length === 0
+  const showForm = isFormOpen || empty
   return (
-    <div style={{ display: 'flex', gap: 8 }}>
-      <input value={voucher} onChange={e => setVoucher(e.target.value.toUpperCase())} disabled={!!applied} placeholder="Code promo (ex. GROSHOP10)"
-        style={{ flex: 1, minWidth: 0, border: `1px solid ${LINE}`, borderRadius: 10, padding: '11px 13px', fontSize: 13, fontWeight: 600, letterSpacing: '.5px', fontFamily: FONT, outline: 'none', color: INK, background: applied ? '#F8F8F8' : '#fff' }} />
-      <button onClick={applied ? removeVoucher : applyVoucher}
-        style={{ flexShrink: 0, border: 'none', borderRadius: 10, padding: '0 18px', fontSize: 13, fontWeight: 800, cursor: 'pointer', color: '#fff', background: applied ? GREEN : ORANGE, display: 'flex', alignItems: 'center', gap: 5 }}>
-        {applied && <Check size={15} />}{applied ? 'Appliqué' : 'Appliquer'}
-      </button>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {!showForm && addresses.map(a => {
+        const sel = a.id === selectedId
+        const line = [a.street, a.city, a.region, a.postal_code, countryName(a.country)].filter(Boolean).join(', ')
+        return (
+          <div key={a.id} onClick={() => onSelect(a.id)} style={{ border: `1.5px solid ${sel ? ORANGE : LINE}`, background: sel ? '#FFF7F2' : '#fff', borderRadius: 12, padding: 14, cursor: 'pointer', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+            <span style={{ width: 20, height: 20, borderRadius: '50%', border: `2px solid ${sel ? ORANGE : '#CCC'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 2 }}>{sel && <span style={{ width: 10, height: 10, borderRadius: '50%', background: ORANGE }} />}</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: INK }}>{a.full_name}{a.phone && <span style={{ color: MUTE, fontWeight: 500 }}> · {a.phone}</span>}</div>
+              <div style={{ fontSize: 12.5, color: MUTE, marginTop: 3, lineHeight: 1.5 }}>{line}</div>
+              {a.is_default && <span style={{ display: 'inline-block', marginTop: 8, background: SOFT, color: ORANGE, fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20 }}>Par défaut</span>}
+            </div>
+          </div>
+        )
+      })}
+      {showForm ? (
+        <AddressForm adding={adding} allowCancel={!empty} onCancel={() => setIsFormOpen(false)} onSave={async (form) => { await onAdd(form); setIsFormOpen(false) }} initialCoords={coords} onCoordsChange={onCoordsChange} />
+      ) : (
+        <button type="button" onClick={() => setIsFormOpen(true)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', border: `1.4px dashed ${ORANGE}`, background: '#fff', color: ORANGE, borderRadius: 12, padding: '13px', fontSize: 13.5, fontWeight: 700, cursor: 'pointer' }}><Plus size={16} /> Ajouter une adresse</button>
+      )}
+      {!empty && <div style={{ textAlign: 'right' }}><Link to="/dashboard/addresses" style={{ fontSize: 12.5, color: MUTE, textDecoration: 'underline' }}>Gérer mes adresses</Link></div>}
     </div>
   )
 }
 
-function CashbackBanner({ amount }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#F0FFF4', border: '1px solid rgba(14,159,110,.25)', borderRadius: 10, padding: '10px 12px' }}>
-      <TrendingUp size={16} color={GREEN} style={{ flexShrink: 0 }} />
-      <span style={{ fontSize: 11.5, fontWeight: 600, color: GREEN }}>Vous gagnerez {fmt(amount)} TND de cashback après livraison confirmée</span>
-    </div>
-  )
-}
-
-// ══════════ DESKTOP (2 colonnes, façon image) ══════════
+// ══════════ DESKTOP (2 colonnes, PAS DE SCROLL, CARTE À DROITE) ══════════
 function DesktopCheckout(c) {
-  return (
-    <div style={{ fontFamily: FONT, color: INK, background: '#fff', minHeight: '100vh' }}>
-      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '28px 24px 60px' }}>
+  const [isAddressFormOpen, setIsAddressFormOpen] = useState(false)
+  const [mapCoords, setMapCoords] = useState({ lat: 36.800095, lng: 10.173364 })
+  
+  // Synchronisation automatique : si l'adresse change à gauche, la carte bouge à droite
+  useEffect(() => {
+    if (!c.selectedAddress) return
+    const addr = c.selectedAddress
+    if (addr.latitude && addr.longitude) {
+      setMapCoords({ lat: parseFloat(addr.latitude), lng: parseFloat(addr.longitude) })
+      return
+    }
+    const query = `${addr.street}, ${addr.city}, ${addr.region}, ${addr.postal_code}, ${addr.country}`
+    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`)
+      .then(res => res.json())
+      .then(data => { if (data && data.length > 0) setMapCoords({ lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) }) })
+      .catch(console.error)
+  }, [c.selectedAddress])
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, marginBottom: 24 }}>
+  return (
+    <div style={{ height: '100vh', overflow: 'hidden', background: '#fff', fontFamily: FONT, color: INK, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '28px 24px 0 24px', flex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
+        
+        {/* Fil d'Ariane */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, marginBottom: 24, flexShrink: 0 }}>
           <Link to="/panier" style={{ color: ORANGE, textDecoration: 'none', fontWeight: 600 }}>Panier</Link>
           <span style={{ color: FAINT }}>›</span>
           <span style={{ color: INK, fontWeight: 700 }}>Livraison</span>
@@ -221,22 +400,20 @@ function DesktopCheckout(c) {
           <span style={{ color: FAINT }}>Paiement</span>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 400px', gap: 32, alignItems: 'start' }}>
-
-          {/* Colonne gauche : formulaire */}
-          <div>
+        {/* Layout principal - ni scroll vertical ni horizontal sur la page */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.1fr) 1fr', gap: 32, flex: 1, height: 'calc(100% - 60px)' }}>
+          
+          {/* ─── COLONNE GAUCHE (L'utilisateur peut scroller ici si jamais) ─── */}
+          <div style={{ overflowY: 'auto', height: '100%', paddingBottom: 20, paddingRight: 4 }}>
             <h1 style={{ margin: '0 0 20px', fontSize: 26, fontWeight: 800 }}>Adresse de livraison</h1>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-              <Field label="Prénom" value={c.firstName} onChange={c.setFirstName} placeholder="Prénom" />
-              <Field label="Nom" value={c.lastName} onChange={c.setLastName} placeholder="Nom" />
-              <Field label="Téléphone" value={c.phone} onChange={c.setPhone} placeholder="+216 …" />
-              <CitySelect value={c.city} onChange={c.setCity} />
-              <div style={{ gridColumn: '1 / -1' }}>
-                <Field label="Adresse" value={c.address} onChange={c.setAddress} placeholder="Rue, numéro, quartier…" />
-              </div>
-              <Field label="Code postal" value={c.zip} onChange={c.setZip} placeholder="1000" />
-            </div>
-            <div style={{ marginTop: 16 }}>
+            <AddressPicker
+              addresses={c.addresses} loading={c.addrLoading} selectedId={c.selectedAddress?.id ?? null}
+              onSelect={c.selectAddress} onAdd={c.addAddress} adding={c.addingAddress} user={c.user}
+              isFormOpen={isAddressFormOpen} setIsFormOpen={setIsAddressFormOpen}
+              coords={mapCoords} onCoordsChange={setMapCoords}
+            />
+            
+            <div style={{ marginTop: 20 }}>
               <span style={{ fontSize: 12.5, fontWeight: 600, color: MUTE, display: 'block', marginBottom: 6 }}>Note (optionnel)</span>
               <textarea value={c.notes} onChange={e => c.setNotes(e.target.value)} rows={3} placeholder="Instructions de livraison…"
                 style={{ width: '100%', boxSizing: 'border-box', border: `1px solid ${LINE}`, borderRadius: 10, padding: '11px 13px', fontSize: 14, fontFamily: FONT, outline: 'none', color: INK, resize: 'vertical' }} />
@@ -244,59 +421,20 @@ function DesktopCheckout(c) {
 
             <h2 style={{ margin: '32px 0 16px', fontSize: 20, fontWeight: 800 }}>Méthode de livraison</h2>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-              <ShippingTile active={c.shipping === 0} title="Livraison standard" sub="Reçu en 3–5 jours" price={0} onClick={() => c.setShipping(0)} />
-              <ShippingTile active={c.shipping === 1} title="Livraison express" sub="Reçu en 24–48 h" price={12} onClick={() => c.setShipping(1)} />
+              {c.shippingLoading ? (
+                <div style={{ gridColumn: '1 / -1', textAlign: 'center', fontSize: 13, color: MUTE, padding: 20 }}>Chargement...</div>
+              ) : (
+                c.shippingOptions.map(opt => (
+                  <ShippingTile key={opt.id} active={c.shipping === opt.id} title={opt.title} sub={opt.sub || ''} price={opt.price || 0} onClick={() => c.setShipping(opt.id)} />
+                ))
+              )}
             </div>
           </div>
 
-          {/* Colonne droite : récap sticky */}
-          <aside style={{ position: 'sticky', top: 24, border: `1px solid ${LINE}`, borderRadius: 16, padding: 22, boxShadow: '0 4px 20px rgba(0,0,0,.04)' }}>
-            <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 16 }}>Votre commande</div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, maxHeight: 260, overflowY: 'auto', marginBottom: 16 }}>
-              {c.selected.map(item => {
-                const p = item.product || {}
-                const qty = Number(item.quantity) || 0
-                const unit = parseFloat(item.unit_price_tnd) || 0
-                return (
-                  <div key={item.id} style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                    <div style={{ position: 'relative', width: 56, height: 56, borderRadius: 8, overflow: 'hidden', background: '#F5F5F5', flexShrink: 0 }}>
-                      {p.image_url ? <img src={p.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>📦</div>}
-                      <span style={{ position: 'absolute', top: -4, right: -4, minWidth: 18, height: 18, padding: '0 4px', borderRadius: 9, background: INK, color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{qty}</span>
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{p.name}</div>
-                      <div style={{ fontSize: 11.5, color: FAINT, marginTop: 2 }}>{p.supplier?.name || ''}</div>
-                    </div>
-                    <div style={{ fontSize: 13.5, fontWeight: 800, flexShrink: 0 }}>{fmt(unit * qty)}</div>
-                  </div>
-                )
-              })}
-            </div>
-
-            <div style={{ marginBottom: 16 }}>
-              <VoucherRow voucher={c.voucher} setVoucher={c.setVoucher} applied={c.applied} applyVoucher={c.applyVoucher} removeVoucher={c.removeVoucher} />
-            </div>
-
-            <div style={{ height: 1, background: LINE, margin: '0 0 16px' }} />
-            <TotalLine label="Sous-total" value={`${fmt(c.subtotal)} TND`} />
-            <TotalLine label="Livraison" value={c.shippingFee <= 0 ? 'Gratuite' : `${fmt(c.shippingFee)} TND`} color={c.shippingFee <= 0 ? GREEN : INK} />
-            {c.discount > 0 && <TotalLine label={`Promo (${c.applied})`} value={`− ${fmt(c.discount)} TND`} color={GREEN} />}
-            <div style={{ height: 1, background: LINE, margin: '8px 0 16px' }} />
-            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 16 }}>
-              <span style={{ fontSize: 15, fontWeight: 700 }}>Total <span style={{ fontSize: 11.5, fontWeight: 400, color: FAINT }}>TVA incluse</span></span>
-              <span style={{ fontSize: 22, fontWeight: 900, color: ORANGE }}>{fmt(c.total)} TND</span>
-            </div>
-
-            <div style={{ marginBottom: 14 }}><CashbackBanner amount={c.estimatedCashback} /></div>
-            {c.error && <div style={{ color: '#DC2626', fontSize: 12.5, marginBottom: 12 }}>{c.error}</div>}
-
-            <button onClick={c.placeOrder} disabled={c.placing}
-              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '15px', borderRadius: 12, border: 'none', color: '#fff', fontSize: 15, fontWeight: 800, cursor: c.placing ? 'default' : 'pointer', opacity: c.placing ? .7 : 1, background: 'linear-gradient(135deg,#FF6B35,#FF4500)', boxShadow: '0 4px 14px rgba(255,69,0,.3)' }}>
-              {c.placing ? 'Traitement…' : <>Payer · {fmt(c.total)} TND <ArrowRight size={17} /></>}
-            </button>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 12, fontSize: 11, color: FAINT }}>
-              <Lock size={12} /> Paiement sécurisé
+          {/* ─── COLONNE DROITE (CARTE 100%) ─── */}
+          <aside style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ flex: 1, border: `1px solid ${LINE}`, borderRadius: 16, padding: 12, boxShadow: '0 4px 20px rgba(0,0,0,.04)' }}>
+              <MapPicker initialLat={mapCoords.lat} initialLng={mapCoords.lng} />
             </div>
           </aside>
         </div>
@@ -305,7 +443,7 @@ function DesktopCheckout(c) {
   )
 }
 
-// ══════════ MOBILE (calque Flutter) ══════════
+// ══════════ MOBILE ══════════
 function SectionHeader({ icon: Icon, title }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
@@ -314,128 +452,35 @@ function SectionHeader({ icon: Icon, title }) {
     </div>
   )
 }
-
 function MobileCheckout(c) {
+  const [isAddressFormOpen, setIsAddressFormOpen] = useState(false)
+  const [newAddressCoords, setNewAddressCoords] = useState({ lat: 36.8, lng: 10.18 })
   return (
-    <div style={{ fontFamily: FONT, color: INK, background: '#fff', minHeight: '100dvh', paddingBottom: 84 }}>
-
-      {/* AppBar */}
+    <div style={{ fontFamily: FONT, color: INK, background: '#fff', minHeight: '100dvh', paddingBottom: 20 }}>
       <div style={{ position: 'sticky', top: 0, zIndex: 50, background: '#fff', borderBottom: `1px solid #F0F0F0`, height: 52, display: 'flex', alignItems: 'center', padding: '0 12px' }}>
-        <button onClick={() => c.navigate(-1)} style={{ background: 'none', border: 'none', padding: 4, cursor: 'pointer', display: 'flex', color: INK }}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-        </button>
+        <button onClick={() => c.navigate(-1)} style={{ background: 'none', border: 'none', padding: 4, cursor: 'pointer', display: 'flex', color: INK }}><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
         <span style={{ flex: 1, textAlign: 'center', fontSize: 17, fontWeight: 800 }}>Checkout</span>
         <span style={{ width: 32 }} />
       </div>
-
       <div style={{ padding: '16px 16px 8px' }}>
-
-        {/* Adresse */}
         <SectionHeader icon={MapPin} title="Adresse de livraison" />
-        <div style={{ border: `1.4px solid ${ORANGE}`, borderRadius: 14, padding: 14, display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
-          <CitySelect value={c.city} onChange={c.setCity} />
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <Field label="Prénom" value={c.firstName} onChange={c.setFirstName} placeholder="Prénom" />
-            <Field label="Nom" value={c.lastName} onChange={c.setLastName} placeholder="Nom" />
-          </div>
-          <Field label="Téléphone" value={c.phone} onChange={c.setPhone} placeholder="+216 …" />
-          <Field label="Adresse" value={c.address} onChange={c.setAddress} placeholder="Rue, numéro, quartier…" />
-        </div>
-
-        {/* Articles */}
-        <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 12 }}>Liste des articles</div>
-        {c.selected.map(item => {
-          const p = item.product || {}
-          const qty = Number(item.quantity) || 0
-          const unit = parseFloat(item.unit_price_tnd) || 0
-          const old = parseFloat(p.old_price_tnd) || 0
-          return (
-            <div key={item.id} style={{ border: `1px solid #EEE`, borderRadius: 14, padding: 12, marginBottom: 12 }}>
-              <div style={{ display: 'flex', gap: 12 }}>
-                <div style={{ width: 76, height: 76, borderRadius: 10, overflow: 'hidden', background: '#F5F5F5', flexShrink: 0 }}>
-                  {p.image_url ? <img src={p.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>📦</div>}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{p.name}</div>
-                  <div style={{ fontSize: 11, color: MUTE, marginTop: 3 }}>Quantité : ×{qty}</div>
-                  {p.supplier?.name && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 3, marginTop: 3 }}>
-                      <Store size={12} color={MUTE} /><span style={{ fontSize: 11, color: MUTE, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.supplier.name}</span>
-                    </div>
-                  )}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
-                    <span style={{ border: `1.3px solid ${ORANGE}`, borderRadius: 8, padding: '4px 10px', fontSize: 13, fontWeight: 800, color: ORANGE }}>TND {fmt(unit)}</span>
-                    {old > unit && <span style={{ fontSize: 12, color: MUTE, textDecoration: 'line-through' }}>TND {fmt(old)}</span>}
-                  </div>
-                </div>
-              </div>
-              <div style={{ height: 1, background: '#F0F0F0', margin: '12px 0' }} />
-              <div style={{ display: 'flex', alignItems: 'center' }}>
-                <span style={{ fontSize: 12, fontWeight: 600, color: MUTE }}>Total ({qty} article{qty > 1 ? 's' : ''})</span>
-                <div style={{ flex: 1 }} />
-                <span style={{ fontSize: 15, fontWeight: 900 }}>TND {fmt(unit * qty)}</span>
-              </div>
-            </div>
-          )
-        })}
-
-        {/* Livraison */}
-        <div style={{ marginTop: 12 }}><SectionHeader icon={Truck} title="Options de livraison" /></div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
-          <ShippingTile active={c.shipping === 0} title="Livraison standard" sub="Reçu en 3–5 jours" price={0} onClick={() => c.setShipping(0)} />
-          <ShippingTile active={c.shipping === 1} title="Livraison express" sub="Reçu en 24–48 h" price={12} onClick={() => c.setShipping(1)} />
-        </div>
-
-        {/* Promo */}
-        <SectionHeader icon={Ticket} title="Bon & Promo" />
         <div style={{ marginBottom: 24 }}>
-          <VoucherRow voucher={c.voucher} setVoucher={c.setVoucher} applied={c.applied} applyVoucher={c.applyVoucher} removeVoucher={c.removeVoucher} />
+          <AddressPicker addresses={c.addresses} loading={c.addrLoading} selectedId={c.selectedAddress?.id ?? null} onSelect={c.selectAddress} onAdd={c.addAddress} adding={c.addingAddress} user={c.user} isFormOpen={isAddressFormOpen} setIsFormOpen={setIsAddressFormOpen} coords={newAddressCoords} onCoordsChange={setNewAddressCoords} />
+          {isAddressFormOpen && (<div style={{ marginTop: 12, height: 280, borderRadius: 12, overflow: 'hidden', border: `1px solid ${LINE}` }}><MapPicker onLocationSelect={(pos) => setNewAddressCoords(pos)} initialLat={newAddressCoords.lat} initialLng={newAddressCoords.lng} /></div>)}
         </div>
-
-        {/* Cashback */}
-        <div style={{ marginBottom: 24 }}><CashbackBanner amount={c.estimatedCashback} /></div>
-
-        {/* Récap */}
-        <div style={{ background: '#FAFAFA', border: `1px solid #EEE`, borderRadius: 16, padding: 16 }}>
-          <TotalLine label="Sous-total" value={`TND ${fmt(c.subtotal)}`} />
-          <TotalLine label="Frais de livraison" value={c.shippingFee <= 0 ? 'Gratuit' : `TND ${fmt(c.shippingFee)}`} color={c.shippingFee <= 0 ? GREEN : INK} />
-          {c.discount > 0 && <TotalLine label={`Promo (${c.applied})`} value={`− TND ${fmt(c.discount)}`} color={GREEN} />}
-          <div style={{ height: 1, background: '#E5E5E5', margin: '10px 0 14px' }} />
-          <div style={{ display: 'flex', alignItems: 'baseline' }}>
-            <span style={{ fontSize: 16, fontWeight: 800 }}>Total</span>
-            <div style={{ flex: 1 }} />
-            <span style={{ fontSize: 22, fontWeight: 900, color: ORANGE }}>TND {fmt(c.total)}</span>
-          </div>
+        <SectionHeader icon={Truck} title="Options de livraison" />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
+          {c.shippingLoading ? (<div style={{ padding: 20, textAlign: 'center', color: MUTE }}>Chargement...</div>) : (c.shippingOptions.map(opt => (<ShippingTile key={opt.id} active={c.shipping === opt.id} title={opt.title} sub={opt.sub || ''} price={opt.price || 0} onClick={() => c.setShipping(opt.id)} />)))}
         </div>
-
         {c.error && <div style={{ color: '#DC2626', fontSize: 12.5, marginTop: 12 }}>{c.error}</div>}
-      </div>
-
-      {/* Bouton Payer fixe */}
-      <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 60, background: '#fff', borderTop: `1px solid ${LINE}`, padding: '10px 16px calc(10px + env(safe-area-inset-bottom))' }}>
-        <button onClick={c.placeOrder} disabled={c.placing}
-          style={{ width: '100%', height: 52, borderRadius: 14, border: 'none', color: '#fff', fontSize: 16, fontWeight: 800, cursor: c.placing ? 'default' : 'pointer', opacity: c.placing ? .7 : 1, background: 'linear-gradient(135deg,#FF6B35,#FF4500)' }}>
-          {c.placing ? 'Traitement…' : `Payer · TND ${fmt(c.total)}`}
-        </button>
       </div>
     </div>
   )
 }
 
-// ══════════ Wrapper ══════════
+// ══════════ WRAPPER ══════════
 export default function CheckoutPage() {
   const isMobile = useIsMobile()
   const checkout = useCheckout()
-  return (
-    <>
-      {isMobile ? <MobileCheckout {...checkout} /> : <DesktopCheckout {...checkout} />}
-      <PhoneVerifyModal
-        open={checkout.verifyOpen}
-        onClose={checkout.closeVerify}
-        onVerified={checkout.onVerified}
-        initialPhone={checkout.phone}
-        isMobile={isMobile}
-      />
-    </>
-  )
+  return <>{isMobile ? <MobileCheckout {...checkout} /> : <DesktopCheckout {...checkout} />}</>
 }

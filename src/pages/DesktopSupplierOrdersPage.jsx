@@ -1,10 +1,15 @@
 // pages/SupplierOrdersPage.jsx — GROSHOP.tn
 // Connecté au backend : /api/orders/supplier/ (via lib/api.js — cookies + CSRF).
 // Style Donezo/Recent Activity conservé.
+//
+// ➕ Ajout livraison : passer une commande à « Expédiée » (kebab OU bouton camion)
+//    ouvre <ShipOrderDrawer> pour choisir le transporteur et créer l'expédition.
+//    onShipped -> la sous-commande bascule en `shipped`.
 
 import { useState, useEffect, useMemo, useRef } from 'react'
 import * as Icons from 'lucide-react'
 import { orders as ordersApi } from '../lib/api'
+import ShipOrderDrawer from '../components/supplier/ShipOrderDrawer'
 
 // ── Inject styles ──────────────────────────────────────────────────
 if (typeof document !== 'undefined' && !document.getElementById('gs-orders-styles')) {
@@ -21,6 +26,7 @@ if (typeof document !== 'undefined' && !document.getElementById('gs-orders-style
     .gs-section-icon { color: #FF4500; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
     .gs-icon-btn { background: transparent; border: none; cursor: pointer; padding: 7px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; color: #9AA3AE; transition: all 0.15s; }
     .gs-icon-btn:hover { background: #FAFAF7; color: #0F1419; }
+    .gs-icon-btn--ship:hover { background: #FFF3EE; color: #FF4500; }
     .gs-row { position: relative; transition: background 0.18s ease; }
     .gs-row::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: transparent; transition: background 0.18s ease; border-radius: 0 2px 2px 0; }
     .gs-row:hover { background: #FAFAF7; }
@@ -52,6 +58,8 @@ const STATUS_STYLES = {
   cancelled:     { label: 'Annulée',       bg: '#F5F3EE', color: '#6B7280' },
 }
 const STATUS_ORDER = ['pending', 'confirmed', 'in_production', 'shipped', 'delivered', 'cancelled']
+// Statuts depuis lesquels on peut encore expédier (→ ouvre le drawer)
+const SHIPPABLE_FROM = ['pending', 'confirmed', 'in_production']
 
 // ── Paiements réels (Order.PAYMENT_METHODS) ────────────────────────
 const PAYMENT_STYLES = {
@@ -89,6 +97,7 @@ export default function DesktopSupplierOrdersPage() {
   const [activeTab, setTab]   = useState('all')
   const [search, setSearch]   = useState('')
   const [page, setPage]       = useState(1)
+  const [shipping, setShipping] = useState(null)   // commande en cours d'expédition (drawer)
 
   useEffect(() => {
     let alive = true
@@ -149,6 +158,18 @@ export default function DesktopSupplierOrdersPage() {
     }
   }
 
+  // Interception : « Expédiée » ouvre le drawer transporteur au lieu de PATCH direct.
+  function handleStatusPick(order, newStatus) {
+    if (newStatus === 'shipped') { setShipping(order); return }
+    changeStatus(order.id, newStatus)
+  }
+
+  // Expédition créée dans le drawer -> la sous-commande passe à `shipped`.
+  function handleShipped() {
+    if (shipping) changeStatus(shipping.id, 'shipped')
+    setShipping(null)
+  }
+
   const tabs = TABS_DEF.map((t) => ({ ...t, count: counts[t.key] || 0 }))
 
   return (
@@ -161,7 +182,14 @@ export default function DesktopSupplierOrdersPage() {
         tabs={tabs} activeTab={activeTab} setActiveTab={setTab}
         search={search} setSearch={setSearch}
         page={page} setPage={setPage} totalPages={totalPages}
-        onChangeStatus={changeStatus}
+        onChangeStatus={handleStatusPick}
+      />
+
+      <ShipOrderDrawer
+        order={shipping}
+        open={!!shipping}
+        onClose={() => setShipping(null)}
+        onShipped={handleShipped}
       />
     </div>
   )
@@ -289,6 +317,7 @@ function OrderRow({ order, cols, isLast, onChangeStatus }) {
     ? firstItem.product_name + (order.items_count > 1 ? ` +${order.items_count - 1}` : '')
     : '—'
   const shortId = '#' + String(order.id).slice(0, 8).toUpperCase()
+  const canShip = SHIPPABLE_FROM.includes(order.status)
 
   return (
     <div className="gs-row" style={{ display: 'grid', gridTemplateColumns: cols, padding: '14px 22px', alignItems: 'center', borderBottom: isLast ? 'none' : '1px solid #F5F3EE', gap: 16 }}>
@@ -333,8 +362,13 @@ function OrderRow({ order, cols, isLast, onChangeStatus }) {
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 2, justifyContent: 'flex-end' }}>
+        {canShip && (
+          <button className="gs-icon-btn gs-icon-btn--ship" title="Expédier" onClick={() => onChangeStatus(order, 'shipped')}>
+            <Icons.Truck size={14} strokeWidth={1.8} />
+          </button>
+        )}
         <button className="gs-icon-btn" title="Message"><Icons.MessageCircle size={14} strokeWidth={1.8} /></button>
-        <StatusMenu current={order.status} onPick={(st) => onChangeStatus(order.id, st)} />
+        <StatusMenu current={order.status} onPick={(st) => onChangeStatus(order, st)} />
       </div>
     </div>
   )

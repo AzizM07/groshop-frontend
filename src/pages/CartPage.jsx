@@ -2,7 +2,8 @@
 // Layout 2 colonnes : liste d'articles (groupés par fournisseur) + récap sticky centré verticalement.
 // Section "Vous aimerez aussi" pleine largeur en bas.
 // Logique conservée : sélection par cases, groupement fournisseur, MOQ, économies, checkout.
-import { products as productsApi } from '../lib/api'
+// Badge de livraison désormais alimenté par l'adresse par défaut du compte (plus de "Tunisie" figé).
+import { products as productsApi, addresses as addressesApi } from '../lib/api'
 import { useState, useMemo, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
@@ -29,6 +30,10 @@ const BG     = '#FFFFFF'
 
 const DISPLAY = "'Fraunces', Georgia, serif"
 const BODY    = "'DM Sans', -apple-system, system-ui, sans-serif"
+
+// Libellé pays FR pour le badge de livraison (les adresses stockent un code : TN, FR…).
+const COUNTRY_FR = { TN: 'Tunisie', FR: 'France', DZ: 'Algérie', MA: 'Maroc', IT: 'Italie' }
+const countryFr = (code) => COUNTRY_FR[code] || code || 'Tunisie'
 
 const fmt = (n) => (Number(n) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
@@ -106,6 +111,25 @@ function useStickyOffset() {
   return off
 }
 
+/* Adresse de livraison par défaut du compte (pour le badge d'en-tête). */
+function useDefaultAddress() {
+  const { user } = useAuth()
+  const [addr, setAddr] = useState(null)
+  useEffect(() => {
+    if (!user) { setAddr(null); return }
+    let alive = true
+    addressesApi.list()
+      .then(d => {
+        if (!alive) return
+        const list = Array.isArray(d) ? d : (d?.results || [])
+        setAddr(list.find(a => a.is_default) || list[0] || null)
+      })
+      .catch(() => { if (alive) setAddr(null) })
+    return () => { alive = false }
+  }, [user])
+  return addr
+}
+
 /* ── Case à cocher ronde ── */
 function Checkbox({ checked, size = 20, onClick }) {
   return (
@@ -135,6 +159,12 @@ function CartPageDesktop() {
   const [promoOpen, setPromoOpen] = useState(false)
   const [promo, setPromo] = useState('')
   const stickyOff = useStickyOffset()
+  const defaultAddr = useDefaultAddress()
+
+  // Libellé du badge : ville (ou gouvernorat) + pays réels de l'adresse par défaut.
+  const addrLabel = defaultAddr
+    ? [defaultAddr.city || defaultAddr.region, countryFr(defaultAddr.country)].filter(Boolean).join(', ')
+    : 'Ajouter une adresse'
 
   /* Tout sélectionné par défaut, suit les ajouts/suppressions */
   useEffect(() => {
@@ -208,13 +238,14 @@ function CartPageDesktop() {
               }}>
                 Mon panier ({items.length})
               </h1>
-              <span style={{
+              {/* Badge de livraison → adresse par défaut réelle, cliquable vers la gestion des adresses */}
+              <Link to="/dashboard/addresses" style={{
                 display: 'inline-flex', alignItems: 'center', gap: 4,
                 background: SOFT, color: ORANGE, padding: '4px 10px',
-                borderRadius: 999, fontSize: 11.5, fontWeight: 500,
+                borderRadius: 999, fontSize: 11.5, fontWeight: 500, textDecoration: 'none',
               }}>
-                <MapPin size={12} /> Tunisie
-              </span>
+                <MapPin size={12} /> {addrLabel}
+              </Link>
               <div style={{ flex: 1 }} />
               <Link to="/" style={{
                 fontSize: 13.5, fontWeight: 500, color: INK, textDecoration: 'none',
@@ -464,7 +495,7 @@ function CartRow({ item, selected, onToggle, onQty, onRemove }) {
       <Link to={`/produit/${p.id}`} style={{ flexShrink: 0 }}>
         <div style={{ width: 88, height: 88, borderRadius: 10, overflow: 'hidden', background: '#F6F6F6' }}>
           {p.image_url
-            ? <img src={p.image_url} alt={p.name} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
+            ? <img src={p.image_url} alt={p.name} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover'}}/>
             : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>📦</div>}
         </div>
       </Link>
@@ -623,7 +654,7 @@ function RecoCard({ p }) {
       <div style={{ aspectRatio: '1 / 1', background: '#F6F6F6' }}>
         {p.primary_image
           ? <img src={p.primary_image} alt={p.name} loading="lazy"
-              style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
+              style={{ width: '100%', height: '100%', objectFit: 'cover'}}/>
           : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>📦</div>}
       </div>
       <div style={{ padding: '12px 14px 14px' }}>

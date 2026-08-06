@@ -331,9 +331,17 @@ export function OrdersDropdown() {
   )
 }
 
+// CartDropdown.jsx — GROSHOP.tn
+// Remplace le CartDropdown existant dans HeaderDropdowns.jsx.
+// Design calqué sur la référence (icône panier + badge, "Total" à droite,
+// lignes produit avec miniature/nom/prix/quantité, bouton pleine largeur),
+// mais avec la palette orange du site (ORANGE, INK, MUTE, FAINT, LINE, SOFT
+// déjà définis en haut de HeaderDropdowns.jsx).
+
 export function CartDropdown() {
   const { items = [], count = 0 } = useCart()
   const total = items.reduce((sum, i) => sum + (parseFloat(i.unit_price_tnd) || 0) * (Number(i.quantity) || 0), 0)
+
   return (
     <IconDropdown to="/panier" title="Panier" badge={count} width={380} icon={
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
@@ -341,36 +349,81 @@ export function CartDropdown() {
         <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
       </svg>
     }>
-      <PanelTitle>Panier ({items.length})</PanelTitle>
+      {/* ── En-tête : icône panier + badge à gauche, Total à droite ── */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '16px 18px 14px', borderBottom: `1px solid ${LINE}`,
+      }}>
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={ORANGE} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
+            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+          </svg>
+          <span style={{
+            position: 'absolute', top: '-8px', right: '-10px',
+            minWidth: 18, height: 18, padding: '0 4px', borderRadius: 9,
+            background: ORANGE, color: '#fff', fontSize: 10.5, fontWeight: 700,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            border: '2px solid #fff', boxSizing: 'border-box',
+          }}>
+            {count > 9 ? '9+' : count}
+          </span>
+        </div>
+        <div style={{ fontSize: 13.5, color: MUTE }}>
+          Total : <span style={{ color: MUTE, fontWeight: 800 }}>{fmtPrice(total)} TND</span>
+        </div>
+      </div>
+
+      {/* ── Lignes produit ── */}
       {items.length === 0 && <PanelEmpty>Votre panier est vide</PanelEmpty>}
       {items.slice(0, 4).map(item => {
         const p = item.product || {}
+        const qty = String(item.quantity || 0).padStart(2, '0')
         return (
           <Row key={item.id} to={`/produit/${p.id}`}>
             <div style={{ width: 48, height: 48, borderRadius: 8, overflow: 'hidden', background: '#F4F5F7', flexShrink: 0 }}>
-              {p.image_url ? <img src={p.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>📦</div>}
+              {p.image_url
+                ? <img src={p.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+                : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>📦</div>}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: '12.5px', fontWeight: 500, color: INK, lineHeight: 1.35, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{asText(p.name)}</div>
-              <div style={{ fontSize: '12px', color: MUTE, marginTop: 4 }}>{item.quantity} × <span style={{ color: ORANGE, fontWeight: 700 }}>{fmtPrice(item.unit_price_tnd)} TND</span></div>
+              <div style={{
+                fontSize: 13, fontWeight: 600, color: INK, lineHeight: 1.35,
+                display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+              }}>
+                {asText(p.name)}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: MUTE }}>{fmtPrice(item.unit_price_tnd)} TND</span>
+                <span style={{ fontSize: 12, color: MUTE }}>
+                  Quantité : <span style={{ textDecoration: 'underline', textDecorationColor: FAINT }}>{qty}</span>
+                </span>
+              </div>
             </div>
           </Row>
         )
       })}
-      {items.length > 4 && <div style={{ padding: '4px 18px 0', fontSize: '12px', color: FAINT }}>+{items.length - 4} autre{items.length - 4 > 1 ? 's' : ''} article{items.length - 4 > 1 ? 's' : ''}</div>}
+      {items.length > 4 && (
+        <div style={{ padding: '4px 18px 0', fontSize: 12, color: FAINT }}>
+          +{items.length - 4} autre{items.length - 4 > 1 ? 's' : ''} article{items.length - 4 > 1 ? 's' : ''}
+        </div>
+      )}
+
+      {/* ── Bouton pleine largeur ── */}
       {items.length > 0 && (
-        <>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '12px 18px 4px', borderTop: `1px solid ${LINE}`, marginTop: 8 }}>
-            <span style={{ fontSize: '13px', color: MUTE }}>Total</span>
-            <span style={{ fontSize: '16px', fontWeight: 800, color: ORANGE }}>{fmtPrice(total)} TND</span>
-          </div>
-          <PanelFooter to="/panier" label="Voir le panier" />
-        </>
+        <div style={{ padding: '14px 18px 16px' }}>
+          <Link to="/panier" style={{
+            display: 'block', textAlign: 'center', padding: '13px',
+            background: ORANGE, color: '#fff', borderRadius: 30,
+            fontSize: 14, fontWeight: 700, textDecoration: 'none',
+          }}>
+            Commander
+          </Link>
+        </div>
       )}
     </IconDropdown>
   )
 }
-
 /* ═══════════════════════════════════════════════════════════════════
    ADRESSE DE LIVRAISON — au clic
    ═══════════════════════════════════════════════════════════════════ */

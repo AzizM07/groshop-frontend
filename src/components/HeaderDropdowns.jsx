@@ -11,6 +11,19 @@ import { messaging, orders, addresses as addressesApi } from '../lib/api'
 import * as Icons from 'lucide-react'
 import PHONE_ICON from '../assets/phone.png'
 
+// --- Leaflet ---
+import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet'
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
+
+// Correction des icônes par défaut de Leaflet (problème avec les images)
+delete L.Icon.Default.prototype._getIconUrl
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+})
+
 const fetchMessages = () => messaging.conversations()
 const fetchOrders   = () => orders.list()
 
@@ -238,11 +251,10 @@ function useOrders() {
    ═══════════════════════════════════════════════════════════════════ */
 export function MessagesDropdown() {
   const [armed, setArmed] = useState(false)
-  const { unread } = useUnread()                       // ← compteur global (poller UnreadContext)
+  const { unread } = useUnread()
   const { data, loading } = useLazyData(fetchMessages, armed)
   return (
     <div onMouseEnter={() => setArmed(true)} style={{ display: 'flex' }}>
-      {/* badge={unread} → même pastille orange que le panier, cap « 9+ » */}
       <IconDropdown to="/messages" title="Messages" badge={unread} width={400} icon={
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
           <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
@@ -288,7 +300,6 @@ export function OrdersDropdown() {
   const { orders: data, loading, activeCount } = useOrders()
   return (
     <div style={{ display: 'flex' }}>
-      {/* badge={activeCount} → même pastille que le panier (commandes en cours) */}
       <IconDropdown to="/dashboard/commandes" title="Mes commandes" badge={activeCount} width={380} icon={
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
           <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
@@ -378,19 +389,252 @@ const COUNTRIES = [
 ]
 const flagOf = (code) => (COUNTRIES.find(c => c.code === code) || COUNTRIES[0]).flag
 
+// ─── Composant MapPicker (carte OSM avec marqueur) ──────────────
+function MapPicker({ onLocationSelect, initialLat = 36.8, initialLng = 10.18 }) {
+  const [position, setPosition] = useState({ lat: initialLat, lng: initialLng })
+  const [isLocating, setIsLocating] = useState(false)
+
+  const handlePositionChange = (newPos) => {
+    setPosition(newPos)
+    onLocationSelect(newPos)
+  }
+
+  // Sous-composant pour les événements de la carte
+  function LocationMarker() {
+    const map = useMapEvents({
+      click(e) {
+        const { lat, lng } = e.latlng
+        handlePositionChange({ lat, lng })
+        map.flyTo(e.latlng, map.getZoom())
+      },
+    })
+
+    return (
+      <Marker
+        position={[position.lat, position.lng]}
+        draggable
+        eventHandlers={{
+          dragend(e) {
+            const marker = e.target
+            const pos = marker.getLatLng()
+            handlePositionChange({ lat: pos.lat, lng: pos.lng })
+          },
+        }}
+      />
+    )
+  }
+
+  // Géolocalisation HTML5
+  const locateUser = () => {
+    if (!navigator.geolocation) {
+      alert('Géolocalisation non supportée par votre navigateur.')
+      return
+    }
+    setIsLocating(true)
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords
+        handlePositionChange({ lat: latitude, lng: longitude })
+        setIsLocating(false)
+      },
+      (err) => {
+        alert('Impossible de récupérer votre position : ' + err.message)
+        setIsLocating(false)
+      },
+      { enableHighAccuracy: true }
+    )
+  }
+
+  return (
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          onClick={locateUser}
+          disabled={isLocating}
+          style={{
+            padding: '4px 12px',
+            background: ORANGE,
+            color: '#fff',
+            border: 'none',
+            borderRadius: 20,
+            fontSize: 12,
+            fontWeight: 600,
+            cursor: 'pointer',
+            whiteSpace: 'nowrap'
+          }}
+        >
+          {isLocating ? 'Localisation…' : '📍 Ma position'}
+        </button>
+        <span style={{ fontSize: 11, color: MUTE, alignSelf: 'center' }}>
+          Lat: {position.lat.toFixed(5)}, Lng: {position.lng.toFixed(5)}
+        </span>
+      </div>
+      <div style={{ flex: 1, borderRadius: 10, overflow: 'hidden', border: `1px solid ${LINE}` }}>
+        <MapContainer
+          center={[position.lat, position.lng]}
+          zoom={15}
+          style={{ height: '100%', width: '100%' }}
+          zoomControl={false}
+        >
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+          <LocationMarker />
+        </MapContainer>
+      </div>
+      <div style={{ fontSize: 10, color: FAINT, marginTop: 4 }}>
+        Cliquez sur la carte ou faites glisser le marqueur.
+      </div>
+    </div>
+  )
+}
+
+// ─── Composants d'adresse ────────────────────────────────────────
+function AddressCard({ address, onSetDefault, onDelete }) {
+  const [hov, setHov] = useState(false)
+  return (
+    <div onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)} style={{ border: `1px solid ${hov ? '#D6D9DE' : LINE}`, borderRadius: 12, padding: '12px 14px', marginBottom: 10, transition: 'border-color .12s' }}>
+      <div style={{ fontSize: 13.5, color: INK, lineHeight: 1.5 }}>
+        <span style={{ fontWeight: 700 }}>{address.full_name}</span> <span style={{ color: '#3D4853' }}>{address.street}, {address.city}, {address.region}, {address.postal_code}, {address.country}</span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
+        {address.is_default ? <span style={{ display: 'inline-block', background: SOFT, color: ORANGE, padding: '4px 10px', borderRadius: 20, fontSize: 11.5, fontWeight: 700 }}>Adresse de livraison par défaut</span>
+          : <button type="button" onClick={onSetDefault} style={{ background: 'none', border: `1px solid ${LINE}`, color: MUTE, padding: '4px 10px', borderRadius: 20, fontSize: 11.5, fontWeight: 600, cursor: 'pointer' }}>Définir par défaut</button>}
+        <div style={{ flex: 1 }} />
+        <button type="button" onClick={onDelete} style={{ background: 'none', border: 'none', color: FAINT, fontSize: 11.5, cursor: 'pointer', padding: 0 }}>Supprimer</button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Formulaire d'adresse (avec Reverse Geocoding) ──────────────
+function AddressForm({ onCancel, onCreated, initialCoords, onCoordsChange }) {
+  const [form, setForm] = useState({
+    full_name: '',
+    phone: '',
+    country: 'TN',
+    region: '',
+    city: '',
+    postal_code: '',
+    street: '',
+    additional: '',
+    is_default: false,
+    latitude: initialCoords?.lat || null,
+    longitude: initialCoords?.lng || null,
+  })
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(null)
+  const [isGeocoding, setIsGeocoding] = useState(false)
+
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  // 1. Mise à jour des coordonnées dans le formulaire
+  useEffect(() => {
+    if (initialCoords) {
+      set('latitude', initialCoords.lat)
+      set('longitude', initialCoords.lng)
+    }
+  }, [initialCoords])
+
+  // 2. Reverse Geocoding (Nominatim) pour remplir automatiquement les champs au déplacement du marqueur
+  useEffect(() => {
+    if (!initialCoords?.lat || !initialCoords?.lng) return
+    const { lat, lng } = initialCoords
+    
+    // Éviter les appels excessifs si les coordonnées changent de manière insignifiante
+    const geocode = async () => {
+      setIsGeocoding(true)
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
+        )
+        const data = await res.json()
+        const addr = data?.address
+
+        if (addr) {
+          setForm(prev => ({
+            ...prev,
+            street: addr.road || addr.suburb || addr.neighbourhood || prev.street,
+            city: addr.city || addr.town || addr.village || addr.hamlet || prev.city,
+            region: addr.state || addr.region || addr.county || prev.region,
+            postal_code: addr.postcode || prev.postal_code,
+            country: addr.country_code ? addr.country_code.toUpperCase() : prev.country,
+          }))
+        }
+      } catch (err) {
+        console.error("Erreur de géocodage inversé:", err)
+      } finally {
+        setIsGeocoding(false)
+      }
+    }
+
+    geocode()
+  }, [initialCoords?.lat, initialCoords?.lng])
+
+  const submit = async (e) => {
+    e.preventDefault()
+    setError(null)
+    setSaving(true)
+    try {
+      const created = await addressesApi.create(form)
+      onCreated(created)
+    } catch (err) {
+      const msg = err?.message || err?.response?.data || 'Erreur lors de la sauvegarde.'
+      setError(typeof msg === 'string' ? msg : 'Vérifiez les champs.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const inputStyle = { width: '100%', padding: '10px 12px', border: `1px solid ${LINE}`, borderRadius: 8, fontSize: 13, color: INK, outline: 'none', boxSizing: 'border-box', background: '#fff' }
+  const rowStyle = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }
+
+  return (
+    <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <input required placeholder="Nom du destinataire" value={form.full_name} onChange={e => set('full_name', e.target.value)} style={inputStyle} />
+      <input required placeholder="Téléphone" value={form.phone} onChange={e => set('phone', e.target.value)} style={inputStyle} />
+      <div style={rowStyle}>
+        <select value={form.country} onChange={e => set('country', e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>{COUNTRIES.map(c => <option key={c.code} value={c.code}>{c.flag} {c.name}</option>)}</select>
+        <div style={{ position: 'relative' }}>
+          <select value={form.region} onChange={e => set('region', e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }} required><option value="">Gouvernorat…</option>{GOUVERNORATS_TN.map(g => <option key={g} value={g}>{g}</option>)}</select>
+          {isGeocoding && <span style={{ position: 'absolute', right: 8, top: 10, fontSize: 11, color: FAINT }}>Chargement...</span>}
+        </div>
+      </div>
+      <div style={rowStyle}>
+        <input required placeholder="Ville" value={form.city} onChange={e => set('city', e.target.value)} style={inputStyle} />
+        <input required placeholder="Code postal" value={form.postal_code} onChange={e => set('postal_code', e.target.value)} style={inputStyle} />
+      </div>
+      <input required placeholder="Rue (ex. Av. Habib Bourguiba)" value={form.street} onChange={e => set('street', e.target.value)} style={inputStyle} />
+      <input placeholder="Complément (apt, étage, bâtiment)" value={form.additional} onChange={e => set('additional', e.target.value)} style={inputStyle} />
+      <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: MUTE, marginTop: 2 }}>
+        <input type="checkbox" checked={form.is_default} onChange={e => set('is_default', e.target.checked)} /> Utiliser comme adresse par défaut
+      </label>
+      {error && <div style={{ color: '#B42318', fontSize: 12 }}>{error}</div>}
+      <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+        <button type="button" onClick={onCancel} style={{ flex: 1, padding: 11, background: '#fff', color: INK, border: `1px solid ${LINE}`, borderRadius: 30, fontSize: 13.5, fontWeight: 700, cursor: 'pointer' }}>Annuler</button>
+        <button type="submit" disabled={saving || isGeocoding} style={{ flex: 1, padding: 11, background: ORANGE, color: '#fff', border: 'none', borderRadius: 30, fontSize: 13.5, fontWeight: 700, cursor: (saving || isGeocoding) ? 'default' : 'pointer', opacity: (saving || isGeocoding) ? 0.7 : 1 }}>{saving ? 'Sauvegarde…' : 'Sauvegarder'}</button>
+      </div>
+    </form>
+  )
+}
+
+// ─── AddressDropdown avec intégration de la carte en Flex ──────
 export function AddressDropdown() {
   const { user } = useAuth()
   const [open, setOpen] = useState(false)
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(false)
   const [showForm, setShowForm] = useState(false)
+  const [useMap, setUseMap] = useState(false)
+  const [coords, setCoords] = useState({ lat: 36.8, lng: 10.18 }) // coordonnées par défaut (Tunis)
   const [defaultCountry, setDefaultCtr] = useState('TN')
   const [postalGuest, setPostalGuest] = useState('')
   const wrapRef = useRef(null)
   const panelRef = useRef(null)
   const loaded = useRef(false)
 
-  // Écoute l'événement global pour fermer ce menu
   useEffect(() => {
     const handleClose = () => setOpen(false)
     window.addEventListener('closeDropdowns', handleClose)
@@ -411,10 +655,12 @@ export function AddressDropdown() {
     if (!open) return
     const onDown = (e) => {
       if (wrapRef.current && !wrapRef.current.contains(e.target)) {
-        setOpen(false); setShowForm(false)
+        setOpen(false)
+        setShowForm(false)
+        setUseMap(false)
       }
     }
-    const onEsc = (e) => { if (e.key === 'Escape') { setOpen(false); setShowForm(false) } }
+    const onEsc = (e) => { if (e.key === 'Escape') { setOpen(false); setShowForm(false); setUseMap(false) } }
     document.addEventListener('mousedown', onDown)
     document.addEventListener('keydown', onEsc)
     return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onEsc) }
@@ -429,7 +675,9 @@ export function AddressDropdown() {
       return [created, ...next.filter(a => a.id !== created.id)]
     })
     setShowForm(false)
+    setUseMap(false)
   }
+
   const handleSetDefault = async (id) => {
     try { await addressesApi.setDefault(id); setItems(prev => prev.map(a => ({ ...a, is_default: a.id === id }))) } catch (e) { console.error(e) }
   }
@@ -441,6 +689,10 @@ export function AddressDropdown() {
   const toggleOpen = () => {
     window.dispatchEvent(new CustomEvent('closeDropdowns'))
     setOpen(prev => !prev)
+    if (!open) {
+      setShowForm(false)
+      setUseMap(false)
+    }
   }
 
   return (
@@ -455,7 +707,9 @@ export function AddressDropdown() {
       {open && (
         <div ref={panelRef} className="gh-dd" style={{ position: 'absolute', top: 'calc(100% + 14px)', left: 0, zIndex: 2400 }}>
           <div style={{ position: 'absolute', top: -7, left: 24, width: 0, height: 0, borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderBottom: '8px solid #fff', filter: 'drop-shadow(0 -2px 2px rgba(0,0,0,.05))' }} />
-          <div style={{ width: 420, background: '#fff', border: `1px solid ${LINE}`, borderRadius: 16, boxShadow: '0 12px 40px rgba(0,0,0,.14)', overflow: 'hidden' }}>
+          
+          {/* La largeur s'adapte automatiquement si la carte est ouverte */}
+          <div style={{ width: useMap ? '620px' : '460px', background: '#fff', border: `1px solid ${LINE}`, borderRadius: 16, boxShadow: '0 12px 40px rgba(0,0,0,.14)', overflow: 'hidden', transition: 'width 0.25s ease' }}>
             <div style={{ padding: '18px 20px 8px' }}>
               <div style={{ fontSize: 16, fontWeight: 800, color: INK }}>Précisez votre emplacement</div>
               <div style={{ fontSize: 12.5, color: MUTE, marginTop: 6, lineHeight: 1.5 }}>Les options logistiques et les frais de port varient en fonction de votre emplacement</div>
@@ -472,7 +726,47 @@ export function AddressDropdown() {
                       <button type="button" onClick={() => setShowForm(true)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: INK, textDecoration: 'underline', fontSize: 13.5, fontWeight: 700 }}>Ajouter une adresse</button>
                     </div>
                   )}
-                  {showForm && <AddressForm onCancel={() => setShowForm(false)} onCreated={handleAdded} />}
+                  
+                  {/* Mise en page Carte à droite / Formulaire à gauche */}
+                  {showForm && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '4px 0 12px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '4px' }}>
+                        <button
+                          type="button"
+                          onClick={() => setUseMap(!useMap)}
+                          style={{
+                            background: 'none', border: 'none',
+                            color: useMap ? '#B42318' : ORANGE,
+                            fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+                            textDecoration: 'underline'
+                          }}
+                        >
+                          {useMap ? '✕ Masquer la carte' : '📍 Localiser sur la carte'}
+                        </button>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'row', gap: '16px', alignItems: 'stretch' }}>
+                        <div style={{ flex: useMap ? '1.4' : '1', minWidth: 0 }}>
+                          <AddressForm
+                            onCancel={() => { setShowForm(false); setUseMap(false) }}
+                            onCreated={handleAdded}
+                            initialCoords={coords}
+                            onCoordsChange={setCoords}
+                          />
+                        </div>
+                        {useMap && (
+                          <div style={{ flex: '1', minWidth: '220px' }}>
+                            <div style={{ height: '100%', minHeight: '320px' }}>
+                              <MapPicker
+                                onLocationSelect={(pos) => setCoords(pos)}
+                                initialLat={coords.lat}
+                                initialLng={coords.lng}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </>
               ) : (
                 <div style={{ padding: '4px 0 8px', fontSize: 13, color: MUTE, textAlign: 'center' }}>
@@ -501,61 +795,6 @@ export function AddressDropdown() {
   )
 }
 
-function AddressCard({ address, onSetDefault, onDelete }) {
-  const [hov, setHov] = useState(false)
-  return (
-    <div onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)} style={{ border: `1px solid ${hov ? '#D6D9DE' : LINE}`, borderRadius: 12, padding: '12px 14px', marginBottom: 10, transition: 'border-color .12s' }}>
-      <div style={{ fontSize: 13.5, color: INK, lineHeight: 1.5 }}>
-        <span style={{ fontWeight: 700 }}>{address.full_name}</span> <span style={{ color: '#3D4853' }}>{address.street}, {address.city}, {address.region}, {address.postal_code}, {address.country}</span>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
-        {address.is_default ? <span style={{ display: 'inline-block', background: SOFT, color: ORANGE, padding: '4px 10px', borderRadius: 20, fontSize: 11.5, fontWeight: 700 }}>Adresse de livraison par défaut</span>
-          : <button type="button" onClick={onSetDefault} style={{ background: 'none', border: `1px solid ${LINE}`, color: MUTE, padding: '4px 10px', borderRadius: 20, fontSize: 11.5, fontWeight: 600, cursor: 'pointer' }}>Définir par défaut</button>}
-        <div style={{ flex: 1 }} />
-        <button type="button" onClick={onDelete} style={{ background: 'none', border: 'none', color: FAINT, fontSize: 11.5, cursor: 'pointer', padding: 0 }}>Supprimer</button>
-      </div>
-    </div>
-  )
-}
-
-function AddressForm({ onCancel, onCreated }) {
-  const [form, setForm] = useState({ full_name: '', phone: '', country: 'TN', region: '', city: '', postal_code: '', street: '', additional: '', is_default: false })
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState(null)
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
-  const submit = async (e) => {
-    e.preventDefault()
-    setError(null); setSaving(true)
-    try { const created = await addressesApi.create(form); onCreated(created) }
-    catch (err) { const msg = err?.message || err?.response?.data || 'Erreur lors de la sauvegarde.'; setError(typeof msg === 'string' ? msg : 'Vérifiez les champs.') }
-    finally { setSaving(false) }
-  }
-  const inputStyle = { width: '100%', padding: '10px 12px', border: `1px solid ${LINE}`, borderRadius: 8, fontSize: 13, color: INK, outline: 'none', boxSizing: 'border-box', background: '#fff' }
-  const rowStyle = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }
-  return (
-    <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '4px 0 12px' }}>
-      <input required placeholder="Nom du destinataire" value={form.full_name} onChange={e => set('full_name', e.target.value)} style={inputStyle} />
-      <input required placeholder="Téléphone" value={form.phone} onChange={e => set('phone', e.target.value)} style={inputStyle} />
-      <div style={rowStyle}>
-        <select value={form.country} onChange={e => set('country', e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>{COUNTRIES.map(c => <option key={c.code} value={c.code}>{c.flag} {c.name}</option>)}</select>
-        <select value={form.region} onChange={e => set('region', e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }} required><option value="">Gouvernorat…</option>{GOUVERNORATS_TN.map(g => <option key={g} value={g}>{g}</option>)}</select>
-      </div>
-      <div style={rowStyle}>
-        <input required placeholder="Ville" value={form.city} onChange={e => set('city', e.target.value)} style={inputStyle} />
-        <input required placeholder="Code postal" value={form.postal_code} onChange={e => set('postal_code', e.target.value)} style={inputStyle} />
-      </div>
-      <input required placeholder="Rue (ex. Av. Habib Bourguiba)" value={form.street} onChange={e => set('street', e.target.value)} style={inputStyle} />
-      <input placeholder="Complément (apt, étage, bâtiment)" value={form.additional} onChange={e => set('additional', e.target.value)} style={inputStyle} />
-      <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: MUTE, marginTop: 2 }}><input type="checkbox" checked={form.is_default} onChange={e => set('is_default', e.target.checked)} /> Utiliser comme adresse par défaut</label>
-      {error && <div style={{ color: '#B42318', fontSize: 12 }}>{error}</div>}
-      <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-        <button type="button" onClick={onCancel} style={{ flex: 1, padding: 11, background: '#fff', color: INK, border: `1px solid ${LINE}`, borderRadius: 30, fontSize: 13.5, fontWeight: 700, cursor: 'pointer' }}>Annuler</button>
-        <button type="submit" disabled={saving} style={{ flex: 1, padding: 11, background: ORANGE, color: '#fff', border: 'none', borderRadius: 30, fontSize: 13.5, fontWeight: 700, cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.7 : 1 }}>{saving ? 'Sauvegarde…' : 'Sauvegarder'}</button>
-      </div>
-    </form>
-  )
-}
-
 /* ═══════════════════════════════════════════════════════════════════
    TÉLÉCHARGEMENT DE L'APPLICATION — survol
    ═══════════════════════════════════════════════════════════════════ */
@@ -566,7 +805,6 @@ export function AppDownloadDropdown() {
   const wrapRef = useRef(null)
   const panelRef = useRef(null)
 
-  // Écoute l'événement global pour fermer ce menu
   useEffect(() => {
     const handleClose = () => setOpen(false)
     window.addEventListener('closeDropdowns', handleClose)
@@ -652,7 +890,6 @@ export function LanguageDropdown() {
     { code: 'TND', label: 'TND' },
   ]
 
-  // Écoute l'événement global pour fermer ce menu
   useEffect(() => {
     const handleClose = () => setOpen(false)
     window.addEventListener('closeDropdowns', handleClose)

@@ -47,8 +47,22 @@ import { notifications } from './lib/api'
 import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import OrderConfirmationPage from './pages/OrderConfirmationPage'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+
 const NO_LAYOUT   = ['/login', '/signup', '/pending', '/supplier', '/dashboard', '/categories', '/checkout','/commande/confirmation']
 const FOOTER_ONLY = ['/devenir-fournisseur']
+
+// Client React Query unique pour toute l'app (cache partagé entre
+// SupplierDashboardPage, SupplierOrdersPage, SupplierProductsPage, etc.)
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60_000,       // 1 min avant de considérer les données comme périmées
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+})
 
 // Placeholder pour les sous-pages du dashboard pas encore construites
 // (commandes, paiement, favoris, logistique, parametres…). Rendu DANS la coque.
@@ -165,16 +179,18 @@ function AppContent() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <CartProvider>
-          <UnreadProvider>
-            <ScrollToTop />
-            <AppContent />
-            <GoogleOneTap />
-          </UnreadProvider>
-        </CartProvider>
-      </BrowserRouter>
-    </AuthProvider>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <BrowserRouter>
+          <CartProvider>
+            <UnreadProvider>
+              <ScrollToTop />
+              <AppContent />
+              <GoogleOneTap />
+            </UnreadProvider>
+          </CartProvider>
+        </BrowserRouter>
+      </AuthProvider>
+    </QueryClientProvider>
   )
 }

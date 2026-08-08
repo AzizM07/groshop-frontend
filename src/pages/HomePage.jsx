@@ -1,6 +1,6 @@
 // HomePage.jsx — GROSHOP.tn
 
-import { useState, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { products as productsApi } from '../lib/api'
 import ProductCard from '../components/ProductCard'
 import BannerSlider  from '../components/BannerSlider'
@@ -14,7 +14,6 @@ import { usePageTracking } from '../hooks/usePageTracking'
 import { useIsMobile } from '../hooks/useIsMobile'
 import MobileHome from './MobileHome'
 import PopularCategories from '../components/PopularCategories'
-import ParticlesBg from '../components/ParticlesBg'
 // ── Paramètres globaux layout ───────────────────────────────────
 const LAYOUT = {
   maxWidth: '1500px',
@@ -128,38 +127,31 @@ if (typeof document !== 'undefined' && !document.getElementById('skeleton-anim')
 // ────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
-  const [products, setProducts]                 = useState([])
-  const [trendingProducts, setTrendingProducts] = useState([])
-  const [isPersonalized, setIsPersonalized]     = useState(false)
-  const [loading, setLoading]                   = useState(true)
-  const [error, setError]                       = useState(null)
   const isMobile = useIsMobile()
 
-  useEffect(() => {
-    async function fetchProducts() {
-      try {
-        // Produits recommandés — personnalisés si connecté
-        const data = await productsApi.recommended()
-        if (data?.results) {
-          setProducts(data.results)
-          setIsPersonalized(data.personalized || false)
-        }
+  const {
+    data: recommendedData,
+    isLoading: loadingRecommended,
+    isError: errorRecommended,
+  } = useQuery({
+    queryKey: ['products', 'recommended'],
+    queryFn: () => productsApi.recommended(),
+  })
 
-        // Tendances 48h — endpoint séparé
-        const trending = await productsApi.trending()
-        if (trending) {
-          setTrendingProducts(trending.map(mapTrendingProduct))
-        }
+  const {
+    data: trendingRaw,
+    isLoading: loadingTrending,
+  } = useQuery({
+    queryKey: ['products', 'trending'],
+    queryFn: () => productsApi.trending(),
+  })
 
-      } catch (err) {
-        setError('Erreur de chargement des produits.')
-        console.error(err)
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchProducts()
-  }, [])
+  const products         = recommendedData?.results || []
+  const isPersonalized    = recommendedData?.personalized || false
+  const trendingProducts  = trendingRaw ? trendingRaw.map(mapTrendingProduct) : []
+  const loading           = loadingRecommended || loadingTrending
+  const error              = errorRecommended ? 'Erreur de chargement des produits.' : null
+
   usePageTracking({ pageType: 'home' })
 
   // ── Rendu mobile : layout dédié, données déjà chargées ci-dessus ──
@@ -181,14 +173,9 @@ export default function HomePage() {
       {/* Hero search */}
       <HeroSearch />
 
-      {/* ═══════════════════════════════════════════════════════════
-          BANDE À FOND DE PARTICULES : tendance → HeroGrid → catégories → bannières.
-          Le conteneur est en position:relative, <ParticlesBg /> se cale derrière,
-          et le contenu passe au-dessus grâce à zIndex:1.
-          → pour changer l'étendue du fond, déplace l'ouverture/fermeture de ce bloc
-            (ex. sortir <BannerSlider /> du wrapper pour l'exclure).
-          ═══════════════════════════════════════════════════════════ */}
+
       <div style={{ position: 'relative' }}>
+
         <div style={{ position: 'relative', zIndex: 1 }}>
 
           {/* Section "Tendances 48h" — fichier CategorySection.jsx */}

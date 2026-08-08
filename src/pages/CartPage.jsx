@@ -2,9 +2,11 @@
 // Layout 2 colonnes : liste d'articles (groupés par fournisseur) + récap sticky centré verticalement.
 // Section "Vous aimerez aussi" pleine largeur en bas.
 // Logique conservée : sélection par cases, groupement fournisseur, MOQ, économies, checkout.
-// Badge de livraison désormais alimenté par l'adresse par défaut du compte (plus de "Tunisie" figé).
+// Badge de livraison alimenté par l'adresse par défaut du compte (plus de "Tunisie" figé).
+// RecoSection utilise React Query (fetchQuery) pour partager le cache avec HomePage/FavorisPage.
 import { products as productsApi, addresses as addressesApi } from '../lib/api'
 import { useState, useMemo, useEffect } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   MapPin, Trash2, Minus, Plus, Store, ChevronRight, ChevronDown,
@@ -294,7 +296,7 @@ function CartPageDesktop() {
                       display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
                     }}>
                       {supplier?.logo_url
-                        ? <img src={supplier.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
+                        ? <img src={supplier.logo_url} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         : <Store size={14} color={ORANGE} />}
                     </div>
                     <Link to={supplier?.slug ? `/fournisseur/${supplier.slug}` : '#'}
@@ -495,7 +497,7 @@ function CartRow({ item, selected, onToggle, onQty, onRemove }) {
       <Link to={`/produit/${p.id}`} style={{ flexShrink: 0 }}>
         <div style={{ width: 88, height: 88, borderRadius: 10, overflow: 'hidden', background: '#F6F6F6' }}>
           {p.image_url
-            ? <img src={p.image_url} alt={p.name} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover'}}/>
+            ? <img src={p.image_url} alt={p.name} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>📦</div>}
         </div>
       </Link>
@@ -568,8 +570,12 @@ function CartRow({ item, selected, onToggle, onQty, onRemove }) {
 // ═══════════════════════════════════════════════════════════════════
 // Vous aimerez aussi — produits des fournisseurs du panier (même livraison),
 // complétés par les recommandations personnalisées.
+// Chaque fetch passe par queryClient.fetchQuery : vérifie le cache React Query
+// avant d'appeler le réseau, et partage le cache avec les autres pages
+// (ex. 'recommended' est aussi utilisé par HomePage et FavorisPage).
 function RecoSection({ items }) {
   const [list, setList] = useState([])
+  const queryClient = useQueryClient()
 
   const supplierSlugs = useMemo(
     () => [...new Set(items.map(i => i.product?.supplier?.slug).filter(Boolean))],
@@ -596,19 +602,27 @@ function RecoSection({ items }) {
         }
       }
 
-      // 1. Même fournisseur → même livraison
+      // 1. Même fournisseur → même livraison (mise en cache par fournisseur)
       for (const slug of supplierSlugs.slice(0, 3)) {
         if (out.length >= 4) break
         try {
-          const d = await productsApi.list({ supplier: slug, limit: 8 })
+          const d = await queryClient.fetchQuery({
+            queryKey: ['products', 'list', { supplier: slug, limit: 8 }],
+            queryFn: () => productsApi.list({ supplier: slug, limit: 8 }),
+            staleTime: 1000 * 60 * 5,
+          })
           push(d?.results)
         } catch { /* silencieux */ }
       }
 
-      // 2. Complément : recommandations personnalisées
+      // 2. Complément : recommandations personnalisées (cache partagé avec HomePage/FavorisPage)
       if (out.length < 4) {
         try {
-          const d = await productsApi.recommended()
+          const d = await queryClient.fetchQuery({
+            queryKey: ['products', 'recommended'],
+            queryFn: () => productsApi.recommended(),
+            staleTime: 1000 * 60 * 5,
+          })
           push(d?.results)
         } catch { /* silencieux */ }
       }
@@ -618,7 +632,7 @@ function RecoSection({ items }) {
 
     load()
     return () => { alive = false }
-  }, [supplierSlugs, inCartIds])
+  }, [supplierSlugs, inCartIds, queryClient])
 
   if (!list.length) return null
 
@@ -654,7 +668,7 @@ function RecoCard({ p }) {
       <div style={{ aspectRatio: '1 / 1', background: '#F6F6F6' }}>
         {p.primary_image
           ? <img src={p.primary_image} alt={p.name} loading="lazy"
-              style={{ width: '100%', height: '100%', objectFit: 'cover'}}/>
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>📦</div>}
       </div>
       <div style={{ padding: '12px 14px 14px' }}>

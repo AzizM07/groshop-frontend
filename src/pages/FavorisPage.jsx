@@ -6,8 +6,12 @@
 // Backend réel : products.favorites() / products.removeFavorite() / products.recommended()
 // Champs lus = ceux de ProductListSerializer : primary_image, base_price_tnd,
 //              supplier_name, supplier_slug, supplier_verified ('approved'), years_active.
+//
+// Fetch/cache via React Query : 'recommended' partage son cache avec HomePage et CartPage,
+// 'favorites' avec les autres écrans qui affichent le nombre de favoris de l'utilisateur.
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import { Heart, MoreHorizontal, BadgeCheck, Store, Package, MessageSquare } from 'lucide-react'
 import { products as productsApi, messaging } from '../lib/api'
@@ -32,31 +36,33 @@ const pVerified = (p) => p.supplier_verified === 'approved'
 // ═══════════════════════════════════════════════════════════════════
 export default function FavorisPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [tab, setTab]     = useState('produits')
   const [group, setGroup] = useState('all')
-  const [products, setProducts] = useState(null)   // null = chargement
-  const [reco, setReco]   = useState([])
 
-  useEffect(() => {
-    let alive = true
-    ;(async () => {
-      try {
-        const d = await productsApi.favorites()          // { products, suppliers }
-        if (alive) setProducts(arr(d?.products ?? d))
-      } catch { if (alive) setProducts([]) }
-      try {
-        const r = await productsApi.recommended()        // { results, ... }
-        if (alive) setReco(arr(r).slice(0, 10))
-      } catch { if (alive) setReco([]) }
-    })()
-    return () => { alive = false }
-  }, [])
+  const { data: favData, isLoading: loadingFavs } = useQuery({
+    queryKey: ['products', 'favorites'],
+    queryFn: () => productsApi.favorites(),
+  })
+
+  const { data: recoData } = useQuery({
+    queryKey: ['products', 'recommended'],
+    queryFn: () => productsApi.recommended(),
+  })
+
+  const products = favData !== undefined ? arr(favData?.products ?? favData) : null
+  const reco     = recoData ? arr(recoData).slice(0, 10) : []
 
   const list = products || []
   // (les groupes/listes ne sont pas encore renvoyés par l'API → un seul groupe « All »)
 
   const removeProduct = async (id) => {
-    setProducts(ps => (ps || []).filter(p => p.id !== id))   // optimiste
+    // optimiste : met à jour le cache React Query directement, pas de state local séparé
+    queryClient.setQueryData(['products', 'favorites'], (old) => {
+      const current = arr(old?.products ?? old)
+      const next = current.filter(p => p.id !== id)
+      return old?.products ? { ...old, products: next } : next
+    })
     try { await productsApi.removeFavorite(id) } catch {}
   }
 
@@ -84,10 +90,10 @@ export default function FavorisPage() {
         ))}
       </div>
 
-      {products === null && <FavSkeleton />}
+      {loadingFavs && <FavSkeleton />}
 
       {/* ─── PRODUITS ─── */}
-      {products !== null && tab === 'produits' && (
+      {!loadingFavs && tab === 'produits' && (
         <div style={{ display: 'flex', gap: 28, alignItems: 'flex-start' }}>
           <aside style={{ width: 190, flexShrink: 0 }}>
             <h3 style={{ margin: '0 0 14px', fontSize: 17, fontWeight: 800 }}>Ma liste</h3>
@@ -113,7 +119,7 @@ export default function FavorisPage() {
       )}
 
       {/* ─── FOURNISSEURS (l'API ne renvoie pas encore de fournisseurs favoris) ─── */}
-      {products !== null && tab === 'fournisseurs' && (
+      {!loadingFavs && tab === 'fournisseurs' && (
         <EmptyState icon={<Store size={40} color={FAINT} />} text="Aucun fournisseur en favori" />
       )}
 
@@ -125,7 +131,7 @@ export default function FavorisPage() {
             {reco.map(p => (
               <Link key={p.id} to={`/produit/${p.id}`} style={{ background: '#fff', border: `1px solid ${LINE}`, borderRadius: 12, overflow: 'hidden', textDecoration: 'none', color: INK }}>
                 <div style={{ aspectRatio: '1 / 1', background: '#F4F5F7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {pImg(p) ? <img src={pImg(p)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/> : <Package size={28} color={FAINT} />}
+                  {pImg(p) ? <img src={pImg(p)} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Package size={28} color={FAINT} />}
                 </div>
                 <div style={{ padding: '10px 12px 14px' }}>
                   <div style={{ fontSize: 13, lineHeight: 1.4, height: 36, overflow: 'hidden' }}>{pTitle(p)}</div>
@@ -156,7 +162,7 @@ function ProductCard({ p, onRemove, onChat }) {
     <div style={{ background: '#fff', border: `1px solid ${LINE}`, borderRadius: 12, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <div style={{ position: 'relative', aspectRatio: '1 / 1', background: '#F4F5F7' }}>
         <Link to={`/produit/${p.id}`} style={{ display: 'block', width: '100%', height: '100%' }}>
-          {pImg(p) ? <img src={pImg(p)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
+          {pImg(p) ? <img src={pImg(p)} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                    : <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: FAINT }}><Package size={30} /></span>}
         </Link>
         <button onClick={onRemove} title="Retirer des favoris" style={{ position: 'absolute', top: 10, right: 10, width: 34, height: 34, borderRadius: '50%', border: 'none', background: '#fff', boxShadow: '0 1px 4px rgba(0,0,0,.12)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

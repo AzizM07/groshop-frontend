@@ -1,14 +1,16 @@
 // pages/SupplierOrdersPage.jsx — GROSHOP.tn
-// Version corrigée avec bouton de rafraîchissement et amélioration de la gestion d'erreur.
-// Le statut est mis à jour en temps réel après mutation grâce au rechargement optimiste
-// et à l'appel de reload en cas d'erreur.
-// ⭐ CORRIGÉ : useCallback était utilisé mais jamais importé (crash "useCallback is not defined").
-// ⭐ CORRIGÉ : shortId affiche désormais order_reference en entier, sans troncature,
-// pour correspondre exactement au numéro affiché côté acheteur (CommandesPage.jsx).
+// Connecté au backend : /api/orders/supplier/ (via lib/api.js — cookies + CSRF).
+// Style Donezo/Recent Activity conservé.
+// ⭐ Fetch/cache via React Query (useQuery) — cache partagé, mise à jour optimiste via queryClient.
+// ⭐ Bouton "Rafraîchir" manuel (refetch) avec spinner.
+// ⭐ Flux d'expédition via ShipOrderDrawer : bouton camion dédié + interception du statut "shipped".
+// ⭐ shortId affiche désormais order_reference en entier, sans troncature,
+//   pour correspondre exactement au numéro affiché côté acheteur (CommandesPage.jsx).
 
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
-import * as Icons from 'lucide-react'
 import { orders as ordersApi } from '../lib/api'
+import { useState, useEffect, useMemo, useRef } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import * as Icons from 'lucide-react'
 import ShipOrderDrawer from '../components/supplier/ShipOrderDrawer'
 
 // ── Inject styles ──────────────────────────────────────────────────
@@ -60,7 +62,7 @@ const STATUS_STYLES = {
 const STATUS_ORDER = ['pending', 'confirmed', 'in_production', 'shipped', 'delivered', 'cancelled']
 const SHIPPABLE_FROM = ['pending', 'confirmed', 'in_production']
 
-// ── Paiements ────────────────────────────────────────
+// ── Paiements réels (Order.PAYMENT_METHODS) ────────────────────────
 const PAYMENT_STYLES = {
   cod:      { label: 'Paiement livraison', icon: 'Banknote' },
   d17:      { label: 'D17',                icon: 'Smartphone' },
@@ -90,32 +92,19 @@ function fmtDate(iso) {
 
 // ═══════════════════════════════════════════════════════════════════
 export default function DesktopSupplierOrdersPage() {
-  const [all, setAll]         = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError]     = useState(null)
-  const [activeTab, setTab]   = useState('all')
-  const [search, setSearch]   = useState('')
-  const [page, setPage]       = useState(1)
+  const queryClient = useQueryClient()
+  const [activeTab, setTab]     = useState('all')
+  const [search, setSearch]     = useState('')
+  const [page, setPage]         = useState(1)
   const [shipping, setShipping] = useState(null)
-  const [refreshing, setRefreshing] = useState(false)
 
-  const load = useCallback(async (showLoading = false) => {
-    if (showLoading) setRefreshing(true)
-    setError(null)
-    try {
-      const data = await ordersApi.supplier()
-      setAll(Array.isArray(data) ? data : (data?.results || []))
-    } catch (e) {
-      setError(e.message || 'Erreur de chargement')
-    } finally {
-      if (showLoading) setRefreshing(false)
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    load(true)
-  }, [load])
+  const { data, isLoading: loading, isFetching, isError, error: queryError, refetch } = useQuery({
+    queryKey: ['orders', 'supplier'],
+    queryFn: () => ordersApi.supplier(),
+  })
+  const all = Array.isArray(data) ? data : (data?.results || [])
+  const error = isError ? (queryError?.message || 'Erreur de chargement') : null
+  const refreshing = isFetching && !loading
 
   useEffect(() => { setPage(1) }, [activeTab, search])
 
@@ -154,17 +143,21 @@ export default function DesktopSupplierOrdersPage() {
     ]
   }, [all, counts])
 
+  // Mise à jour optimiste dans le cache React Query, avec champs additionnels (ex: delivery_type)
   async function changeStatus(id, newStatus, extra = {}) {
-    // Optimistic update
-    setAll((prev) => prev.map((o) => (o.id === id ? { ...o, status: newStatus, ...extra } : o)))
+    queryClient.setQueryData(['orders', 'supplier'], (old) => {
+      const list = Array.isArray(old) ? old : (old?.results || [])
+      const next = list.map((o) => (o.id === id ? { ...o, status: newStatus, ...extra } : o))
+      return old?.results ? { ...old, results: next } : next
+    })
     try {
       await ordersApi.updateSubOrderStatus(id, newStatus, extra)
-      // Recharge silencieuse pour être parfaitement synchro
-      await load(false)
+      // Recharge silencieuse pour rester parfaitement synchro avec le backend
+      queryClient.invalidateQueries({ queryKey: ['orders', 'supplier'] })
     } catch (e) {
       alert('Erreur : ' + e.message)
-      // Rechargement forcé pour annuler l'optimistic update
-      await load(true)
+      // Annule l'optimistic update en rechargeant depuis le serveur
+      queryClient.invalidateQueries({ queryKey: ['orders', 'supplier'] })
     }
   }
 
@@ -185,7 +178,7 @@ export default function DesktopSupplierOrdersPage() {
 
   return (
     <div className="gs-orders">
-      <PageHeader onRefresh={() => load(true)} refreshing={refreshing} />
+      <PageHeader onRefresh={() => refetch()} refreshing={refreshing} />
       <StatsRow stats={stats} />
       <OrdersCard
         loading={loading} error={error}
@@ -269,6 +262,7 @@ function MiniStat({ label, value, sub, color, icon }) {
   )
 }
 
+// ═══════════════════════════════════════════════════════════════════
 function OrdersCard({ loading, error, orders, totalFiltered, tabs, activeTab, setActiveTab, search, setSearch, page, setPage, totalPages, onChangeStatus }) {
   const cols = '1.7fr 2fr 1.1fr 1fr 1.1fr 0.6fr'
 
@@ -338,7 +332,7 @@ function OrderRow({ order, cols, isLast, onChangeStatus }) {
     ? firstItem.product_name + (order.items_count > 1 ? ` +${order.items_count - 1}` : '')
     : '—'
 
-  // ⭐ CORRIGÉ : référence complète (ex: "#ORD-2026-0001"), plus de .slice(0,8)
+  // ⭐ Référence complète (ex: "#ORD-2026-0001"), plus de .slice(0,8)
   // qui coupait le numéro séquentiel et rendait le numéro incohérent avec
   // celui affiché côté acheteur.
   const shortId = '#' + String(order.order_reference || order.order_id || order.id).toUpperCase()
@@ -354,7 +348,7 @@ function OrderRow({ order, cols, isLast, onChangeStatus }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 11, minWidth: 0 }}>
         <div style={{ width: 38, height: 38, borderRadius: 10, background: '#F5F3EE', flexShrink: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           {order.primary_image
-            ? <img src={order.primary_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
+            ? <img src={order.primary_image} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             : <Icons.Package size={16} color="#B8BCC4" strokeWidth={1.8} />}
         </div>
         <div style={{ minWidth: 0 }}>
@@ -399,6 +393,7 @@ function OrderRow({ order, cols, isLast, onChangeStatus }) {
   )
 }
 
+// Menu de changement de statut (kebab)
 function StatusMenu({ current, onPick }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
@@ -471,8 +466,8 @@ function StateBox({ icon, title, sub }) {
       <div style={{ width: 58, height: 58, borderRadius: '50%', background: '#FFF3EE', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Icon size={24} color="#FF4500" strokeWidth={1.8} />
       </div>
-      <p className="font-bold" style={{ fontSize: 16, color: '#0F1419' }}>{title}</p>
-      <p style={{ fontSize: 13, textAlign: 'center' }}>{sub}</p>
+      <div className="gs-h1" style={{ fontSize: 18, color: '#0F1419' }}>{title}</div>
+      <div style={{ fontSize: 13, textAlign: 'center', maxWidth: 340 }}>{sub}</div>
     </div>
   )
 }

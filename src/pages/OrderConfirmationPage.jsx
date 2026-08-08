@@ -13,12 +13,19 @@ import { Check, ChevronRight } from 'lucide-react'
 import { orders as ordersApi } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import { useIsMobile } from '../hooks/useIsMobile'
-import LOGO_SRC from '../assets/logo2.png'
+import BANNER_SRC from '../assets/order-confirmation-banner.jpg'
 
 const ORANGE = '#FF5E00', INK = '#1A1A1A', MUTE = '#7A7A7A', FAINT = '#A0A0A0', LINE = '#EAEAEA'
 const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
 const fmt = (n) => `${(Number(n) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TND`
 const fmtDate = (iso) => iso ? new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : ''
+
+// ⭐ Même logique que shortRef() dans CommandesPage.jsx — garantit le même
+// numéro de commande affiché partout (référence si dispo, sinon id tronqué).
+const shortRef = (o) => {
+  if (o.reference) return String(o.reference).toUpperCase()
+  return String(o.id).slice(0, 8).toUpperCase()
+}
 
 // order.status backend ∈ pending, call_confirmed, in_production, shipped, delivered, cancelled
 const STEP_FOR_STATUS = (status) => {
@@ -32,27 +39,14 @@ const STEPS = [
   { key: 'delivered', label: 'Livrée' },
 ]
 
-// ─── BANNIÈRE (CSS/SVG, pas d'image externe) ───
+// ─── BANNIÈRE — image importée, pleine largeur écran, hauteur limitée à 40% de l'écran ───
 function Banner() {
   return (
-    <div style={{ position: 'relative', height: 190, background: 'linear-gradient(120deg,#FFB088 0%,#FF5E00 55%,#E24B00 100%)', overflow: 'hidden' }}>
-      <svg viewBox="0 0 700 190" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.35 }}>
-        <path d="M420,190 C480,110 560,150 620,40 C650,-10 690,10 700,-20 L700,190 Z" fill="#fff" opacity="0.15" />
-        <path d="M470,190 C520,130 590,160 640,70 C665,25 690,35 700,10 L700,190 Z" fill="#fff" opacity="0.12" />
-      </svg>
-      <svg width="120" height="120" viewBox="0 0 100 100" style={{ position: 'absolute', right: 24, top: 20, opacity: 0.9 }} aria-hidden="true">
-        <rect x="18" y="38" width="64" height="44" rx="4" fill="#fff" opacity="0.9" />
-        <path d="M18 38 L50 18 L82 38" stroke="#fff" strokeWidth="4" fill="none" opacity="0.9" />
-        <rect x="42" y="55" width="16" height="27" fill="#FF5E00" opacity="0.9" />
-      </svg>
-      <div style={{ position: 'relative', height: '100%', padding: '20px 28px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-        <img src={LOGO_SRC} alt="GROSHOP.tn" style={{ height: 30, filter: 'brightness(0) invert(1)' }} onError={e => { e.currentTarget.style.display = 'none' }} />
-        <div>
-          <div style={{ color: '#fff', fontSize: 26, fontWeight: 800, lineHeight: 1.2 }}>Merci pour</div>
-          <div style={{ color: '#fff', fontSize: 26, fontWeight: 800, lineHeight: 1.2 }}>votre commande !</div>
-        </div>
-      </div>
-    </div>
+    <img
+      src={BANNER_SRC}
+      alt="Merci pour votre commande"
+      style={{ width: '100%', height: '40vh', objectFit: 'cover', display: 'block' }}
+    />
   )
 }
 
@@ -94,7 +88,7 @@ function InfoBox({ order, email }) {
   return (
     <div style={{ background: '#F7F7F7', border: `1px solid ${LINE}`, borderRadius: 10, padding: 18, margin: '22px 24px 0' }}>
       <div style={{ fontSize: 12, color: MUTE, marginBottom: 3 }}>Numéro de commande</div>
-      <div style={{ fontSize: 14.5, fontWeight: 800, color: INK, marginBottom: 16 }}>#{String(order.id).slice(0, 8).toUpperCase()}</div>
+      <div style={{ fontSize: 14.5, fontWeight: 800, color: INK, marginBottom: 16 }}>#{shortRef(order)}</div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
         <div>
           <div style={{ fontSize: 12, fontWeight: 700, color: INK, marginBottom: 6 }}>Date de commande :</div>
@@ -168,11 +162,14 @@ useEffect(() => {
   const allItems = (order.sub_orders || []).flatMap(so => (so.items || []).map(it => ({ ...it, supplierName: so.supplier_name })))
 
   return (
-    <div style={{ background: '#F4F5F7', minHeight: '100vh', fontFamily: FONT, padding: isMobile ? 0 : '32px 0' }}>
-      <div style={{ maxWidth: 640, margin: '0 auto', background: '#fff', borderRadius: isMobile ? 0 : 14, overflow: 'hidden', boxShadow: isMobile ? 'none' : '0 8px 30px rgba(0,0,0,.06)' }}>
-        <Banner />
-        <Stepper status={order.status} />
+    <div style={{ background: '#F4F5F7', minHeight: '100vh', fontFamily: FONT }}>
+      <Banner />
 
+      <div style={{ padding: isMobile ? 0 : '32px 24px' }}>
+        <div style={{ width: '100%', background: '#fff', borderRadius: isMobile ? 0 : 14, overflow: 'hidden', boxShadow: isMobile ? 'none' : '0 8px 30px rgba(0,0,0,.06)' }}>
+          <Stepper status={order.status} />
+
+        <div style={{ maxWidth: 720, margin: '0 auto' }}>
         <div style={{ textAlign: 'center', padding: '4px 24px 0' }}>
           <h1 style={{ fontSize: 22, fontWeight: 800, color: INK, margin: '0 0 10px' }}>
             {order.status === 'cancelled' ? 'Commande annulée' : 'Votre commande est confirmée !'}
@@ -200,7 +197,9 @@ useEffect(() => {
           </p>
           <p style={{ fontSize: 12.5, fontWeight: 800, color: INK, margin: 0 }}>L'équipe GROSHOP</p>
         </div>
+        </div>
       </div>
+    </div>
     </div>
   )
 }

@@ -2,6 +2,7 @@
 // Section "Catégories populaires" — placée entre HeroSearch et HeroGrid.
 // Utilise products.categories() qui met en cache la réponse : pas de double
 // fetch avec Header (mega menu), même endpoint réseau taperait qu'une fois.
+// Cartes rondes — même style que SubCategoryItem dans le header.
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -26,18 +27,15 @@ if (typeof document !== 'undefined' && !document.getElementById('pc-styles')) {
     }
     .pc-scroll::-webkit-scrollbar { display: none; }
 
-    /* Cartes */
-    .pc-card       { cursor: pointer; transition: transform .25s ease; }
-    .pc-card:hover { transform: translateY(-3px); }
-    .pc-card:hover .pc-card-img {
-      border-color: #ff5e20;
-      box-shadow: 0 12px 26px rgba(255,94,32,.20);
-    }
-    .pc-card:hover .pc-card-label { color: #ff5e20; }
+    /* Cartes rondes */
+    .pc-card       { cursor: pointer; transition: transform .2s ease; }
+    .pc-card:hover { transform: scale(1.04); }
+    .pc-card:hover .pc-card-circle { background: #EAECEF; }
+    .pc-card:hover .pc-card-label { color: #1668FF; }
 
     /* Zoom léger sur l'image au survol */
-    .pc-card-img img { transition: transform .35s ease; }
-    .pc-card:hover .pc-card-img img { transform: scale(1.06); }
+    .pc-card-circle img { transition: transform .35s ease; }
+    .pc-card:hover .pc-card-circle img { transform: scale(1.06); }
 
     /* Boutons flèches */
     .pc-nav-btn        { transition: background .2s, box-shadow .2s, transform .2s; }
@@ -50,7 +48,7 @@ if (typeof document !== 'undefined' && !document.getElementById('pc-styles')) {
     .pc-skel { animation: pc-skel-pulse 1.5s ease-in-out infinite; }
 
     @media (prefers-reduced-motion: reduce) {
-      .pc-scroll, .pc-card, .pc-nav-btn, .pc-skel, .pc-card-img img {
+      .pc-scroll, .pc-card, .pc-nav-btn, .pc-skel, .pc-card-circle img {
         transition: none !important;
         scroll-behavior: auto !important;
         animation: none !important;
@@ -61,17 +59,13 @@ if (typeof document !== 'undefined' && !document.getElementById('pc-styles')) {
 }
 
 // ── Icône Lucide dynamique (fallback ultime : Grid) ───────────
-function CatIcon({ name, size = 44, color = '#6B7280' }) {
+function CatIcon({ name, size = 40, color = '#6B7280' }) {
   const Icon = name ? Icons[name] : null
   if (!Icon) return <Icons.Grid size={size} color={color} strokeWidth={1.4} />
   return <Icon size={size} color={color} strokeWidth={1.4} />
 }
 
 // ── Cascade de fallback pour la vignette ──────────────────────
-// 1) image_url sur la catégorie elle-même
-// 2) image_url de la première sous-catégorie qui en a une
-//    (le backend renvoie souvent les images sur les subs, pas sur les cats)
-// 3) null → on affichera <CatIcon> (icône Lucide ou Grid par défaut)
 function pickImage(cat) {
   return cat.image_url || null
 }
@@ -81,16 +75,19 @@ function SkeletonCard() {
   return (
     <div style={{
       flex: '0 0 auto',
-      width: 'clamp(120px, 14vw, 170px)',
+      width: 'clamp(110px, 12vw, 135px)',
+      textAlign: 'center',
     }}>
       <div className="pc-skel" style={{
-        aspectRatio: '1 / 1',
+        width: 'clamp(90px, 10vw, 120px)',
+        height: 'clamp(90px, 10vw, 120px)',
         background: '#F4F5F7',
-        borderRadius: '12px',
+        borderRadius: '50%',
+        margin: '0 auto',
       }} />
       <div className="pc-skel" style={{
-        height: '12px',
-        width: '70%',
+        height: '11px',
+        width: '65%',
         margin: '12px auto 0',
         background: '#F4F5F7',
         borderRadius: '4px',
@@ -99,7 +96,7 @@ function SkeletonCard() {
   )
 }
 
-// ── Carte catégorie ───────────────────────────────────────────
+// ── Carte catégorie (ronde) ────────────────────────────────────
 function CategoryCard({ cat, onClick }) {
   const [imgFailed, setImgFailed] = useState(false)
   const imgSrc  = pickImage(cat)
@@ -119,24 +116,25 @@ function CategoryCard({ cat, onClick }) {
       }}
       style={{
         flex: '0 0 auto',
-        width: 'clamp(120px, 14vw, 170px)',
+        width: 'clamp(110px, 12vw, 135px)',
         scrollSnapAlign: 'start',
+        textAlign: 'center',
       }}
     >
-      {/* Vignette : image en pleine surface, cover, coins arrondis clippent */}
+      {/* Vignette ronde */}
       <div
-        className="pc-card-img"
+        className="pc-card-circle"
         style={{
-          position: 'relative',
-          aspectRatio: '1 / 1',
-          background: '#F4F5F7',
-          borderRadius: '12px',
-          border: '1.5px solid transparent',
+          width: 'clamp(90px, 10vw, 120px)',
+          height: 'clamp(90px, 10vw, 120px)',
+          margin: '0 auto',
+          borderRadius: '50%',
+          background: '#F2F3F5',
           overflow: 'hidden',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          transition: 'border-color .25s, box-shadow .25s',
+          transition: 'background .2s',
         }}
       >
         {showImg ? (
@@ -162,18 +160,21 @@ function CategoryCard({ cat, onClick }) {
       <div
         className="pc-card-label"
         style={{
-          textAlign: 'center',
-          marginTop: '10px',
-          fontSize: '13.5px',
-          fontWeight: 600,
-          color: '#374151',
+          marginTop: '12px',
+          fontSize: '13px',
+          fontWeight: 500,
+          color: '#1F2937',
           fontFamily: '"DM Sans", sans-serif',
           letterSpacing: '-.1px',
-          transition: 'color .2s',
+          transition: 'color .15s',
+          lineHeight: 1.35,
+          display: '-webkit-box',
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: 'vertical',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
           padding: '0 4px',
+          minHeight: '35px',
         }}
       >
         {cat.name}
@@ -245,9 +246,7 @@ export default function PopularCategories({ limit = 20 }) {
     el.scrollBy({ left: dir === 'left' ? -step : step, behavior: 'smooth' })
   }
 
-  // Ajuste la route ici si ton router utilise autre chose
-  // (par ex. `/produits?category=${cat.slug}` ou `/c/${cat.slug}`).
-// Tap sur une sous-catégorie → recherche par son nom
+  // Tap sur une sous-catégorie → recherche par son nom
   const goTo = (sub) => {
     navigate(`/search?q=${encodeURIComponent(sub.name)}`)
   }
@@ -262,45 +261,46 @@ export default function PopularCategories({ limit = 20 }) {
       fontFamily: '"DM Sans", -apple-system, sans-serif',
     }}>
 
-      {/* ══ En-tête ══ */}
-      <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-        <div style={{
-          fontSize: '12px',
-          letterSpacing: '2.5px',
-          color: '#9AA3AE',
+      {/* ══ Bandeau promo orange ══ */}
+      <div style={{
+        background: ORANGE ,
+        padding: '10px 20px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '8px',
+        marginBottom: '2rem',
+      }}>
+        <Icons.Megaphone size={15} color="#fff" strokeWidth={2} />
+        <span style={{
+          color: '#fff',
+          fontSize: '13px',
           fontWeight: 500,
-          marginBottom: '10px',
-          textTransform: 'uppercase',
+          textAlign: 'center',
         }}>
-          Explorez nos rayons
-        </div>
+          Bienvenue sur GROSHOP ! Profitez de nouvelles offres chaque week-end — Code promo : GROSHOP2026
+        </span>
+      </div>
 
+      {/* ══ En-tête — titre gras centré + petit trait, comme "Deals Of The Day" ══ */}
+      <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
         <h2 style={{
-          fontSize: 'clamp(26px, 3vw, 38px)',
+          fontSize: 'clamp(18px, 1.8vw, 22px)',
           fontWeight: 700,
-          color: '#0F1419',
+          color: '#424141',
           margin: '0 0 10px',
-          lineHeight: 1.15,
-          letterSpacing: '-0.5px',
+          letterSpacing: '0.2px',
         }}>
-          Catégories <span style={{ color: ORANGE_DEEP }}>populaires</span>
+          Catégories populaires
         </h2>
 
         <div style={{
-          width: '44px',
+          width: '46px',
           height: '3px',
-          background: ORANGE_DEEP,
+          background: ORANGE,
           borderRadius: '2px',
-          margin: '0 auto 14px',
+          margin: '0 auto',
         }} />
-
-        <p style={{
-          color: '#6B7280',
-          fontSize: '15px',
-          margin: 0,
-        }}>
-          Tous les rayons professionnels au même endroit
-        </p>
       </div>
 
       {/* ══ Erreur ══ */}
@@ -389,7 +389,7 @@ export default function PopularCategories({ limit = 20 }) {
             className="pc-scroll"
             style={{
               display: 'flex',
-              gap: '14px',
+              gap: '18px',
               overflowX: 'auto',
               padding: '8px 4px 20px',
               scrollSnapType: 'x mandatory',

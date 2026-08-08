@@ -35,7 +35,8 @@ const DesktopTrending = ({ products = [] }) => {
       });
     }
   };
-
+  const ORANGE_DEEP = '#ff8820'
+const ORANGE = '#ff5e20'
   // ===== STYLES =====
   const styles = {
     section: {
@@ -48,61 +49,74 @@ const DesktopTrending = ({ products = [] }) => {
     },
     container: { maxWidth: '1400px', margin: '0 auto' },
 
-    // ═══════════ HEADER — centré, minimal ═══════════
-    header: {
-      textAlign: 'center',
-      marginBottom: '26px',
-    },
-    eyebrow: {
-      fontSize: '11px',
-      fontWeight: 500,
-      letterSpacing: '2.4px',
-      textTransform: 'uppercase',
-      color: '#9AA3AE',
-      margin: '0 0 10px 0',
+    // ═══════════ HEADER — titre seul, ligne orange en dessous du titre ═══════════
+    headerRow: {
+      marginBottom: '32px',
     },
     title: {
       fontFamily: "'DM Sans', sans-serif",
-      fontSize: '42px',
-      fontWeight: 700,
+      fontSize: '32px',
+      fontWeight: 400,
       color: '#0F1419',
-      letterSpacing: '-1px',
+      letterSpacing: '-0.3px',
       margin: 0,
       lineHeight: 1.1,
+      display: 'inline-block',
+      paddingBottom: '14px',
+      borderBottom: `3px solid ${ORANGE}`,
     },
-    titleNum: { color: '#ff5e20' },
-    subtitle: {
-      fontSize: '13.5px',
-      color: '#6B7785',
-      margin: '10px 0 0 0',
-      fontWeight: 400,
-    },
+    titleNum: { color: '#0F1419', fontWeight: 400 },
 
-    // ═══════════ TABS — centrés ═══════════
-    tabsRow: {
-      borderTop: '1px solid #EDF0F2',
-      paddingTop: '16px',
-      marginBottom: '32px',
+    // ═══════════ Rangée tabs + flèches — juste au-dessus des cartes produits ═══════════
+    tabsAboveCards: {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      position: 'relative',
+      gap: '16px',
+      flexWrap: 'wrap',
+      marginBottom: '14px',
     },
     tabs: {
       display: 'flex',
+      alignItems: 'center',
       justifyContent: 'center',
       flexWrap: 'wrap',
-      gap: '22px',
+      gap: '20px',
     },
     tab: (active) => ({
       background: 'none', border: 'none',
-      fontSize: '11.5px',
+      fontSize: '13px',
       fontWeight: active ? 700 : 500,
-      color: active ? '#ff5e20' : '#9AA3AE',
+      color: active ? '#0F1419' : '#9AA3AE',
       cursor: 'pointer',
-      padding: '0 0 6px 0',
-      letterSpacing: '1px',
+      padding: '0',
       transition: 'all 0.2s',
-      borderBottom: active ? '2px solid #ff5e20' : '2px solid transparent',
-      textTransform: 'uppercase',
       fontFamily: 'inherit',
+      whiteSpace: 'nowrap',
     }),
+
+    headerArrows: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+      flexShrink: 0,
+      position: 'absolute',
+      right: 0,
+      top: '50%',
+      transform: 'translateY(-50%)',
+    },
+    headerArrowBtn: {
+      width: '30px', height: '30px',
+      borderRadius: '50%',
+      background: '#fff',
+      border: '1px solid #E3E6EA',
+      cursor: 'pointer',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      transition: 'all 0.2s',
+      fontSize: '14px', color: '#0F1419', fontWeight: 700,
+      flexShrink: 0,
+    },
 
     content: {
       display: 'grid',
@@ -147,7 +161,7 @@ const DesktopTrending = ({ products = [] }) => {
 
     rightColumn: {
       display: 'flex',
-      alignItems: 'center',
+      flexDirection: 'column',
       justifyContent: 'center',
       minWidth: 0,
       width: '100%',
@@ -164,22 +178,6 @@ const DesktopTrending = ({ products = [] }) => {
       scrollbarWidth: 'none',
       msOverflowStyle: 'none',
     },
-    scrollArrow: (side) => ({
-      position: 'absolute',
-      [side]: '-14px',
-      top: '50%',
-      transform: 'translateY(-50%)',
-      width: '40px', height: '40px',
-      borderRadius: '50%',
-      background: '#fff',
-      border: '1px solid #f0f0f0',
-      boxShadow: '0 4px 14px rgba(0, 0, 0, 0.1)',
-      cursor: 'pointer',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      zIndex: 10,
-      transition: 'all 0.2s',
-      fontSize: '16px', color: '#6B35FF', fontWeight: 700,
-    }),
 
     productCard: (hovered) => ({
       flex: '0 0 220px',
@@ -191,7 +189,6 @@ const DesktopTrending = ({ products = [] }) => {
       transition: 'all 0.25s ease',
       cursor: 'pointer',
       transform: hovered ? 'translateY(-4px)' : 'translateY(0)',
-      boxShadow: hovered ? '0 14px 30px rgba(107, 53, 255, 0.13)' : '0 1px 3px rgba(0, 0, 0, 0.04)',
       display: 'flex',
       flexDirection: 'column',
       textDecoration: 'none',
@@ -211,7 +208,7 @@ const DesktopTrending = ({ products = [] }) => {
     trendingBadge: {
       position: 'absolute',
       top: '10px', left: '10px',
-      background: '#ff5e20',
+      background: `linear-gradient(135deg, ${ORANGE_DEEP} 0%, ${ORANGE} 100%)`, 
       color: '#fff',
       padding: '4px 9px',
       borderRadius: '4px',
@@ -271,31 +268,27 @@ const DesktopTrending = ({ products = [] }) => {
           .trending-scroll::-webkit-scrollbar { display: none; }
         `}</style>
 
-        {/* === HEADER — centré minimal === */}
-        <div style={styles.header}>
-          <p style={styles.eyebrow}>Actualisé toutes les heures</p>
-          <h2 style={styles.title}>
-            Tendances des <span style={styles.titleNum}>48H</span>
-          </h2>
-          <p style={styles.subtitle}>
-            Produits les plus commandés cette semaine
-          </p>
-        </div>
+        {/* === HEADER — titre seul, souligné en orange === */}
+      {/* ══ En-tête — titre gras centré + petit trait, comme "Deals Of The Day" ══ */}
+      <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
+        <h2 style={{
+          fontSize: 'clamp(18px, 1.8vw, 22px)',
+          fontWeight: 700,
+          color: '#424141',
+          margin: '0 0 10px',
+          letterSpacing: '0.2px',
+        }}>
+          Best Sellers
+        </h2>
 
-        {/* === TABS === */}
-        <div style={styles.tabsRow}>
-          <div style={styles.tabs}>
-            {categories.map(cat => (
-              <button
-                key={cat}
-                onClick={() => setActiveCategory(cat)}
-                style={styles.tab(activeCategory === cat)}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-        </div>
+        <div style={{
+          width: '46px',
+          height: '3px',
+          background: ORANGE,
+          borderRadius: '2px',
+          margin: '0 auto',
+        }} />
+      </div>
 
         {/* === CONTENT === */}
         <div style={styles.content}>
@@ -318,44 +311,52 @@ const DesktopTrending = ({ products = [] }) => {
           </div>
 
           <div style={styles.rightColumn}>
+
+            {/* Tabs + flèches — juste au-dessus des cartes produits */}
+            <div style={styles.tabsAboveCards}>
+              <div style={styles.tabs}>
+                {categories.map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => setActiveCategory(cat)}
+                    style={styles.tab(activeCategory === cat)}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+
+              <div style={styles.headerArrows}>
+                <button
+                  onClick={() => scroll('left')}
+                  style={styles.headerArrowBtn}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = '#F5F6F8';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = '#fff';
+                  }}
+                  aria-label="Précédent"
+                >
+                  ←
+                </button>
+                <button
+                  onClick={() => scroll('right')}
+                  style={styles.headerArrowBtn}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = '#F5F6F8';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = '#fff';
+                  }}
+                  aria-label="Suivant"
+                >
+                  →
+                </button>
+              </div>
+            </div>
+
             <div style={styles.scrollWrapper}>
-
-              <button
-                onClick={() => scroll('left')}
-                style={styles.scrollArrow('left')}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'linear-gradient(135deg, #1a1aff, #6B35FF)';
-                  e.currentTarget.style.color = '#fff';
-                  e.currentTarget.style.transform = 'translateY(-50%) scale(1.1)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = '#fff';
-                  e.currentTarget.style.color = '#6B35FF';
-                  e.currentTarget.style.transform = 'translateY(-50%) scale(1)';
-                }}
-                aria-label="Précédent"
-              >
-                ←
-              </button>
-
-              <button
-                onClick={() => scroll('right')}
-                style={styles.scrollArrow('right')}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'linear-gradient(135deg, #1a1aff, #6B35FF)';
-                  e.currentTarget.style.color = '#fff';
-                  e.currentTarget.style.transform = 'translateY(-50%) scale(1.1)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = '#fff';
-                  e.currentTarget.style.color = '#6B35FF';
-                  e.currentTarget.style.transform = 'translateY(-50%) scale(1)';
-                }}
-                aria-label="Suivant"
-              >
-                →
-              </button>
-
               <div
                 ref={scrollRef}
                 className="trending-scroll"

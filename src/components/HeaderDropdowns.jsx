@@ -26,14 +26,14 @@ L.Icon.Default.mergeOptions({
 
 const fetchMessages = () => messaging.conversations()
 const fetchOrders   = () => orders.list()
-
+const ORANGE_DEEP = '#ff8820'
 const ORANGE = '#ff5e20'
 const INK    = '#0F1419'
 const MUTE   = '#6B7785'
 const FAINT  = '#9AA3AE'
 const LINE   = '#E8EAED'
 const SOFT   = '#FFF4EE'
-
+const BLUE       = '#1F8EFF'
 const asText = (v) => {
   if (v == null) return ''
   if (typeof v === 'string' || typeof v === 'number') return String(v)
@@ -332,11 +332,7 @@ export function OrdersDropdown() {
 }
 
 // CartDropdown.jsx — GROSHOP.tn
-// Remplace le CartDropdown existant dans HeaderDropdowns.jsx.
-// Design calqué sur la référence (icône panier + badge, "Total" à droite,
-// lignes produit avec miniature/nom/prix/quantité, bouton pleine largeur),
-// mais avec la palette orange du site (ORANGE, INK, MUTE, FAINT, LINE, SOFT
-// déjà définis en haut de HeaderDropdowns.jsx).
+
 
 export function CartDropdown() {
   const { items = [], count = 0 } = useCart()
@@ -370,7 +366,7 @@ export function CartDropdown() {
           </span>
         </div>
         <div style={{ fontSize: 13.5, color: MUTE }}>
-          Total : <span style={{ color: MUTE, fontWeight: 800 }}>{fmtPrice(total)} TND</span>
+          Total : <span style={{ color: BLUE, fontWeight: 800 }}>{fmtPrice(total)} TND</span>
         </div>
       </div>
 
@@ -394,7 +390,7 @@ export function CartDropdown() {
                 {asText(p.name)}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: MUTE }}>{fmtPrice(item.unit_price_tnd)} TND</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: BLUE }}>{fmtPrice(item.unit_price_tnd)} TND</span>
                 <span style={{ fontSize: 12, color: MUTE }}>
                   Quantité : <span style={{ textDecoration: 'underline', textDecorationColor: FAINT }}>{qty}</span>
                 </span>
@@ -414,7 +410,7 @@ export function CartDropdown() {
         <div style={{ padding: '14px 18px 16px' }}>
           <Link to="/panier" style={{
             display: 'block', textAlign: 'center', padding: '13px',
-            background: ORANGE, color: '#fff', borderRadius: 30,
+            background: `linear-gradient(135deg, ${ORANGE_DEEP} 0%, ${ORANGE} 100%)`, boxShadow: '0 6px 20px rgba(255,94,32,.45)', color: '#fff', borderRadius: 30,
             fontSize: 14, fontWeight: 700, textDecoration: 'none',
           }}>
             Commander

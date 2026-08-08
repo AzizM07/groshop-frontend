@@ -386,10 +386,10 @@ export const orders = {
     return request(`/orders/supplier/${q ? '?' + q : ''}`)
   },
 
-  async updateSubOrderStatus(id, status) {
+  async updateSubOrderStatus(id, status, extra = {}) {
     return request(`/orders/supplier/${id}/`, {
       method: 'PATCH',
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ status, ...extra }),
     })
   },
 }

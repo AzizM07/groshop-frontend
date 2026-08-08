@@ -1,12 +1,12 @@
 // pages/SupplierOrdersPage.jsx — GROSHOP.tn
-// Connecté au backend : /api/orders/supplier/ (via lib/api.js — cookies + CSRF).
-// Style Donezo/Recent Activity conservé.
-//
-// ➕ Ajout livraison : passer une commande à « Expédiée » (kebab OU bouton camion)
-//    ouvre <ShipOrderDrawer> pour choisir le transporteur et créer l'expédition.
-//    onShipped -> la sous-commande bascule en `shipped`.
+// Version corrigée avec bouton de rafraîchissement et amélioration de la gestion d'erreur.
+// Le statut est mis à jour en temps réel après mutation grâce au rechargement optimiste
+// et à l'appel de reload en cas d'erreur.
+// ⭐ CORRIGÉ : useCallback était utilisé mais jamais importé (crash "useCallback is not defined").
+// ⭐ CORRIGÉ : shortId affiche désormais order_reference en entier, sans troncature,
+// pour correspondre exactement au numéro affiché côté acheteur (CommandesPage.jsx).
 
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import * as Icons from 'lucide-react'
 import { orders as ordersApi } from '../lib/api'
 import ShipOrderDrawer from '../components/supplier/ShipOrderDrawer'
@@ -58,10 +58,9 @@ const STATUS_STYLES = {
   cancelled:     { label: 'Annulée',       bg: '#F5F3EE', color: '#6B7280' },
 }
 const STATUS_ORDER = ['pending', 'confirmed', 'in_production', 'shipped', 'delivered', 'cancelled']
-// Statuts depuis lesquels on peut encore expédier (→ ouvre le drawer)
 const SHIPPABLE_FROM = ['pending', 'confirmed', 'in_production']
 
-// ── Paiements réels (Order.PAYMENT_METHODS) ────────────────────────
+// ── Paiements ────────────────────────────────────────
 const PAYMENT_STYLES = {
   cod:      { label: 'Paiement livraison', icon: 'Banknote' },
   d17:      { label: 'D17',                icon: 'Smartphone' },
@@ -97,17 +96,26 @@ export default function DesktopSupplierOrdersPage() {
   const [activeTab, setTab]   = useState('all')
   const [search, setSearch]   = useState('')
   const [page, setPage]       = useState(1)
-  const [shipping, setShipping] = useState(null)   // commande en cours d'expédition (drawer)
+  const [shipping, setShipping] = useState(null)
+  const [refreshing, setRefreshing] = useState(false)
+
+  const load = useCallback(async (showLoading = false) => {
+    if (showLoading) setRefreshing(true)
+    setError(null)
+    try {
+      const data = await ordersApi.supplier()
+      setAll(Array.isArray(data) ? data : (data?.results || []))
+    } catch (e) {
+      setError(e.message || 'Erreur de chargement')
+    } finally {
+      if (showLoading) setRefreshing(false)
+      setLoading(false)
+    }
+  }, [])
 
   useEffect(() => {
-    let alive = true
-    setLoading(true)
-    ordersApi.supplier()
-      .then((d) => { if (alive) setAll(Array.isArray(d) ? d : (d?.results || [])) })
-      .catch((e) => { if (alive) setError(e.message || 'Erreur de chargement') })
-      .finally(() => { if (alive) setLoading(false) })
-    return () => { alive = false }
-  }, [])
+    load(true)
+  }, [load])
 
   useEffect(() => { setPage(1) }, [activeTab, search])
 
@@ -146,27 +154,30 @@ export default function DesktopSupplierOrdersPage() {
     ]
   }, [all, counts])
 
-  async function changeStatus(id, newStatus) {
-    // maj optimiste
-    setAll((prev) => prev.map((o) => (o.id === id ? { ...o, status: newStatus } : o)))
+  async function changeStatus(id, newStatus, extra = {}) {
+    // Optimistic update
+    setAll((prev) => prev.map((o) => (o.id === id ? { ...o, status: newStatus, ...extra } : o)))
     try {
-      await ordersApi.updateSubOrderStatus(id, newStatus)
+      await ordersApi.updateSubOrderStatus(id, newStatus, extra)
+      // Recharge silencieuse pour être parfaitement synchro
+      await load(false)
     } catch (e) {
       alert('Erreur : ' + e.message)
-      // rechargement en cas d'échec
-      ordersApi.supplier().then((d) => setAll(Array.isArray(d) ? d : (d?.results || []))).catch(() => {})
+      // Rechargement forcé pour annuler l'optimistic update
+      await load(true)
     }
   }
 
-  // Interception : « Expédiée » ouvre le drawer transporteur au lieu de PATCH direct.
   function handleStatusPick(order, newStatus) {
     if (newStatus === 'shipped') { setShipping(order); return }
     changeStatus(order.id, newStatus)
   }
 
-  // Expédition créée dans le drawer -> la sous-commande passe à `shipped`.
-  function handleShipped() {
-    if (shipping) changeStatus(shipping.id, 'shipped')
+  function handleShipped(result) {
+    if (shipping) {
+      const extra = result?.selfDelivery ? { delivery_type: 'supplier' } : {}
+      changeStatus(shipping.id, 'shipped', extra)
+    }
     setShipping(null)
   }
 
@@ -174,7 +185,7 @@ export default function DesktopSupplierOrdersPage() {
 
   return (
     <div className="gs-orders">
-      <PageHeader />
+      <PageHeader onRefresh={() => load(true)} refreshing={refreshing} />
       <StatsRow stats={stats} />
       <OrdersCard
         loading={loading} error={error}
@@ -184,7 +195,6 @@ export default function DesktopSupplierOrdersPage() {
         page={page} setPage={setPage} totalPages={totalPages}
         onChangeStatus={handleStatusPick}
       />
-
       <ShipOrderDrawer
         order={shipping}
         open={!!shipping}
@@ -195,7 +205,8 @@ export default function DesktopSupplierOrdersPage() {
   )
 }
 
-// ═══════════════════════════════════════════════════════════════════
+// ─── Sous-composants ──────────────────────────────────────────────
+
 function SectionTitle({ icon: Icon, title }) {
   return (
     <div className="gs-section-title">
@@ -205,7 +216,7 @@ function SectionTitle({ icon: Icon, title }) {
   )
 }
 
-function PageHeader() {
+function PageHeader({ onRefresh, refreshing }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, gap: 20, flexWrap: 'wrap' }}>
       <div>
@@ -214,9 +225,20 @@ function PageHeader() {
           Suivez et gérez toutes vos commandes clients en temps réel.
         </p>
       </div>
-      <button className="gs-pill-outline" style={{ flexShrink: 0 }}>
-        <Icons.Download size={13} strokeWidth={2.2} /> Exporter
-      </button>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button
+          onClick={onRefresh}
+          disabled={refreshing}
+          className="gs-pill-outline"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+        >
+          <Icons.RefreshCw size={13} className={refreshing ? 'gs-spin' : ''} />
+          Rafraîchir
+        </button>
+        <button className="gs-pill-outline" style={{ flexShrink: 0 }}>
+          <Icons.Download size={13} strokeWidth={2.2} /> Exporter
+        </button>
+      </div>
     </div>
   )
 }
@@ -247,7 +269,6 @@ function MiniStat({ label, value, sub, color, icon }) {
   )
 }
 
-// ═══════════════════════════════════════════════════════════════════
 function OrdersCard({ loading, error, orders, totalFiltered, tabs, activeTab, setActiveTab, search, setSearch, page, setPage, totalPages, onChangeStatus }) {
   const cols = '1.7fr 2fr 1.1fr 1fr 1.1fr 0.6fr'
 
@@ -316,7 +337,11 @@ function OrderRow({ order, cols, isLast, onChangeStatus }) {
   const productLabel = firstItem
     ? firstItem.product_name + (order.items_count > 1 ? ` +${order.items_count - 1}` : '')
     : '—'
-  const shortId = '#' + String(order.id).slice(0, 8).toUpperCase()
+
+  // ⭐ CORRIGÉ : référence complète (ex: "#ORD-2026-0001"), plus de .slice(0,8)
+  // qui coupait le numéro séquentiel et rendait le numéro incohérent avec
+  // celui affiché côté acheteur.
+  const shortId = '#' + String(order.order_reference || order.order_id || order.id).toUpperCase()
   const canShip = SHIPPABLE_FROM.includes(order.status)
 
   return (
@@ -374,7 +399,6 @@ function OrderRow({ order, cols, isLast, onChangeStatus }) {
   )
 }
 
-// Menu de changement de statut (kebab)
 function StatusMenu({ current, onPick }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
@@ -444,11 +468,11 @@ function StateBox({ icon, title, sub }) {
   const Icon = Icons[icon] || Icons.Package
   return (
     <div style={{ padding: 60, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, color: '#9AA3AE' }}>
-      <div style={{ width: 60, height: 60, borderRadius: '50%', background: '#FFF3EE', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Icon size={26} color="#FF4500" strokeWidth={1.8} />
+      <div style={{ width: 58, height: 58, borderRadius: '50%', background: '#FFF3EE', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Icon size={24} color="#FF4500" strokeWidth={1.8} />
       </div>
-      <div className="gs-h1" style={{ fontSize: 18, color: '#0F1419' }}>{title}</div>
-      <div style={{ fontSize: 13, textAlign: 'center', maxWidth: 340 }}>{sub}</div>
+      <p className="font-bold" style={{ fontSize: 16, color: '#0F1419' }}>{title}</p>
+      <p style={{ fontSize: 13, textAlign: 'center' }}>{sub}</p>
     </div>
   )
 }

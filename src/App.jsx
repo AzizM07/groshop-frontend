@@ -1,6 +1,6 @@
 // src/App.jsx
 
-
+import AddressesPage from './pages/AddressesPage'
 import { AuthProvider } from './context/AuthContext'
 import { CartProvider } from './context/CartContext'
 import { UnreadProvider } from './context/UnreadContext'
@@ -46,8 +46,8 @@ import { requestPushToken, onForegroundMessage } from './lib/firebase'
 import { notifications } from './lib/api'
 import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
- 
-const NO_LAYOUT   = ['/login', '/signup', '/pending', '/supplier', '/dashboard', '/categories', '/checkout']
+import OrderConfirmationPage from './pages/OrderConfirmationPage'
+const NO_LAYOUT   = ['/login', '/signup', '/pending', '/supplier', '/dashboard', '/categories', '/checkout','/commande/confirmation']
 const FOOTER_ONLY = ['/devenir-fournisseur']
 
 // Placeholder pour les sous-pages du dashboard pas encore construites
@@ -88,6 +88,7 @@ function AppContent() {
   const isNoLayout = NO_LAYOUT.includes(location.pathname)
                   || location.pathname.startsWith('/supplier')
                   || location.pathname.startsWith('/dashboard')
+                  || location.pathname.startsWith('/commande')
                   || location.pathname.startsWith('/devenir-fournisseur/inscription')
   const isFooterOnly = !isNoLayout && FOOTER_ONLY.includes(location.pathname)
 
@@ -100,6 +101,8 @@ function AppContent() {
         <Route path="/pending"        element={<PendingPage />} />
         <Route path="/categories"     element={<MobileCategoriesPage />} />
         <Route path="/checkout" element={<RequireAuth><CheckoutPage /></RequireAuth>} />
+        <Route path="/commande/confirmation" element={<RequireAuth><OrderConfirmationPage /></RequireAuth>} />
+        <Route path="/dashboard/commandes/:id/confirmation" element={<RequireAuth><OrderConfirmationPage /></RequireAuth>} />
         <Route path="/devenir-fournisseur/inscription" element={<SupplierSignupPage />} />
 
         {/* ═══ Espace acheteur : coque persistante (topbar + sidebar), contenu via <Outlet/> ═══ */}
@@ -110,6 +113,7 @@ function AppContent() {
           <Route path="commandes"    element={<CommandesPage />} />
           <Route path="favoris"      element={<FavorisPage />} />
           <Route path="parametres"   element={<ParametresPage />} />
+          <Route path="addresses" element={<AddressesPage />} />
           {/* commandes/:id (détail), sous-pages parametres, logistique : à construire */}
           <Route path="*"            element={<DashSoon />} />
         </Route>
@@ -126,7 +130,6 @@ function AppContent() {
           <Route path="messages"     element={<SupplierMessagesPage />} />
           <Route path="stats"        element={<SupplierStatsPage />} />
           <Route path="reviews"      element={<SupplierReviewsPage />} />
-          <Route path="promotions"   element={<SupplierPromotionsPage />} />
           <Route path="shop"         element={<SupplierShopPage />} />
           <Route path="settings"     element={<SupplierSettingsPage />} />
         </Route>

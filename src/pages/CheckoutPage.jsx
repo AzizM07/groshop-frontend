@@ -1,14 +1,16 @@
 // src/pages/CheckoutPage.jsx — GROSHOP.tn
+// Cette page ne fait QUE choisir l'adresse + le mode de livraison.
+// Le paiement (total, promo, moyen de paiement) se fait sur l'écran suivant :
+// le bouton "Continuer vers le paiement" y navigue avec l'état nécessaire.
 import { useState, useMemo, useEffect } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import {
-  MapPin, Truck, Ticket, ChevronDown, Lock, Plus,
+  MapPin, Truck, Ticket, ChevronDown, Lock, Plus, ArrowRight,
 } from 'lucide-react'
 import { useCart } from '../context/CartContext'
 import { useAuth } from '../context/AuthContext'
 import { orders as ordersApi, addresses as addressesApi } from '../lib/api'
 import { useIsMobile } from '../hooks/useIsMobile'
-import PhoneVerifyModal from '../components/PhoneVerifyModal'
 
 // --- Leaflet & Map Imports ---
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet'
@@ -24,6 +26,7 @@ L.Icon.Default.mergeOptions({
 
 const ORANGE = '#FF5E00', INK = '#1A1A1A', MUTE = '#7A7A7A', FAINT = '#A0A0A0', LINE = '#EAEAEA', SOFT = '#FFF0E8'
 const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
+const DEFAULT_COORDS = { lat: 36.800095, lng: 10.173364 } // Tunis, par défaut
 
 // Pays / gouvernorats
 const COUNTRIES = [
@@ -41,8 +44,11 @@ const GOUVERNORATS_TN = [
 ]
 const countryName = (code) => (COUNTRIES.find(c => c.code === code) || {}).name || code || 'Tunisie'
 
-// ─── COMPOSANT CARTE LEAFLET (Corrigé pour s'afficher à 100%) ───
-function MapPicker({ initialLat = 36.8, initialLng = 10.18 }) {
+// ─── COMPOSANT CARTE LEAFLET ───
+// onLocationSelect est appelé au clic, au drag du marqueur ET à la géolocalisation,
+// ce qui permet au parent de rester synchronisé avec la position affichée (vue adresse
+// sélectionnée à gauche, ou pin déplacé pendant l'ajout d'une nouvelle adresse).
+function MapPicker({ initialLat = DEFAULT_COORDS.lat, initialLng = DEFAULT_COORDS.lng, onLocationSelect, interactive = true }) {
   const [position, setPosition] = useState({ lat: initialLat, lng: initialLng })
   const [isLocating, setIsLocating] = useState(false)
 
@@ -50,25 +56,30 @@ function MapPicker({ initialLat = 36.8, initialLng = 10.18 }) {
     setPosition({ lat: initialLat, lng: initialLng })
   }, [initialLat, initialLng])
 
+  const updatePosition = (pos) => {
+    setPosition(pos)
+    onLocationSelect?.(pos)
+  }
+
   function LocationMarker() {
     const map = useMapEvents({
       click(e) {
+        if (!interactive) return
         const { lat, lng } = e.latlng
-        setPosition({ lat, lng })
+        updatePosition({ lat, lng })
         map.flyTo(e.latlng, map.getZoom())
       },
     })
     return (
       <Marker
         position={[position.lat, position.lng]}
-        draggable
-        eventHandlers={{
+        draggable={interactive}
+        eventHandlers={interactive ? {
           dragend(e) {
-            const marker = e.target
-            const pos = marker.getLatLng()
-            setPosition({ lat: pos.lat, lng: pos.lng })
+            const pos = e.target.getLatLng()
+            updatePosition({ lat: pos.lat, lng: pos.lng })
           },
-        }}
+        } : {}}
       />
     )
   }
@@ -79,7 +90,7 @@ function MapPicker({ initialLat = 36.8, initialLng = 10.18 }) {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const { latitude, longitude } = pos.coords
-        setPosition({ lat: latitude, lng: longitude })
+        updatePosition({ lat: latitude, lng: longitude })
         setIsLocating(false)
       },
       (err) => {
@@ -92,34 +103,38 @@ function MapPicker({ initialLat = 36.8, initialLng = 10.18 }) {
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
-        <button
-          type="button"
-          onClick={locateUser}
-          disabled={isLocating}
-          style={{ padding: '4px 12px', background: ORANGE, color: '#fff', border: 'none', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
-        >
-          {isLocating ? 'Localisation…' : '📍 Ma position'}
-        </button>
-        <span style={{ fontSize: 11, color: MUTE, alignSelf: 'center' }}>
-          Lat: {position.lat.toFixed(5)}, Lng: {position.lng.toFixed(5)}
-        </span>
-      </div>
-      
+      {interactive && (
+        <div style={{ display: 'flex', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={locateUser}
+            disabled={isLocating}
+            style={{ padding: '4px 12px', background: ORANGE, color: '#fff', border: 'none', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
+          >
+            {isLocating ? 'Localisation…' : '📍 Ma position'}
+          </button>
+          <span style={{ fontSize: 11, color: MUTE, alignSelf: 'center' }}>
+            Lat: {position.lat.toFixed(5)}, Lng: {position.lng.toFixed(5)}
+          </span>
+        </div>
+      )}
+
       {/* Le flex:1 avec min-height force la carte à prendre toute la place */}
       <div style={{ flex: 1, minHeight: 0, borderRadius: 12, overflow: 'hidden', border: `1px solid ${LINE}` }}>
-        <MapContainer 
-          key={`${position.lat}-${position.lng}`} 
-          center={[position.lat, position.lng]} 
-          zoom={15} 
-          style={{ height: '100%', width: '100%' }} 
+        <MapContainer
+          key={`${position.lat}-${position.lng}`}
+          center={[position.lat, position.lng]}
+          zoom={15}
+          style={{ height: '100%', width: '100%' }}
           zoomControl={false}
         >
           <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
           <LocationMarker />
         </MapContainer>
       </div>
-      <div style={{ fontSize: 10, color: FAINT, marginTop: 4 }}>Cliquez sur la carte ou faites glisser le marqueur.</div>
+      {interactive && (
+        <div style={{ fontSize: 10, color: FAINT, marginTop: 4 }}>Cliquez sur la carte ou faites glisser le marqueur.</div>
+      )}
     </div>
   )
 }
@@ -183,54 +198,85 @@ function useCheckout() {
   const [shippingLoading, setShippingLoading] = useState(false)
   const [shipping, setShipping] = useState(null)
 
+  const FALLBACK_SHIPPING = [
+    { id: 0, title: 'Livraison standard', sub: 'Reçu en 3–5 jours', price: 0 },
+    { id: 1, title: 'Livraison express', sub: 'Reçu en 24–48 h', price: 12 },
+  ]
+
   useEffect(() => {
-    if (!selectedAddress) {
-      setShippingOptions([
-        { id: 0, title: 'Livraison standard', sub: 'Reçu en 3–5 jours', price: 0 },
-        { id: 1, title: 'Livraison express', sub: 'Reçu en 24–48 h', price: 12 }
-      ])
-      if (shipping === null) setShipping(0)
+    // Le client API n'expose pas forcément shippingOptions() (selon le backend/version
+    // de ../lib/api) — on ne l'appelle que si elle existe vraiment, sinon fallback direct.
+    const canFetchOptions = typeof ordersApi?.shippingOptions === 'function'
+
+    if (!selectedAddress || !canFetchOptions) {
+      setShippingOptions(FALLBACK_SHIPPING)
+      setShipping(prev => (prev == null ? 0 : prev))
       return
     }
+
+    let alive = true
     setShippingLoading(true)
-    const fetchOptions = async () => {
-      try {
-        const options = await ordersApi.shippingOptions(selectedAddress.id)
-        if (options && Array.isArray(options) && options.length > 0) {
+    ordersApi.shippingOptions(selectedAddress.id)
+      .then(options => {
+        if (!alive) return
+        if (Array.isArray(options) && options.length > 0) {
           setShippingOptions(options)
-          if (!options.some(o => o.id === shipping)) setShipping(options[0].id)
-        } else throw new Error('Empty options')
-      } catch (e) {
-        const fallback = [
-          { id: 0, title: 'Livraison standard', sub: 'Reçu en 3–5 jours', price: 0 },
-          { id: 1, title: 'Livraison express', sub: 'Reçu en 24–48 h', price: 12 }
-        ]
-        setShippingOptions(fallback)
-        if (![0,1].includes(shipping)) setShipping(0)
-      } finally {
-        setShippingLoading(false)
-      }
-    }
-    fetchOptions()
+          setShipping(prev => (options.some(o => o.id === prev) ? prev : options[0].id))
+        } else {
+          throw new Error('Empty options')
+        }
+      })
+      .catch(() => {
+        if (!alive) return
+        setShippingOptions(FALLBACK_SHIPPING)
+        setShipping(prev => ([0, 1].includes(prev) ? prev : 0))
+      })
+      .finally(() => { if (alive) setShippingLoading(false) })
+    return () => { alive = false }
   }, [selectedAddress])
 
-  // ── Reste du checkout (épuré) ──
+  // ── Reste du checkout (épuré : pas de paiement ici) ──
   const [notes, setNotes] = useState('')
-  const [placing, setPlacing] = useState(false)
   const [error, setError] = useState('')
-  const [verifyOpen, setVerifyOpen] = useState(false)
 
-  // La commande sera validée sur la page de paiement suivante
-  // On supprime tout ce qui est paiement/promo/total ici.
+  // Continue vers l'écran de paiement : on valide juste que tout est prêt,
+  // le paiement (total, promo, moyen de paiement) se fait sur l'écran suivant.
+const goToPayment = async () => {
+  if (!user)             { setError('Veuillez vous connecter pour continuer'); return }
+  if (!selected.length)  { setError('Votre panier est vide'); return }
+  if (!selectedAddress)  { setError('Veuillez choisir une adresse de livraison'); return }
+  setError('')
+
+  const payload = {
+    address_id: selectedAddress.id,
+    // TODO : pas encore de sélecteur de mode de paiement côté UI → COD en dur
+    // (paiement en ligne pas encore intégré). À remplacer par le choix réel
+    // une fois d17/flouci/sobflous branchés.
+    payment_method: 'cod',
+    notes: notes.trim(),
+    items: selected.map(i => ({ product_id: i.product.id, quantity: i.quantity })),
+  }
+
+  try {
+    const created = await ordersApi.create(payload)
+    // COD = pas de paiement en ligne à faire → direct confirmation
+    if (payload.payment_method === 'cod') {
+  navigate('/commande/confirmation', { state: { order: created } })
+} else {
+  navigate('/checkout/paiement', { state: { orderId: created.id } })
+}
+  } catch (e) {
+    setError(e.data?.error || e.message || 'Erreur lors de la création de la commande')
+  }
+}
 
   return {
     selected, user,
     addresses, addrLoading, selectedAddress, selectAddress: setSelectedAddressId, addAddress, addingAddress,
     shippingOptions, shippingLoading, shipping, setShipping,
     notes, setNotes,
-    placing, error, setError, placeOrder: () => {}, // Désactivé ici car retiré
+    error, goToPayment,
     navigate,
-    verifyOpen, closeVerify: () => setVerifyOpen(false), onVerified: () => {},
   }
 }
 
@@ -266,7 +312,7 @@ function ShippingTile({ active, title, sub, price, onClick }) {
         <div style={{ fontSize: 13.5, fontWeight: 700, color: INK }}>{title}</div>
         <div style={{ fontSize: 11.5, color: MUTE, marginTop: 2 }}>{sub}</div>
       </div>
-      <span style={{ fontSize: 13, fontWeight: 800 }}>{price <= 0 ? 'Gratuit' : `${price.toLocaleString('fr-FR')} TND`}</span>
+      <span style={{ fontSize: 13, fontWeight: 800 }}>{price <= 0 ? 'Gratuit' : `${Number(price).toLocaleString('fr-FR')} TND`}</span>
       <span style={{ width: 20, height: 20, borderRadius: '50%', flexShrink: 0, border: `2px solid ${active ? ORANGE : '#CCC'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         {active && <span style={{ width: 10, height: 10, borderRadius: '50%', background: ORANGE }} />}
       </span>
@@ -275,33 +321,47 @@ function ShippingTile({ active, title, sub, price, onClick }) {
 }
 
 // ─── FORMULAIRE ADRESSE ───
-function AddressForm({ onCancel, onSave, adding, allowCancel = true, initialCoords, onCoordsChange }) {
-  const [f, setF] = useState({ full_name: '', phone: '', country: 'TN', region: '', city: '', postal_code: '', street: '', additional: '', is_default: false })
+function AddressForm({ onCancel, onSave, adding, allowCancel = true, coords }) {
+  const [f, setF] = useState({ full_name: '', phone: '', country: 'TN', region: '', city: '', postal_code: '', street: '', additional: '', is_default: false, latitude: null, longitude: null })
   const [isGeocoding, setIsGeocoding] = useState(false)
   const set = (k, v) => setF(s => ({ ...s, [k]: v }))
   const valid = f.full_name.trim() && f.phone.trim() && f.street.trim() && f.city.trim() && f.region.trim()
 
-  useEffect(() => { if (initialCoords) { set('latitude', initialCoords.lat); set('longitude', initialCoords.lng) } }, [initialCoords])
   useEffect(() => {
-    if (!initialCoords?.lat || !initialCoords?.lng) return
+    if (!coords) return
+    set('latitude', coords.lat)
+    set('longitude', coords.lng)
+  }, [coords?.lat, coords?.lng])
+
+  // Reverse-geocoding (Nominatim) : remplit automatiquement les champs quand le pin bouge.
+  useEffect(() => {
+    if (!coords?.lat || !coords?.lng) return
+    let alive = true
     const geocode = async () => {
       setIsGeocoding(true)
       try {
-        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${initialCoords.lat}&lon=${initialCoords.lng}`)
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${coords.lat}&lon=${coords.lng}`)
         const data = await res.json()
         const addr = data?.address
-        if (addr) {
+        if (addr && alive) {
           setF(prev => ({
-            ...prev, street: addr.road || prev.street, city: addr.city || addr.town || prev.city,
-            region: addr.state || addr.region || prev.region, postal_code: addr.postcode || prev.postal_code,
+            ...prev,
+            street: addr.road || prev.street,
+            city: addr.city || addr.town || prev.city,
+            region: addr.state || addr.region || prev.region,
+            postal_code: addr.postcode || prev.postal_code,
             country: addr.country_code ? addr.country_code.toUpperCase() : prev.country,
           }))
         }
-      } catch (err) { console.error("Erreur Reverse Geocoding:", err) } 
-      finally { setIsGeocoding(false) }
+      } catch (err) {
+        console.error('Erreur reverse geocoding:', err)
+      } finally {
+        if (alive) setIsGeocoding(false)
+      }
     }
     geocode()
-  }, [initialCoords?.lat, initialCoords?.lng])
+    return () => { alive = false }
+  }, [coords?.lat, coords?.lng])
 
   return (
     <div style={{ border: `1px solid ${LINE}`, borderRadius: 12, padding: 14, display: 'flex', flexDirection: 'column', gap: 10, background: '#fff' }}>
@@ -335,10 +395,10 @@ function AddressForm({ onCancel, onSave, adding, allowCancel = true, initialCoor
 }
 
 // ─── ADDRESS PICKER ───
-function AddressPicker({ addresses, loading, selectedId, onSelect, onAdd, adding, user, isFormOpen, setIsFormOpen, coords, onCoordsChange }) {
+function AddressPicker({ addresses, loading, selectedId, onSelect, onAdd, adding, user, isFormOpen, setIsFormOpen, coords }) {
   if (!user) return <div style={{ border: `1px dashed ${LINE}`, borderRadius: 12, padding: 16, fontSize: 13.5, color: MUTE, textAlign: 'center' }}><Link to="/login" style={{ color: ORANGE, fontWeight: 700, textDecoration: 'underline' }}>Connectez-vous</Link> pour utiliser vos adresses.</div>
   if (loading) return <div style={{ padding: '18px 0', fontSize: 13, color: FAINT }}>Chargement de vos adresses…</div>
-  
+
   const empty = addresses.length === 0
   const showForm = isFormOpen || empty
   return (
@@ -358,7 +418,7 @@ function AddressPicker({ addresses, loading, selectedId, onSelect, onAdd, adding
         )
       })}
       {showForm ? (
-        <AddressForm adding={adding} allowCancel={!empty} onCancel={() => setIsFormOpen(false)} onSave={async (form) => { await onAdd(form); setIsFormOpen(false) }} initialCoords={coords} onCoordsChange={onCoordsChange} />
+        <AddressForm adding={adding} allowCancel={!empty} onCancel={() => setIsFormOpen(false)} onSave={async (form) => { await onAdd(form); setIsFormOpen(false) }} coords={coords} />
       ) : (
         <button type="button" onClick={() => setIsFormOpen(true)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', border: `1.4px dashed ${ORANGE}`, background: '#fff', color: ORANGE, borderRadius: 12, padding: '13px', fontSize: 13.5, fontWeight: 700, cursor: 'pointer' }}><Plus size={16} /> Ajouter une adresse</button>
       )}
@@ -370,27 +430,32 @@ function AddressPicker({ addresses, loading, selectedId, onSelect, onAdd, adding
 // ══════════ DESKTOP (2 colonnes, PAS DE SCROLL, CARTE À DROITE) ══════════
 function DesktopCheckout(c) {
   const [isAddressFormOpen, setIsAddressFormOpen] = useState(false)
-  const [mapCoords, setMapCoords] = useState({ lat: 36.800095, lng: 10.173364 })
-  
-  // Synchronisation automatique : si l'adresse change à gauche, la carte bouge à droite
+  const [coords, setCoords] = useState(DEFAULT_COORDS)
+
+  // Synchronisation automatique : si l'adresse change à gauche, la carte bouge à droite.
+  // On ne resynchronise pas pendant l'ajout d'une nouvelle adresse, pour ne pas
+  // écraser le pin que l'utilisateur est en train de positionner.
   useEffect(() => {
-    if (!c.selectedAddress) return
+    if (isAddressFormOpen || !c.selectedAddress) return
     const addr = c.selectedAddress
     if (addr.latitude && addr.longitude) {
-      setMapCoords({ lat: parseFloat(addr.latitude), lng: parseFloat(addr.longitude) })
+      setCoords({ lat: parseFloat(addr.latitude), lng: parseFloat(addr.longitude) })
       return
     }
-    const query = `${addr.street}, ${addr.city}, ${addr.region}, ${addr.postal_code}, ${addr.country}`
-    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`)
+    let alive = true
+    const query = [addr.street, addr.city, addr.region, addr.postal_code, addr.country].filter(Boolean).join(', ')
+    if (!query) return
+    fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`)
       .then(res => res.json())
-      .then(data => { if (data && data.length > 0) setMapCoords({ lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) }) })
+      .then(data => { if (alive && data?.[0]) setCoords({ lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) }) })
       .catch(console.error)
-  }, [c.selectedAddress])
+    return () => { alive = false }
+  }, [c.selectedAddress, isAddressFormOpen])
 
   return (
     <div style={{ height: '100vh', overflow: 'hidden', background: '#fff', fontFamily: FONT, color: INK, display: 'flex', flexDirection: 'column' }}>
-      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '28px 24px 0 24px', flex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
-        
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '28px 24px 0 24px', flex: 1, display: 'flex', flexDirection: 'column', height: '100%', width: '100%', boxSizing: 'border-box' }}>
+
         {/* Fil d'Ariane */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, marginBottom: 24, flexShrink: 0 }}>
           <Link to="/panier" style={{ color: ORANGE, textDecoration: 'none', fontWeight: 600 }}>Panier</Link>
@@ -400,19 +465,19 @@ function DesktopCheckout(c) {
           <span style={{ color: FAINT }}>Paiement</span>
         </div>
 
-        {/* Layout principal - ni scroll vertical ni horizontal sur la page */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.1fr) 1fr', gap: 32, flex: 1, height: 'calc(100% - 60px)' }}>
-          
-          {/* ─── COLONNE GAUCHE (L'utilisateur peut scroller ici si jamais) ─── */}
+        {/* Layout principal — occupe tout l'espace restant, sans scroll de page */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.1fr) 1fr', gap: 32, flex: 1, minHeight: 0 }}>
+
+          {/* ─── COLONNE GAUCHE (scroll interne si le contenu dépasse) ─── */}
           <div style={{ overflowY: 'auto', height: '100%', paddingBottom: 20, paddingRight: 4 }}>
             <h1 style={{ margin: '0 0 20px', fontSize: 26, fontWeight: 800 }}>Adresse de livraison</h1>
             <AddressPicker
               addresses={c.addresses} loading={c.addrLoading} selectedId={c.selectedAddress?.id ?? null}
               onSelect={c.selectAddress} onAdd={c.addAddress} adding={c.addingAddress} user={c.user}
               isFormOpen={isAddressFormOpen} setIsFormOpen={setIsAddressFormOpen}
-              coords={mapCoords} onCoordsChange={setMapCoords}
+              coords={coords}
             />
-            
+
             <div style={{ marginTop: 20 }}>
               <span style={{ fontSize: 12.5, fontWeight: 600, color: MUTE, display: 'block', marginBottom: 6 }}>Note (optionnel)</span>
               <textarea value={c.notes} onChange={e => c.setNotes(e.target.value)} rows={3} placeholder="Instructions de livraison…"
@@ -431,12 +496,31 @@ function DesktopCheckout(c) {
             </div>
           </div>
 
-          {/* ─── COLONNE DROITE (CARTE 100%) ─── */}
+          {/* ─── COLONNE DROITE (carte, toujours liée à la sélection de gauche) ─── */}
           <aside style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             <div style={{ flex: 1, border: `1px solid ${LINE}`, borderRadius: 16, padding: 12, boxShadow: '0 4px 20px rgba(0,0,0,.04)' }}>
-              <MapPicker initialLat={mapCoords.lat} initialLng={mapCoords.lng} />
+              <MapPicker
+                initialLat={coords.lat}
+                initialLng={coords.lng}
+                onLocationSelect={setCoords}
+                interactive={isAddressFormOpen}
+              />
             </div>
+            {!isAddressFormOpen && c.selectedAddress && (
+              <div style={{ marginTop: 10, fontSize: 12, color: MUTE, textAlign: 'center' }}>
+                📍 {[c.selectedAddress.street, c.selectedAddress.city, c.selectedAddress.region].filter(Boolean).join(', ')}
+              </div>
+            )}
           </aside>
+        </div>
+
+        {/* ─── Barre d'action : erreur + Continuer vers le paiement ─── */}
+        <div style={{ flexShrink: 0, borderTop: `1px solid ${LINE}`, padding: '16px 0', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 20 }}>
+          {c.error && <div style={{ color: '#DC2626', fontSize: 13, marginRight: 'auto' }}>{c.error}</div>}
+          <button onClick={c.goToPayment}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '15px 28px', borderRadius: 12, border: 'none', color: '#fff', fontSize: 15, fontWeight: 800, cursor: 'pointer', background: 'linear-gradient(135deg,#FF6B35,#FF4500)', boxShadow: '0 4px 14px rgba(255,69,0,.3)', whiteSpace: 'nowrap' }}>
+            Continuer vers le paiement <ArrowRight size={17} />
+          </button>
         </div>
       </div>
     </div>
@@ -454,9 +538,29 @@ function SectionHeader({ icon: Icon, title }) {
 }
 function MobileCheckout(c) {
   const [isAddressFormOpen, setIsAddressFormOpen] = useState(false)
-  const [newAddressCoords, setNewAddressCoords] = useState({ lat: 36.8, lng: 10.18 })
+  const [coords, setCoords] = useState(DEFAULT_COORDS)
+
+  // Même logique de synchronisation que sur desktop : la carte suit l'adresse
+  // sélectionnée, sauf pendant la saisie d'une nouvelle adresse.
+  useEffect(() => {
+    if (isAddressFormOpen || !c.selectedAddress) return
+    const addr = c.selectedAddress
+    if (addr.latitude && addr.longitude) {
+      setCoords({ lat: parseFloat(addr.latitude), lng: parseFloat(addr.longitude) })
+      return
+    }
+    let alive = true
+    const query = [addr.street, addr.city, addr.region, addr.postal_code, addr.country].filter(Boolean).join(', ')
+    if (!query) return
+    fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`)
+      .then(res => res.json())
+      .then(data => { if (alive && data?.[0]) setCoords({ lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) }) })
+      .catch(console.error)
+    return () => { alive = false }
+  }, [c.selectedAddress, isAddressFormOpen])
+
   return (
-    <div style={{ fontFamily: FONT, color: INK, background: '#fff', minHeight: '100dvh', paddingBottom: 20 }}>
+    <div style={{ fontFamily: FONT, color: INK, background: '#fff', minHeight: '100dvh', paddingBottom: 92 }}>
       <div style={{ position: 'sticky', top: 0, zIndex: 50, background: '#fff', borderBottom: `1px solid #F0F0F0`, height: 52, display: 'flex', alignItems: 'center', padding: '0 12px' }}>
         <button onClick={() => c.navigate(-1)} style={{ background: 'none', border: 'none', padding: 4, cursor: 'pointer', display: 'flex', color: INK }}><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
         <span style={{ flex: 1, textAlign: 'center', fontSize: 17, fontWeight: 800 }}>Checkout</span>
@@ -465,14 +569,50 @@ function MobileCheckout(c) {
       <div style={{ padding: '16px 16px 8px' }}>
         <SectionHeader icon={MapPin} title="Adresse de livraison" />
         <div style={{ marginBottom: 24 }}>
-          <AddressPicker addresses={c.addresses} loading={c.addrLoading} selectedId={c.selectedAddress?.id ?? null} onSelect={c.selectAddress} onAdd={c.addAddress} adding={c.addingAddress} user={c.user} isFormOpen={isAddressFormOpen} setIsFormOpen={setIsAddressFormOpen} coords={newAddressCoords} onCoordsChange={setNewAddressCoords} />
-          {isAddressFormOpen && (<div style={{ marginTop: 12, height: 280, borderRadius: 12, overflow: 'hidden', border: `1px solid ${LINE}` }}><MapPicker onLocationSelect={(pos) => setNewAddressCoords(pos)} initialLat={newAddressCoords.lat} initialLng={newAddressCoords.lng} /></div>)}
+          <AddressPicker
+            addresses={c.addresses} loading={c.addrLoading} selectedId={c.selectedAddress?.id ?? null}
+            onSelect={c.selectAddress} onAdd={c.addAddress} adding={c.addingAddress} user={c.user}
+            isFormOpen={isAddressFormOpen} setIsFormOpen={setIsAddressFormOpen}
+            coords={coords}
+          />
+          {isAddressFormOpen && (
+            <div style={{ marginTop: 12, height: 280, borderRadius: 12, overflow: 'hidden', border: `1px solid ${LINE}` }}>
+              <MapPicker onLocationSelect={setCoords} initialLat={coords.lat} initialLng={coords.lng} interactive />
+            </div>
+          )}
+          {!isAddressFormOpen && c.selectedAddress && (
+            <div style={{ marginTop: 12, height: 180, borderRadius: 12, overflow: 'hidden', border: `1px solid ${LINE}` }}>
+              <MapPicker initialLat={coords.lat} initialLng={coords.lng} interactive={false} />
+            </div>
+          )}
         </div>
+
         <SectionHeader icon={Truck} title="Options de livraison" />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
-          {c.shippingLoading ? (<div style={{ padding: 20, textAlign: 'center', color: MUTE }}>Chargement...</div>) : (c.shippingOptions.map(opt => (<ShippingTile key={opt.id} active={c.shipping === opt.id} title={opt.title} sub={opt.sub || ''} price={opt.price || 0} onClick={() => c.setShipping(opt.id)} />)))}
+          {c.shippingLoading ? (
+            <div style={{ padding: 20, textAlign: 'center', color: MUTE }}>Chargement...</div>
+          ) : (
+            c.shippingOptions.map(opt => (
+              <ShippingTile key={opt.id} active={c.shipping === opt.id} title={opt.title} sub={opt.sub || ''} price={opt.price || 0} onClick={() => c.setShipping(opt.id)} />
+            ))
+          )}
         </div>
-        {c.error && <div style={{ color: '#DC2626', fontSize: 12.5, marginTop: 12 }}>{c.error}</div>}
+
+        <div>
+          <span style={{ fontSize: 12.5, fontWeight: 600, color: MUTE, display: 'block', marginBottom: 6 }}>Note (optionnel)</span>
+          <textarea value={c.notes} onChange={e => c.setNotes(e.target.value)} rows={3} placeholder="Instructions de livraison…"
+            style={{ width: '100%', boxSizing: 'border-box', border: `1px solid ${LINE}`, borderRadius: 10, padding: '11px 13px', fontSize: 14, fontFamily: FONT, outline: 'none', color: INK, resize: 'vertical' }} />
+        </div>
+
+        {c.error && <div style={{ color: '#DC2626', fontSize: 12.5, marginTop: 16 }}>{c.error}</div>}
+      </div>
+
+      {/* Bouton fixe : Continuer vers le paiement */}
+      <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 60, background: '#fff', borderTop: `1px solid ${LINE}`, padding: '10px 16px calc(10px + env(safe-area-inset-bottom))' }}>
+        <button onClick={c.goToPayment}
+          style={{ width: '100%', height: 52, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 14, border: 'none', color: '#fff', fontSize: 16, fontWeight: 800, cursor: 'pointer', background: 'linear-gradient(135deg,#FF6B35,#FF4500)' }}>
+          Continuer vers le paiement <ArrowRight size={18} />
+        </button>
       </div>
     </div>
   )

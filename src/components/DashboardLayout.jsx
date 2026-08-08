@@ -48,7 +48,7 @@ const NAV = [
     { label: 'Favoris',     to: '/dashboard/favoris',    icon: Heart },
   ]},
   { group: 'Services complémentaires', items: [
-    { label: 'Services logistiques', to: '/dashboard/logistique', icon: Truck },
+    { label: 'Mes Adresses', to: '/dashboard/addresses', icon: Truck },
     { label: 'Vendre sur GROSHOP',   to: '/vendre',               icon: Store },
   ]},
   { group: 'Paramètres', items: [

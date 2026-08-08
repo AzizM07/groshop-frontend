@@ -8,6 +8,13 @@
 // Sélection unique -> « Créer l'expédition » -> delivery.createShipment(...)
 // -> onShipped(shipment) : le parent passe la sous-commande à `shipped`.
 //
+// ➕ Ajout : option « Livraison par mes soins » (SELF_DELIVERY_CODE).
+//    Le fournisseur livre lui-même, sans transporteur GROSHOP :
+//    - aucun appel à delivery.createShipment() (évite un 500 sur un
+//      transporteur non configuré, cf. ALLOW_UNCONFIGURED)
+//    - onShipped({ selfDelivery: true }) : le parent bascule directement
+//      la sous-commande en `shipped` avec delivery_type='supplier'.
+//
 // ⚠️ 3 points marqués « AJUSTE » à adapter à ton back :
 //   1. L'adresse destination (dépend de ce que renvoie /orders/supplier/).
 //      Par défaut on n'envoie qu'order.id : laisse le back résoudre l'adresse
@@ -31,6 +38,10 @@ const FONT  = "'DM Sans', -apple-system, sans-serif"
 
 // AJUSTE (2) : autorise la sélection d'un transporteur non encore configuré.
 const ALLOW_UNCONFIGURED = true
+
+// Sentinelle pour l'option « je livre moi-même » — ne correspond à aucun
+// code transporteur réel, jamais envoyée à delivery.createShipment().
+const SELF_DELIVERY_CODE = '__self__'
 
 // ── Styles injectés (anim slide-in + hover) ────────────────────────
 if (typeof document !== 'undefined' && !document.getElementById('gs-ship-drawer-styles')) {
@@ -57,11 +68,13 @@ const normalize = (d) => Array.isArray(d) ? d : (d?.results || [])
 export default function ShipOrderDrawer({ order, open, onClose, onShipped }) {
   const [configs, setConfigs] = useState(null)   // configs activées | null = chargement
   const [catalog, setCatalog] = useState([])     // [{ code, label }]
-  const [picked,  setPicked]  = useState(null)   // carrier_code sélectionné
+  const [picked,  setPicked]  = useState(null)   // carrier_code sélectionné (ou SELF_DELIVERY_CODE)
   const [weight,  setWeight]  = useState('1')
   const [service, setService] = useState('standard')
   const [busy,    setBusy]    = useState(false)
   const [error,   setError]   = useState(null)
+
+  const isSelf = picked === SELF_DELIVERY_CODE
 
   // COD : seulement en paiement à la livraison
   const codAmount = order?.payment_method === 'cod' ? Number(order?.subtotal_tnd || 0) : 0
@@ -106,6 +119,17 @@ export default function ShipOrderDrawer({ order, open, onClose, onShipped }) {
   const submit = async () => {
     if (!picked || busy) return
     setBusy(true); setError(null)
+
+    // ── Livraison par ses propres moyens : aucun transporteur GROSHOP,
+    //    on ne touche pas à delivery.createShipment(). Le parent se charge
+    //    de passer la sous-commande à `shipped` + delivery_type='supplier'.
+    if (isSelf) {
+      onShipped?.({ selfDelivery: true })
+      onClose?.()
+      setBusy(false)
+      return
+    }
+
     try {
       const shipment = await delivery.createShipment({
         order:          order.id,
@@ -183,11 +207,39 @@ export default function ShipOrderDrawer({ order, open, onClose, onShipped }) {
 
           {loading ? (
             <CarrierSkeleton />
-          ) : rows.length === 0 ? (
-            <EmptyCarriers />
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-              {rows.map(r => {
+
+              {/* ── Option : le fournisseur livre lui-même ── */}
+              <div
+                onClick={() => setPicked(SELF_DELIVERY_CODE)}
+                className={`gs-carrier-row${isSelf ? ' is-on' : ''}`}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 12, padding: '13px 14px',
+                  border: `1.5px dashed ${isSelf ? ORANGE : LINE}`,
+                  borderRadius: 12, cursor: 'pointer',
+                  background: isSelf ? `${ORANGE}0D` : '#fff',
+                }}
+              >
+                <div style={{
+                  width: 38, height: 38, borderRadius: 10, flexShrink: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: isSelf ? `${ORANGE}1F` : '#F1EFE9', color: isSelf ? ORANGE : '#5F5E5A',
+                }}>
+                  <Icons.Store size={17} strokeWidth={2} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600 }}>Livraison par mes soins</div>
+                  <div style={{ fontSize: 12, color: MUTE, marginTop: 2 }}>
+                    Sans transporteur GROSHOP — je gère moi-même l'acheminement
+                  </div>
+                </div>
+                <Radio on={isSelf} />
+              </div>
+
+              {rows.length === 0 ? (
+                ALLOW_UNCONFIGURED === false ? <EmptyCarriers /> : null
+              ) : rows.map(r => {
                 const on = picked === r.code
                 const disabled = !r.configured && !ALLOW_UNCONFIGURED
                 return (
@@ -228,8 +280,8 @@ export default function ShipOrderDrawer({ order, open, onClose, onShipped }) {
             </div>
           )}
 
-          {/* poids + service */}
-          {!loading && rows.length > 0 && (
+          {/* poids + service — masqués en auto-livraison, inutiles sans transporteur */}
+          {!loading && !isSelf && picked && (
             <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 11, color: MUTE, fontWeight: 500, marginBottom: 5 }}>Poids (kg)</div>
@@ -255,6 +307,14 @@ export default function ShipOrderDrawer({ order, open, onClose, onShipped }) {
             </div>
           )}
 
+          {/* note explicative en auto-livraison */}
+          {!loading && isSelf && (
+            <div style={{ marginTop: 16, background: CREAM, border: `1px solid ${LINE}`, borderRadius: 10, padding: '12px 14px', fontSize: 12.5, color: MUTE, lineHeight: 1.5 }}>
+              Vous êtes responsable de l'acheminement jusqu'au client{codAmount > 0 ? ' ainsi que de l\u2019encaissement du paiement à la livraison' : ''}.
+              Le statut passera directement à « Expédiée ».
+            </div>
+          )}
+
           {error && (
             <div style={{ marginTop: 14, background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C', borderRadius: 10, padding: '10px 12px', fontSize: 12.5 }}>
               {error}
@@ -271,9 +331,13 @@ export default function ShipOrderDrawer({ order, open, onClose, onShipped }) {
             cursor: (!picked || busy) ? 'default' : 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
           }}>
-            {busy ? 'Création…' : <><Icons.Truck size={17} /> Créer l’expédition</>}
+            {busy
+              ? 'Création…'
+              : isSelf
+                ? <><Icons.CheckCircle2 size={17} /> Confirmer l'expédition</>
+                : <><Icons.Truck size={17} /> Créer l’expédition</>}
           </button>
-          {codAmount > 0 && (
+          {codAmount > 0 && !isSelf && (
             <div style={{ textAlign: 'center', fontSize: 11, color: FAINT, marginTop: 9 }}>
               Le COD ({fmtTND(codAmount)} TND) est encaissé par le transporteur
             </div>
@@ -320,7 +384,7 @@ function EmptyCarriers() {
         <Icons.Truck size={22} color={ORANGE} />
       </div>
       <div style={{ fontSize: 14, fontWeight: 600, color: INK, marginBottom: 4 }}>Aucun transporteur activé</div>
-      <div style={{ fontSize: 12.5, maxWidth: 260, margin: '0 auto' }}>Active un transporteur pour pouvoir créer des expéditions.</div>
+      <div style={{ fontSize: 12.5, maxWidth: 260, margin: '0 auto' }}>Active un transporteur, ou choisis « Livraison par mes soins » ci-dessus.</div>
     </div>
   )
 }

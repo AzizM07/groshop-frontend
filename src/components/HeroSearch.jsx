@@ -10,7 +10,10 @@ const ORANGE_DEEP = '#ff5e20'
 const HERO_BG_ZONE = 'hero_bg'
 const API_BASE = import.meta.env.VITE_API_URL || ''
 
-const HERO_HEIGHT = 'clamp(400px, 0vh, 620px)'
+// ⭐ CORRIGÉ : clamp(400px, 0vh, 620px) retombait TOUJOURS sur 400px fixe,
+// car la valeur préférée (0vh) est toujours < au minimum (400px) → clamp()
+// choisit systématiquement le minimum. Remplacé par une vraie valeur fluide.
+const HERO_HEIGHT = 'clamp(400px, 55vh, 620px)'
 // Position verticale de la barre = hauteur du "vide" au-dessus, en % de la hauteur du hero.
 // ≈50% = centre, plus grand = plus bas. Comme c'est un % du hero (donc de l'image),
 // la barre reste ancrée au même endroit de l'image quelle que soit sa taille.
@@ -20,6 +23,10 @@ const RADIUS = '0px'
 const SHOW_HALO = true
 const FLOAT = true
 const SHOW_TAGS = false
+
+// ⭐ Clé localStorage pour afficher instantanément la dernière bannière connue
+// pendant que le fetch revalide en arrière-plan (stale-while-revalidate).
+const BG_CACHE_KEY = 'hero_bg_url'
 
 const POPULAR_SEARCHES = [
   'huile olive', 'café 1kg', 'détergent 5L', 't-shirts coton', 'couches bébé'
@@ -55,7 +62,13 @@ export default function HeroSearch() {
   const [query, setQuery]     = useState('')
   const [focused, setFocused] = useState(false)
   const [hovered, setHovered] = useState(false)
-  const [bgUrl, setBgUrl]     = useState(null)
+  // ⭐ CORRIGÉ : état initial lu depuis localStorage (si dispo) au lieu de null.
+  // L'image s'affiche donc immédiatement au montage, sans attendre le fetch,
+  // pour toute visite après la première. Le fetch ci-dessous revalide en tâche
+  // de fond et met à jour le cache si la bannière active a changé côté back.
+  const [bgUrl, setBgUrl] = useState(() => {
+    try { return localStorage.getItem(BG_CACHE_KEY) || null } catch { return null }
+  })
   const navigate = useNavigate()
   const ref = useRef(null)
 
@@ -67,7 +80,10 @@ export default function HeroSearch() {
         const list = Array.isArray(data) ? data : (data.results || [])
         const hero = list
           .find(b => b.zone === HERO_BG_ZONE && b.is_active && b.image_url)
-        if (alive && hero) setBgUrl(hero.image_url)
+        if (alive && hero) {
+          setBgUrl(hero.image_url)
+          try { localStorage.setItem(BG_CACHE_KEY, hero.image_url) } catch {}
+        }
       })
       .catch(() => {})
     return () => { alive = false }
@@ -143,6 +159,11 @@ export default function HeroSearch() {
             src={bgUrl}
             alt=""
             aria-hidden="true"
+            // ⭐ CORRIGÉ : priorité de chargement élevée — c'est une image
+            // above-the-fold, le navigateur doit la traiter en priorité
+            // plutôt que de la mettre en concurrence avec d'autres ressources.
+            fetchpriority="high"
+            decoding="async"
             style={{
               width: '100%', height: '100%',
               objectFit: 'cover',

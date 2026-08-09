@@ -1,10 +1,10 @@
 // ProductCard.jsx — GROSHOP.tn
 // Style B2B wholesale (Alibaba-like) :
-// image plein cadre arrondie · prix simple · étoiles · quantité min ·
-// fournisseur · Verified + médailles + années + drapeau · bouton Commander.
+// image plein cadre arrondie · badge Tendance · prix + %réduction · étoiles ·
+// quantité min · fournisseur · Verified + médailles + années + drapeau · bouton Commander.
 // Card "invisible" : pas de bordure, pas d'ombre, pas de bg différent de la page.
 //
-// 4 variantes via la prop `variant` :
+// 5 variantes via la prop `variant` :
 //   • 'default'   → compact, pensé pour 6 colonnes (inchangé).
 //   • 'wholesale' → texte agrandi (façon Alibaba), pensé pour 5 colonnes,
 //                   bouton "Ajouter au panier" noir qui devient orange au survol.
@@ -14,6 +14,17 @@
 //   • 'catalog'   → mêmes infos que la card normale (étoiles, MOQ + ventes,
 //                   fournisseur + Verified/médailles/années, tags, bouton),
 //                   juste avec ses propres tailles de texte (SIZES.catalog).
+//   • 'trending'  → texte plus grand, pensée pour CategorySection (Best Sellers).
+//                   Pas de bouton par défaut, pas de bloc fournisseur affiché
+//                   (le bloc ne s'affiche de toute façon que si supplier/verified/
+//                   medals/years sont fournis — CategorySection ne les passe pas).
+//
+// Props additionnelles :
+//   • hideButton      → masque le bouton d'action, quelle que soit la variante.
+//   • hideReviewCount → masque le nombre d'avis à côté de la note, garde les étoiles.
+//
+// Badge "Tendance" : activé via `product.isTrending = true`, affiché en haut
+// à gauche de l'image, même style que celui utilisé dans CategorySection.
 
 import { useState } from 'react'
 import { Star, ShoppingCart } from 'lucide-react'
@@ -22,6 +33,7 @@ import { useCart } from '../context/CartContext'
 import { useIsMobile } from '../hooks/useIsMobile'
 import MobileProductCard from './MobileProductCard'
 const ORANGE = '#ff5e20'
+const ORANGE_DEEP = '#ff8820'
 const INK    = '#0F1419'
 const MUTE   = '#6B7785'
 const FAINT  = '#9AA3AE'
@@ -74,10 +86,6 @@ const SIZES = {
     withCartIcon: true,
     withButton:  true,
   },
-  // ── 7 colonnes, entièrement fluide ──
-  // Toutes les tailles sont bornées par clamp(min, vw, max) : à 1600px de
-  // large la carte respire, et elle rétrécit proportionnellement quand la
-  // fenêtre se réduit, sans jamais casser (min garanti).
   mini: {
     name:        'clamp(10.5px, 0.82vw, 12.5px)',
     nameMinH:    'clamp(28px, 2.2vw, 32px)',
@@ -85,7 +93,7 @@ const SIZES = {
     nameWeight:  400,
     price:       'clamp(13px, 1.05vw, 16.5px)',
     tnd:         '0.6em',
-    star:        'clamp(11px, 0.85vw, 13px)',   // number OK aussi, mais clamp = fluide
+    star:        'clamp(11px, 0.85vw, 13px)',
     ratingNum:   'clamp(10px, 0.78vw, 11px)',
     ratingCount: 'clamp(9.5px, 0.72vw, 10.5px)',
     moq:         'clamp(10px, 0.8vw, 11.5px)',
@@ -100,9 +108,6 @@ const SIZES = {
     withCartIcon: false,
     withButton:  true,
   },
-  // ── NOUVELLE VARIANTE — mêmes infos que la card normale, tailles propres ──
-  // Image, nom, prix (+ ancien prix barré), étoiles, "Quantité min. : X ·
-  // Y vendus", fournisseur + Verified/médailles/années, tags, bouton.
   catalog: {
     name:        '15.5px',
     nameMinH:    '40px',
@@ -126,6 +131,32 @@ const SIZES = {
     withCartIcon: false,
     withButton:  false,
   },
+  // ── Variante "Best Sellers" (CategorySection) : texte agrandi, pas de bloc
+  // fournisseur (le bloc ne s'affiche de toute façon que si les données sont
+  // fournies — CategorySection ne les passe pas), pas de bouton par défaut.
+  trending: {
+    name:        '15px',
+    nameMinH:    '40px',
+    nameLh:      1.35,
+    nameWeight:  500,
+    price:       '19px',
+    tnd:         '0.6em',
+    oldPrice:    '13.5px',
+    star:        16,
+    ratingNum:   '14px',
+    ratingCount: '13px',
+    moq:         '13.5px',
+    sold:        '13.5px',
+    supplier:    '13px',
+    meta:        '12px',
+    medal:       9,
+    tag:         '11.5px',
+    btn:         '13px',
+    btnPad:      '9px',
+    label:       'Commander',
+    withCartIcon: false,
+    withButton:  false,
+  },
 }
 
 // Prix : accepte un nombre OU une fourchette [min, max]
@@ -134,9 +165,11 @@ function fmtPrice(p) {
   return Array.isArray(p) ? `${f(p[0])}–${f(p[1])}` : f(p)
 }
 
-// ── Étoiles (pleines/vides selon l'arrondi) ──
-// size accepte un nombre (px) OU une chaîne clamp() → on la passe telle quelle
-// en width/height, ce qui rend les étoiles fluides pour la variante mini.
+// Format compact "1.2k" au-delà de 1000, sinon le nombre brut
+function fmtCount(n) {
+  return n >= 1000 ? (n / 1000).toFixed(1) + 'k' : n
+}
+
 function Stars({ value = 0, size = 15 }) {
   const dim = typeof size === 'number' ? size : undefined
   const styleDim = typeof size === 'string' ? { width: size, height: size } : undefined
@@ -149,11 +182,17 @@ function Stars({ value = 0, size = 15 }) {
   )
 }
 
-function DesktopProductCard({ product, onOrder, variant = 'default' }) {
-  const [imgHov, setImgHov] = useState(false)   // survol de l'image → zoom + icône + flèches
-  const [btnHov, setBtnHov] = useState(false)   // survol du bouton uniquement → remplissage orange
-  const [imgIdx, setImgIdx] = useState(0)       // index du carrousel
-  const [done, setDone]     = useState(false)   // ✓ éphémère après ajout
+function DesktopProductCard({
+  product,
+  onOrder,
+  variant = 'default',
+  hideButton = false,
+  hideReviewCount = false,
+}) {
+  const [imgHov, setImgHov] = useState(false)
+  const [btnHov, setBtnHov] = useState(false)
+  const [imgIdx, setImgIdx] = useState(0)
+  const [done, setDone]     = useState(false)
   const navigate = useNavigate()
   const { add, adding } = useCart()
 
@@ -163,7 +202,7 @@ function DesktopProductCard({ product, onOrder, variant = 'default' }) {
   const {
     id             = null,
     name           = 'Produit',
-    price          = 0,        // number | [min, max]
+    price          = 0,
     was            = null,
     rating         = null,
     soldCount      = null,
@@ -171,6 +210,7 @@ function DesktopProductCard({ product, onOrder, variant = 'default' }) {
     image          = null,
     isFreeShipping = false,
     isBestSeller   = false,
+    isTrending     = false,
     moq            = null,
     moqUnit        = 'pcs',
     supplier       = null,
@@ -181,9 +221,10 @@ function DesktopProductCard({ product, onOrder, variant = 'default' }) {
 
   const busy = adding === id
 
-  /* ── Liste d'images pour le carrousel ──
-     `product.images` = tableau d'URLs (galerie). Fallback : l'image principale seule.
-     On dédoublonne et on garde l'image principale en tête. */
+  const discount = (!Array.isArray(price) && was && was > price)
+    ? Math.round((1 - price / was) * 100)
+    : null
+
   const gallery = Array.isArray(product?.images) ? product.images.filter(Boolean) : []
   const imgs    = [...new Set([image, ...gallery].filter(Boolean))]
   const hasCarousel = imgs.length > 1
@@ -194,8 +235,6 @@ function DesktopProductCard({ product, onOrder, variant = 'default' }) {
     setImgIdx(v => (v + dir + imgs.length) % imgs.length)
   }
 
-  /* ── Défilement au survol : la position horizontale du curseur sur l'image
-     détermine la photo affichée (comme Alibaba/AliExpress). ── */
   const onImgMove = (e) => {
     if (!hasCarousel) return
     const rect = e.currentTarget.getBoundingClientRect()
@@ -204,11 +243,8 @@ function DesktopProductCard({ product, onOrder, variant = 'default' }) {
     setImgIdx(Math.min(imgs.length - 1, Math.max(0, seg)))
   }
 
-  /* ── Ajout au panier — quantité = MOQ (vente en gros) ── */
   async function handleClick(e) {
     e.stopPropagation()
-
-    // onOrder custom prioritaire (permet de surcharger le comportement)
     if (onOrder) return onOrder(product)
     if (!id || busy) return
 
@@ -219,31 +255,28 @@ function DesktopProductCard({ product, onOrder, variant = 'default' }) {
     } else if (res?.reason === 'error') {
       alert(res.message || "Impossible d'ajouter au panier.")
     }
-    // reason === 'auth' → redirection déjà déclenchée par le contexte
   }
 
-  /* ── Couleurs du bouton ──
-     Repos : blanc, texte + bordure = INK (wholesale) ou ORANGE (default/mini).
-     Rempli (orange) UNIQUEMENT au survol du bouton lui-même — pas de la card. */
   const btnBaseColor = big ? INK : ORANGE
   const btnFilled = btnHov || done
   const btnBg      = done ? GREEN : (btnFilled ? ORANGE : '#fff')
   const btnFg      = btnFilled ? '#fff' : btnBaseColor
   const btnBorder  = done ? GREEN : (btnFilled ? ORANGE : btnBaseColor)
 
+  const showButton = S.withButton !== false && !hideButton
+
   return (
     <div
       onClick={() => id && navigate(`/produit/${id}`)}
       style={{
-        // Pas de bg, pas de bordure, pas d'ombre : la card se fond dans la page
         background: 'transparent',
         cursor: 'pointer',
         display: 'flex', flexDirection: 'column',
         fontFamily: "'DM Sans', -apple-system, system-ui, sans-serif",
-        minWidth: 0, // évite l'overflow dans une grille étroite
+        minWidth: 0,
       }}
     >
-      {/* ── IMAGE + carrousel — survol : zoom + icône + défilement au mouvement + flèches ── */}
+      {/* ── IMAGE + carrousel ── */}
       <div
         onMouseEnter={() => setImgHov(true)}
         onMouseLeave={() => { setImgHov(false); setImgIdx(0) }}
@@ -254,6 +287,22 @@ function DesktopProductCard({ product, onOrder, variant = 'default' }) {
           borderRadius: '8px',
         }}
       >
+        {isTrending && (
+          <div style={{
+            position: 'absolute', top: '8px', left: '8px', zIndex: 2,
+            background: `linear-gradient(135deg, ${ORANGE_DEEP} 0%, ${ORANGE} 100%)`,
+            color: '#fff', padding: '4px 9px', borderRadius: '4px',
+            fontSize: '10px', fontWeight: 700, letterSpacing: '0.6px', textTransform: 'uppercase',
+            display: 'flex', alignItems: 'center', gap: '4px', lineHeight: 1,
+          }}>
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
+              <polyline points="17 6 23 6 23 12" />
+            </svg>
+            Tendance
+          </div>
+        )}
+
         {cur ? (
           <img
             src={cur} alt={name}
@@ -261,7 +310,7 @@ function DesktopProductCard({ product, onOrder, variant = 'default' }) {
             style={{
               width: '100%', height: '100%', objectFit: 'cover',
               transition: 'transform .35s',
-              transform: imgHov ? 'scale(1.04)' : 'scale(1)',   // zoom au survol de l'image
+              transform: imgHov ? 'scale(1.04)' : 'scale(1)',
             }}
             onError={e => { e.target.src = 'https://placehold.co/300x300/F4F5F7/9AA3AE?text=GROSHOP' }}
           />
@@ -271,7 +320,6 @@ function DesktopProductCard({ product, onOrder, variant = 'default' }) {
           </div>
         )}
 
-        {/* Icône recherche-par-image (bas-gauche) — apparaît au survol de l'image */}
         <div
           onClick={e => { e.stopPropagation(); if (cur) window.open(cur, '_blank') }}
           title="Voir l'image"
@@ -289,7 +337,6 @@ function DesktopProductCard({ product, onOrder, variant = 'default' }) {
           </svg>
         </div>
 
-        {/* Flèches + puces — seulement s'il y a plusieurs photos */}
         {hasCarousel && (
           <>
             <button
@@ -305,7 +352,6 @@ function DesktopProductCard({ product, onOrder, variant = 'default' }) {
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={INK} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
             </button>
 
-            {/* Barres de progression (une par photo) — style Alibaba */}
             <div style={{
               position: 'absolute', bottom: '8px', left: '10px', right: '10px',
               display: 'flex', gap: '3px',
@@ -327,14 +373,12 @@ function DesktopProductCard({ product, onOrder, variant = 'default' }) {
       {/* ── INFOS ── */}
       <div style={{ padding: '9px 1px 0', display: 'flex', flexDirection: 'column', gap: big ? '5px' : '3px' }}>
 
-        {/* Nom */}
         <div style={{
           fontSize: S.name, color: INK, lineHeight: S.nameLh, fontWeight: S.nameWeight || 400,
           display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
           overflow: 'hidden', minHeight: S.nameMinH,
         }}>{name}</div>
 
-        {/* Prix — grand, noir, gras (comme Alibaba) */}
         <div style={{ display: 'flex', alignItems: 'baseline', gap: '5px', flexWrap: 'wrap' }}>
           <span style={{ fontSize: S.price, fontWeight: 700, color: INK, lineHeight: 1.15 }}>
             {fmtPrice(price)} <span style={{ fontSize: S.tnd, fontWeight: 600 }}>TND</span>
@@ -344,41 +388,43 @@ function DesktopProductCard({ product, onOrder, variant = 'default' }) {
               {fmtPrice(was)} TND
             </span>
           )}
+          {discount != null && discount > 0 && (
+            <span style={{ fontSize: S.oldPrice || '11px', color: ORANGE, fontWeight: 700 }}>
+              -{discount}%
+            </span>
+          )}
         </div>
 
-        {/* Étoiles — juste sous le prix */}
+        {/* Étoiles + note + nombre d'avis (format "1.0k avis", comme le nombre de ventes) */}
         {rating != null && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
             <Stars value={rating} size={S.star} />
             <span style={{ fontSize: S.ratingNum, fontWeight: 600, color: INK, lineHeight: 1 }}>
               {rating.toFixed(1)}
             </span>
-            {reviewCount != null && reviewCount > 0 && (
+            {!hideReviewCount && reviewCount != null && reviewCount > 0 && (
               <span style={{ fontSize: S.ratingCount, color: MUTE, lineHeight: 1 }}>
-                ({reviewCount})
+                · {fmtCount(reviewCount)} avis
               </span>
             )}
           </div>
         )}
 
-        {/* Quantité min. (MOQ) + ventes */}
         {moq && (
           <div style={{ fontSize: S.moq, color: INK }}>
             Quantité min. : {moq} {moqUnit}
             {soldCount != null && (
-              <span style={{ color: MUTE }}> · {soldCount >= 1000 ? (soldCount / 1000).toFixed(1) + 'k' : soldCount} vendus</span>
+              <span style={{ color: MUTE }}> · {fmtCount(soldCount)} vendus</span>
             )}
           </div>
         )}
 
-        {/* Ventes (sans MOQ affiché — la note est déjà montrée au-dessus) */}
         {!moq && soldCount != null && (
           <div style={{ fontSize: S.sold, color: MUTE }}>
-            {soldCount >= 1000 ? (soldCount / 1000).toFixed(1) + 'k' : soldCount} vendus
+            {fmtCount(soldCount)} vendus
           </div>
         )}
 
-        {/* Fournisseur + Verified · médailles · années · drapeau — un seul flux flex. */}
         {(supplier || verified || medals > 0 || years) && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: S.meta, flexWrap: 'wrap', rowGap: '2px' }}>
             {supplier && (
@@ -411,7 +457,6 @@ function DesktopProductCard({ product, onOrder, variant = 'default' }) {
           </div>
         )}
 
-        {/* Tags */}
         {(isFreeShipping || isBestSeller) && (
           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
             {isFreeShipping && <span style={{ fontSize: S.tag, color: GREEN, fontWeight: 600 }}>✓ Livraison gratuite</span>}
@@ -419,8 +464,7 @@ function DesktopProductCard({ product, onOrder, variant = 'default' }) {
           </div>
         )}
 
-        {/* Bouton — branché sur le panier (masqué si S.withButton === false) */}
-        {S.withButton !== false && (
+        {showButton && (
           <button
             onClick={handleClick}
             onMouseEnter={() => setBtnHov(true)}
@@ -448,7 +492,6 @@ function DesktopProductCard({ product, onOrder, variant = 'default' }) {
   )
 }
 
-// Style commun des flèches du carrousel (position gérée inline : left/right)
 const arrowBtn = {
   position: 'absolute', top: '50%', transform: 'translateY(-50%)',
   width: '30px', height: '30px', borderRadius: '50%',

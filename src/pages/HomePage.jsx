@@ -6,7 +6,7 @@ import ProductCard from '../components/ProductCard'
 import BannerSlider  from '../components/BannerSlider'
 import HeroGrid      from '../components/HeroGrid'
 import HeroSearch    from '../components/HeroSearch'
-import CategorySection from '../components/CategorySection'  // contient le composant TrendingSection
+import CategorySection from '../components/CategorySection'
 import Footer from '../components/Footer'
 import AdSlot from '../components/AdSlot'
 import { Fragment } from 'react'
@@ -14,7 +14,7 @@ import { usePageTracking } from '../hooks/usePageTracking'
 import { useIsMobile } from '../hooks/useIsMobile'
 import MobileHome from './MobileHome'
 import PopularCategories from '../components/PopularCategories'
-// ── Paramètres globaux layout ───────────────────────────────────
+
 const LAYOUT = {
   maxWidth: '1500px',
   padding:  '0 2%',
@@ -48,7 +48,7 @@ function computePrice(p) {
   return min === max ? min : [min, max]
 }
 
-// ── Mapper Django API → props ProductCard ────────────────────────
+// ── Mapper Django API → props ProductCard (grille "recommandés") ──
 function mapProduct(p) {
   return {
     id:            p.id,
@@ -70,31 +70,10 @@ function mapProduct(p) {
     verified:      p.supplier_verified === 'approved',
     medals:        p.supplier_medals || 0,
     years:         p.years_active || null,
-    flag:          p.supplier_flag || '🇹🇳',  // 🇹🇳 par défaut tant que tout le catalogue est local
+    flag:          p.supplier_flag || '🇹🇳',
     image:         p.primary_image,
     supplier:      p.supplier_name,
     supplierSlug:  p.supplier_slug,
-  }
-}
-
-// ── Mapper Django API → props CategorySection (= TrendingSection) ────
-function mapTrendingProduct(p) {
-  const newPrice = parseFloat(p.base_price_tnd) || 0
-  const oldPrice = p.old_price_tnd ? parseFloat(p.old_price_tnd) : null
-  const discount = oldPrice
-    ? Math.round((1 - newPrice / oldPrice) * 100)
-    : 0
-
-  return {
-    id:       p.id,
-    name:     p.name,
-    image:    p.primary_image || 'https://placehold.co/300x300/FAFAFB/9AA3AE?text=Produit',
-    rating:   p.rating_avg ? parseFloat(p.rating_avg) : 4.5,
-    reviews:  p.sold_count || 0,
-    oldPrice: oldPrice || newPrice * 1.3,
-    newPrice: newPrice,
-    discount: discount,
-    category: p.category_name || 'Autre',
   }
 }
 
@@ -124,8 +103,6 @@ if (typeof document !== 'undefined' && !document.getElementById('skeleton-anim')
   document.head.appendChild(s)
 }
 
-// ────────────────────────────────────────────────────────────────
-
 export default function HomePage() {
   const isMobile = useIsMobile()
 
@@ -148,13 +125,15 @@ export default function HomePage() {
 
   const products         = recommendedData?.results || []
   const isPersonalized    = recommendedData?.personalized || false
-  const trendingProducts  = trendingRaw ? trendingRaw.map(mapTrendingProduct) : []
+  // ⚠️ IMPORTANT : on ne mappe PAS ici. Les données restent brutes (API Django).
+  // C'est CategorySection.jsx qui fait le mapping vers les props ProductCard,
+  // en une seule fois, pour éviter tout double mapping incohérent.
+  const trendingProducts  = trendingRaw || []
   const loading           = loadingRecommended || loadingTrending
   const error              = errorRecommended ? 'Erreur de chargement des produits.' : null
 
   usePageTracking({ pageType: 'home' })
 
-  // ── Rendu mobile : layout dédié, données déjà chargées ci-dessus ──
   if (isMobile) {
     return (
       <MobileHome
@@ -169,41 +148,30 @@ export default function HomePage() {
 
   return (
     <div>
-
-      {/* Hero search */}
       <HeroSearch />
 
-
       <div style={{ position: 'relative' }}>
-
         <div style={{ position: 'relative', zIndex: 1 }}>
 
-          {/* Section "Tendances 48h" — fichier CategorySection.jsx */}
           <div>
             <CategorySection products={trendingProducts} />
           </div>
 
-          {/* HeroGrid */}
           <div>
             <Container style={{ paddingTop: '1rem', paddingBottom: '1rem' }}>
               <HeroGrid />
             </Container>
           </div>
 
-          {/* Catégories populaires */}
           <PopularCategories />
 
-          {/* Bannières slider */}
           <Container style={{ paddingTop: '1.5rem' }}>
             <BannerSlider />
           </Container>
-
         </div>
       </div>
 
-      {/* Grille produits recommandés */}
       <Container style={{ paddingTop: '2rem', paddingBottom: '3rem' }}>
-
         <div style={{
           display: 'flex', alignItems: 'center',
           justifyContent: 'space-between',
@@ -226,7 +194,6 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* Grille responsive : 6 colonnes en desktop, dégressif selon la largeur d'écran */}
         <style>{`
           .groshop-product-grid {
             display: grid;
@@ -258,12 +225,9 @@ export default function HomePage() {
               ))
           }
         </div>
-
       </Container>
 
-      {/* Footer */}
       <Footer />
-
     </div>
   )
 }

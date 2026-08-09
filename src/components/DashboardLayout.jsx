@@ -13,7 +13,7 @@ import LOGO_SRC from '../assets/logo2.png'
 import { useIsMobile } from '../hooks/useIsMobile'
 import MobileBottomNav from './MobileBottomNav'
 
-const ORANGE = '#FF4500'
+const ORANGE = '#ff5e20'
 const INK    = '#0F1419'
 const MUTE   = '#6B7785'
 const FAINT  = '#9AA3AE'

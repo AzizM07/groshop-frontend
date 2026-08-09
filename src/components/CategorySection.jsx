@@ -1,22 +1,49 @@
-import React, { useState, useRef } from 'react';
-import { Star } from 'lucide-react';
+import React, { useState, useRef, useMemo } from 'react';
 import { useIsMobile } from '../hooks/useIsMobile';
 import MobileTrending from './MobileTrending';
+import ProductCard from './ProductCard';
 
-// ── Étoiles (pleines/vides selon l'arrondi) ──
-function Stars({ value = 0, size = 13 }) {
-  return (
-    <span style={{ display: 'inline-flex', gap: 1 }}>
-      {[1, 2, 3, 4, 5].map(s => (
-        <Star key={s} size={size} fill={s <= Math.round(value) ? '#FFB800' : '#E3E6EA'} stroke="none" />
-      ))}
-    </span>
-  )
+const ORANGE_DEEP = '#ff8820'
+const ORANGE = '#ff5e20'
+
+// ── Prix : gère une fourchette via price_tiers, sinon base_price_tnd ──
+function computePrice(p) {
+  const base = parseFloat(p.base_price_tnd) || 0
+  const tiers = p.price_tiers || []
+  if (tiers.length === 0) return base
+
+  const prices = tiers.map(t => parseFloat(t.price_tnd)).filter(n => !isNaN(n))
+  if (prices.length === 0) return base
+
+  const min = Math.min(...prices)
+  const max = Math.max(...prices)
+  return min === max ? min : [min, max]
+}
+
+// ── Mapper Django API (ProductListSerializer) → props ProductCard ──
+// Mêmes champs et mêmes noms que mapRecoProduct() dans CartPage.jsx,
+// pour un rendu et un comportement identiques partout dans l'app.
+function mapTrendingProduct(p) {
+  return {
+    id:             p.id,
+    name:           p.name,
+    price:          computePrice(p),
+    was:            p.old_price_tnd ? parseFloat(p.old_price_tnd) : null,
+    rating:         p.rating_avg ? parseFloat(p.rating_avg) : null,
+    reviewCount:    p.review_count ?? null,
+    soldCount:      p.sold_count,
+    moq:            p.moq,
+    moqUnit:        p.unit || 'pcs',
+    isBestSeller:   (p.sold_count || 0) > 1000,
+    isFreeShipping: p.is_free_shipping || false,
+    image:          p.primary_image,
+    category:       p.category_name || 'Autre',
+    // supplier, verified, medals, years volontairement omis
+  }
 }
 
 const DesktopTrending = ({ products = [] }) => {
   const [activeCategory, setActiveCategory] = useState('Tout');
-  const [hoveredCard, setHoveredCard] = useState(null);
   const scrollRef = useRef(null);
 
   const displayProducts = products;
@@ -35,8 +62,7 @@ const DesktopTrending = ({ products = [] }) => {
       });
     }
   };
-  const ORANGE_DEEP = '#ff8820'
-const ORANGE = '#ff5e20'
+
   // ===== STYLES =====
   const styles = {
     section: {
@@ -49,25 +75,6 @@ const ORANGE = '#ff5e20'
     },
     container: { maxWidth: '1400px', margin: '0 auto' },
 
-    // ═══════════ HEADER — titre seul, ligne orange en dessous du titre ═══════════
-    headerRow: {
-      marginBottom: '32px',
-    },
-    title: {
-      fontFamily: "'DM Sans', sans-serif",
-      fontSize: '32px',
-      fontWeight: 400,
-      color: '#0F1419',
-      letterSpacing: '-0.3px',
-      margin: 0,
-      lineHeight: 1.1,
-      display: 'inline-block',
-      paddingBottom: '14px',
-      borderBottom: `3px solid ${ORANGE}`,
-    },
-    titleNum: { color: '#0F1419', fontWeight: 400 },
-
-    // ═══════════ Rangée tabs + flèches — juste au-dessus des cartes produits ═══════════
     tabsAboveCards: {
       display: 'flex',
       alignItems: 'center',
@@ -178,85 +185,10 @@ const ORANGE = '#ff5e20'
       scrollbarWidth: 'none',
       msOverflowStyle: 'none',
     },
-
-    productCard: (hovered) => ({
+    cardSlot: {
       flex: '0 0 220px',
       scrollSnapAlign: 'start',
-      background: '#fff',
-      border: '1px solid #EDF0F2',
-      borderRadius: '14px',
-      overflow: 'hidden',
-      transition: 'all 0.25s ease',
-      cursor: 'pointer',
-      transform: hovered ? 'translateY(-4px)' : 'translateY(0)',
-      display: 'flex',
-      flexDirection: 'column',
-      textDecoration: 'none',
-    }),
-    productImageWrap: {
-      position: 'relative',
-      aspectRatio: '1',
-      background: '#FAFAFB',
-      overflow: 'hidden',
     },
-    productImage: (hovered) => ({
-      width: '100%', height: '100%',
-      objectFit: 'cover',
-      transition: 'transform 0.4s ease',
-      transform: hovered ? 'scale(1.05)' : 'scale(1)',
-    }),
-    trendingBadge: {
-      position: 'absolute',
-      top: '10px', left: '10px',
-      background: `linear-gradient(135deg, ${ORANGE_DEEP} 0%, ${ORANGE} 100%)`, 
-      color: '#fff',
-      padding: '4px 9px',
-      borderRadius: '4px',
-      fontSize: '10px',
-      fontWeight: 700,
-      letterSpacing: '0.6px',
-      textTransform: 'uppercase',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '4px',
-      lineHeight: 1,
-    },
-    productInfo: {
-      padding: '12px 13px 14px',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '7px',
-    },
-    productName: {
-      fontSize: '14.5px',
-      fontWeight: 600,
-      color: '#0F1419',
-      margin: 0,
-      minHeight: '38px',
-      display: '-webkit-box',
-      WebkitLineClamp: 2,
-      WebkitBoxOrient: 'vertical',
-      overflow: 'hidden',
-      lineHeight: 1.3,
-      letterSpacing: '-0.1px',
-    },
-    priceRow: {
-      display: 'flex',
-      alignItems: 'baseline',
-      gap: '6px',
-      flexWrap: 'wrap',
-    },
-    newPrice: { fontSize: '19px', fontWeight: 800, color: '#0F1419', lineHeight: 1 },
-    oldPrice: { fontSize: '12px', color: '#9AA3AE', textDecoration: 'line-through' },
-    discountTag: { fontSize: '12px', color: '#ff5e20', fontWeight: 700 },
-    ratingRow: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '5px',
-      flexWrap: 'wrap',
-    },
-    ratingValue: { fontSize: '12px', color: '#6B7785', fontWeight: 600 },
-    reviewsCount: { fontSize: '12px', color: '#9AA3AE' },
   };
 
   return (
@@ -268,29 +200,26 @@ const ORANGE = '#ff5e20'
           .trending-scroll::-webkit-scrollbar { display: none; }
         `}</style>
 
-        {/* === HEADER — titre seul, souligné en orange === */}
-      {/* ══ En-tête — titre gras centré + petit trait, comme "Deals Of The Day" ══ */}
-      <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
-        <h2 style={{
-          fontSize: 'clamp(18px, 1.8vw, 22px)',
-          fontWeight: 700,
-          color: '#424141',
-          margin: '0 0 10px',
-          letterSpacing: '0.2px',
-        }}>
-          Best Sellers
-        </h2>
+        <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
+          <h2 style={{
+            fontSize: 'clamp(18px, 1.8vw, 22px)',
+            fontWeight: 700,
+            color: '#424141',
+            margin: '0 0 10px',
+            letterSpacing: '0.2px',
+          }}>
+            Best Sellers
+          </h2>
 
-        <div style={{
-          width: '46px',
-          height: '3px',
-          background: ORANGE,
-          borderRadius: '2px',
-          margin: '0 auto',
-        }} />
-      </div>
+          <div style={{
+            width: '46px',
+            height: '3px',
+            background: ORANGE,
+            borderRadius: '2px',
+            margin: '0 auto',
+          }} />
+        </div>
 
-        {/* === CONTENT === */}
         <div style={styles.content}>
 
           <div style={styles.promoBanner}>
@@ -312,7 +241,6 @@ const ORANGE = '#ff5e20'
 
           <div style={styles.rightColumn}>
 
-            {/* Tabs + flèches — juste au-dessus des cartes produits */}
             <div style={styles.tabsAboveCards}>
               <div style={styles.tabs}>
                 {categories.map(cat => (
@@ -330,12 +258,8 @@ const ORANGE = '#ff5e20'
                 <button
                   onClick={() => scroll('left')}
                   style={styles.headerArrowBtn}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = '#F5F6F8';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = '#fff';
-                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = '#F5F6F8'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = '#fff'; }}
                   aria-label="Précédent"
                 >
                   ←
@@ -343,12 +267,8 @@ const ORANGE = '#ff5e20'
                 <button
                   onClick={() => scroll('right')}
                   style={styles.headerArrowBtn}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = '#F5F6F8';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = '#fff';
-                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = '#F5F6F8'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = '#fff'; }}
                   aria-label="Suivant"
                 >
                   →
@@ -362,58 +282,17 @@ const ORANGE = '#ff5e20'
                 className="trending-scroll"
                 style={styles.scrollContainer}
               >
-                {filteredProducts.map(product => {
-                  const hov = hoveredCard === product.id;
-                  return (
-                    <a
-                      key={product.id}
-                      href={`/produit/${product.id}`}
-                      style={styles.productCard(hov)}
-                      onMouseEnter={() => setHoveredCard(product.id)}
-                      onMouseLeave={() => setHoveredCard(null)}
-                    >
-                      <div style={styles.productImageWrap}>
-                        <img
-                          src={product.image}
-                          alt={product.name}
-                          style={styles.productImage(hov)}
-                          onError={e => { e.target.src = 'https://placehold.co/300x300/FAFAFB/9AA3AE?text=Produit'; }}
-                        />
-                        <div style={styles.trendingBadge}>
-                          <svg width="9" height="9" viewBox="0 0 24 24" fill="none"
-                            stroke="currentColor" strokeWidth="3"
-                            strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
-                            <polyline points="17 6 23 6 23 12"/>
-                          </svg>
-                          Tendance
-                        </div>
-                      </div>
-
-                      <div style={styles.productInfo}>
-                        <h4 style={styles.productName}>{product.name}</h4>
-
-                        <div style={styles.priceRow}>
-                          <span style={styles.newPrice}>{Number(product.newPrice).toFixed(2)} TND</span>
-                          {product.discount > 0 && (
-                            <>
-                              <span style={styles.oldPrice}>{Number(product.oldPrice).toFixed(2)} TND</span>
-                              <span style={styles.discountTag}>-{product.discount}%</span>
-                            </>
-                          )}
-                        </div>
-
-                        <div style={styles.ratingRow}>
-                          <Stars value={product.rating} size={13} />
-                          <span style={styles.ratingValue}>{Number(product.rating).toFixed(1)}</span>
-                          <span style={styles.reviewsCount}>
-                            · {product.reviews >= 1000 ? (product.reviews / 1000).toFixed(1) + 'k' : product.reviews} avis
-                          </span>
-                        </div>
-                      </div>
-                    </a>
-                  );
-                })}
+                {filteredProducts.map(product => (
+                  <div key={product.id} style={styles.cardSlot}>
+                    {/* Cards Trending : badge Tendance, price tiers, MOQ + vendus —
+                        pas de bouton "Commander". */}
+                    <ProductCard
+                      product={{ ...product, isTrending: true }}
+                      variant="trending"
+                      hideButton
+                    />
+                  </div>
+                ))}
               </div>
 
             </div>
@@ -425,12 +304,17 @@ const ORANGE = '#ff5e20'
   );
 };
 
+// products = données BRUTES de l'API (ex: trendingRaw), mappées ici une seule
+// fois, en amont du split mobile/desktop, pour que les deux rendus reçoivent
+// exactement les mêmes props ProductCard.
 function CategorySection({ products = [] }) {
   const isMobile = useIsMobile();
-  if (!products || products.length === 0) return null;
+  const mapped = useMemo(() => products.map(mapTrendingProduct), [products]);
+
+  if (!mapped.length) return null;
   return isMobile
-    ? <MobileTrending products={products} />
-    : <DesktopTrending products={products} />;
+    ? <MobileTrending products={mapped} />
+    : <DesktopTrending products={mapped} />;
 }
 
 export default CategorySection;

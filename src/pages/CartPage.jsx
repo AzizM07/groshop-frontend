@@ -3,7 +3,9 @@
 // Section "Vous aimerez aussi" pleine largeur en bas.
 // Logique conservée : sélection par cases, groupement fournisseur, MOQ, économies, checkout.
 // Badge de livraison alimenté par l'adresse par défaut du compte (plus de "Tunisie" figé).
-// RecoSection utilise React Query (fetchQuery) pour partager le cache avec HomePage/FavorisPage.
+// RecoSection utilise React Query (fetchQuery) pour partager le cache avec HomePage/FavorisPage,
+// et ProductCard (variant="catalog") pour un rendu identique à la card normale (étoiles, MOQ +
+// ventes, fournisseur + Verified/médailles/années, tags, bouton) — voir mapRecoProduct ci-dessous.
 import { products as productsApi, addresses as addressesApi } from '../lib/api'
 import { useState, useMemo, useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
@@ -17,10 +19,9 @@ import { useAuth } from '../context/AuthContext'
 import Footer from '../components/Footer'
 import { useIsMobile } from '../hooks/useIsMobile'
 import MobileCart from '../components/MobileCart'
-/* ⚠️ Adapte cette ligne à ton endpoint réel de suggestions */
-const RECO_URL = `${import.meta.env.VITE_API_URL || ''}/api/products/?ordering=-created_at&page_size=8`
+import ProductCard from '../components/ProductCard'
 
-const ORANGE = '#FF4500'
+const ORANGE = '#FF5E00'
 const INK    = '#1A1A1A'
 const MUTE   = '#7A7A7A'
 const FAINT  = '#A0A0A0'
@@ -38,6 +39,30 @@ const COUNTRY_FR = { TN: 'Tunisie', FR: 'France', DZ: 'Algérie', MA: 'Maroc', I
 const countryFr = (code) => COUNTRY_FR[code] || code || 'Tunisie'
 
 const fmt = (n) => (Number(n) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+// ── Mapper Django API (ProductListSerializer) → props ProductCard ──
+// Mêmes champs que mapProduct() dans HomePage.jsx, pour un rendu identique
+// (étoiles, "Quantité min. : X · Y vendus", Verified/médailles/années, tags).
+function mapRecoProduct(p) {
+  return {
+    id:             p.id,
+    name:           p.name,
+    price:          parseFloat(p.base_price_tnd) || 0,
+    was:            p.old_price_tnd ? parseFloat(p.old_price_tnd) : null,
+    rating:         p.rating_avg ? parseFloat(p.rating_avg) : null,
+    reviewCount:    p.review_count ?? null,
+    soldCount:      p.sold_count,
+    moq:            p.moq,
+    moqUnit:        p.unit || 'pcs',
+    isBestSeller:   (p.sold_count || 0) > 1000,
+    isFreeShipping: p.is_free_shipping || false,
+    verified:       p.supplier_verified === 'approved',
+    medals:         p.supplier_medals || 0,
+    years:          p.years_active || null,
+    image:          p.primary_image,
+    supplier:       p.supplier_name,
+  }
+}
 
 const CSS = `
 .gs-grid {
@@ -648,53 +673,12 @@ function RecoSection({ items }) {
           )}
         </div>
         <div className="gs-reco">
-          {list.map(p => <RecoCard key={p.id} p={p} />)}
+          {list.map(p => (
+            <ProductCard key={p.id} variant="catalog" product={mapRecoProduct(p)} />
+          ))}
         </div>
       </div>
     </div>
-  )
-}
-
-function RecoCard({ p }) {
-  // ⚡ champs réels de ProductListSerializer
-  const price = parseFloat(p.base_price_tnd) || 0
-  const old   = p.old_price_tnd ? parseFloat(p.old_price_tnd) : null
-
-  return (
-    <Link to={`/produit/${p.id}`} style={{
-      display: 'block', background: '#fff', border: `1px solid ${LINE}`,
-      borderRadius: 12, overflow: 'hidden', textDecoration: 'none',
-    }}>
-      <div style={{ aspectRatio: '1 / 1', background: '#F6F6F6' }}>
-        {p.primary_image
-          ? <img src={p.primary_image} alt={p.name} loading="lazy"
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>📦</div>}
-      </div>
-      <div style={{ padding: '12px 14px 14px' }}>
-        <div style={{
-          fontSize: 13.5, fontWeight: 500, color: INK, lineHeight: 1.35, minHeight: 36,
-          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-        }}>
-          {p.name}
-        </div>
-        <div style={{
-          fontSize: 11.5, color: FAINT, marginTop: 3,
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-        }}>
-          {p.supplier_name || ''}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 8 }}>
-          <span style={{ fontSize: 14, fontWeight: 600, color: INK }}>{fmt(price)} TND</span>
-          {old && old > price && (
-            <span style={{ fontSize: 11.5, color: '#BBBBBB', textDecoration: 'line-through' }}>{fmt(old)}</span>
-          )}
-        </div>
-        {p.moq && (
-          <div style={{ fontSize: 11, color: FAINT, marginTop: 3 }}>MOQ {p.moq} {p.unit || ''}</div>
-        )}
-      </div>
-    </Link>
   )
 }
 

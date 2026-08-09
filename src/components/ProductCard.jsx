@@ -4,13 +4,16 @@
 // fournisseur · Verified + médailles + années + drapeau · bouton Commander.
 // Card "invisible" : pas de bordure, pas d'ombre, pas de bg différent de la page.
 //
-// 3 variantes via la prop `variant` :
+// 4 variantes via la prop `variant` :
 //   • 'default'   → compact, pensé pour 6 colonnes (inchangé).
 //   • 'wholesale' → texte agrandi (façon Alibaba), pensé pour 5 colonnes,
 //                   bouton "Ajouter au panier" noir qui devient orange au survol.
 //   • 'mini'      → plus dense, pensé pour 7 colonnes. Toutes les tailles sont
 //                   fluides (clamp + vw) → la carte reste proportionnelle à
 //                   la largeur de l'écran.
+//   • 'catalog'   → mêmes infos que la card normale (étoiles, MOQ + ventes,
+//                   fournisseur + Verified/médailles/années, tags, bouton),
+//                   juste avec ses propres tailles de texte (SIZES.catalog).
 
 import { useState } from 'react'
 import { Star, ShoppingCart } from 'lucide-react'
@@ -31,6 +34,7 @@ const SIZES = {
     name:        'clamp(11.5px, 1vw, 13px)',
     nameMinH:    '32px',
     nameLh:      1.28,
+    nameWeight:  400,
     price:       'clamp(14px, 1.3vw, 18px)',
     tnd:         '0.65em',
     star:        13,
@@ -46,11 +50,13 @@ const SIZES = {
     btnPad:      '6px',
     label:       'Commander',
     withCartIcon: false,
+    withButton:  true,
   },
   wholesale: {
     name:        '15px',
     nameMinH:    '42px',
     nameLh:      1.4,
+    nameWeight:  400,
     price:       '23px',
     tnd:         '0.58em',
     star:        16,
@@ -66,8 +72,9 @@ const SIZES = {
     btnPad:      '10px',
     label:       'Ajouter au panier',
     withCartIcon: true,
+    withButton:  true,
   },
-  // ── NOUVELLE VARIANTE — 7 colonnes, entièrement fluide ──
+  // ── 7 colonnes, entièrement fluide ──
   // Toutes les tailles sont bornées par clamp(min, vw, max) : à 1600px de
   // large la carte respire, et elle rétrécit proportionnellement quand la
   // fenêtre se réduit, sans jamais casser (min garanti).
@@ -75,6 +82,7 @@ const SIZES = {
     name:        'clamp(10.5px, 0.82vw, 12.5px)',
     nameMinH:    'clamp(28px, 2.2vw, 32px)',
     nameLh:      1.28,
+    nameWeight:  400,
     price:       'clamp(13px, 1.05vw, 16.5px)',
     tnd:         '0.6em',
     star:        'clamp(11px, 0.85vw, 13px)',   // number OK aussi, mais clamp = fluide
@@ -90,6 +98,33 @@ const SIZES = {
     btnPad:      'clamp(5px, 0.5vw, 7px)',
     label:       'Commander',
     withCartIcon: false,
+    withButton:  true,
+  },
+  // ── NOUVELLE VARIANTE — mêmes infos que la card normale, tailles propres ──
+  // Image, nom, prix (+ ancien prix barré), étoiles, "Quantité min. : X ·
+  // Y vendus", fournisseur + Verified/médailles/années, tags, bouton.
+  catalog: {
+    name:        '15.5px',
+    nameMinH:    '40px',
+    nameLh:      1.35,
+    nameWeight:  500,
+    price:       '20px',
+    tnd:         '0.55em',
+    oldPrice:    '14px',
+    star:        15,
+    ratingNum:   '14px',
+    ratingCount: '12px',
+    moq:         '13px',
+    sold:        '13px',
+    supplier:    '13px',
+    meta:        '12px',
+    medal:       9,
+    tag:         '10.5px',
+    btn:         '12px',
+    btnPad:      '8px',
+    label:       'Commander',
+    withCartIcon: false,
+    withButton:  false,
   },
 }
 
@@ -294,7 +329,7 @@ function DesktopProductCard({ product, onOrder, variant = 'default' }) {
 
         {/* Nom */}
         <div style={{
-          fontSize: S.name, color: INK, lineHeight: S.nameLh, fontWeight: 400,
+          fontSize: S.name, color: INK, lineHeight: S.nameLh, fontWeight: S.nameWeight || 400,
           display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
           overflow: 'hidden', minHeight: S.nameMinH,
         }}>{name}</div>
@@ -305,7 +340,7 @@ function DesktopProductCard({ product, onOrder, variant = 'default' }) {
             {fmtPrice(price)} <span style={{ fontSize: S.tnd, fontWeight: 600 }}>TND</span>
           </span>
           {was && (
-            <span style={{ fontSize: '11px', color: FAINT, textDecoration: 'line-through' }}>
+            <span style={{ fontSize: S.oldPrice || '11px', color: FAINT, textDecoration: 'line-through' }}>
               {fmtPrice(was)} TND
             </span>
           )}
@@ -326,7 +361,7 @@ function DesktopProductCard({ product, onOrder, variant = 'default' }) {
           </div>
         )}
 
-        {/* Quantité min. (MOQ) — en noir */}
+        {/* Quantité min. (MOQ) + ventes */}
         {moq && (
           <div style={{ fontSize: S.moq, color: INK }}>
             Quantité min. : {moq} {moqUnit}
@@ -384,28 +419,30 @@ function DesktopProductCard({ product, onOrder, variant = 'default' }) {
           </div>
         )}
 
-        {/* Bouton — branché sur le panier (survol du bouton seul) */}
-        <button
-          onClick={handleClick}
-          onMouseEnter={() => setBtnHov(true)}
-          onMouseLeave={() => setBtnHov(false)}
-          disabled={busy}
-          style={{
-            marginTop: '4px', width: '100%', padding: S.btnPad,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px',
-            background: btnBg,
-            color: btnFg,
-            border: `1.5px solid ${btnBorder}`,
-            borderRadius: '999px',
-            fontFamily: "'DM Sans', sans-serif", fontSize: S.btn, fontWeight: 600,
-            cursor: busy ? 'default' : 'pointer',
-            opacity: busy ? 0.65 : 1,
-            transition: 'background .18s, color .18s, border-color .18s',
-          }}
-        >
-          {S.withCartIcon && !busy && !done && <ShoppingCart size={15} />}
-          {busy ? 'Ajout…' : done ? '✓ Ajouté' : S.label}
-        </button>
+        {/* Bouton — branché sur le panier (masqué si S.withButton === false) */}
+        {S.withButton !== false && (
+          <button
+            onClick={handleClick}
+            onMouseEnter={() => setBtnHov(true)}
+            onMouseLeave={() => setBtnHov(false)}
+            disabled={busy}
+            style={{
+              marginTop: '4px', width: '100%', padding: S.btnPad,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px',
+              background: btnBg,
+              color: btnFg,
+              border: `1.5px solid ${btnBorder}`,
+              borderRadius: '999px',
+              fontFamily: "'DM Sans', sans-serif", fontSize: S.btn, fontWeight: 600,
+              cursor: busy ? 'default' : 'pointer',
+              opacity: busy ? 0.65 : 1,
+              transition: 'background .18s, color .18s, border-color .18s',
+            }}
+          >
+            {S.withCartIcon && !busy && !done && <ShoppingCart size={15} />}
+            {busy ? 'Ajout…' : done ? '✓ Ajouté' : S.label}
+          </button>
+        )}
       </div>
     </div>
   )

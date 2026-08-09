@@ -10,7 +10,7 @@ import {
   Layers, FileText, Loader2, CheckCircle2, AlertTriangle,
 } from 'lucide-react'
 
-const ORANGE = '#FF4500'
+const ORANGE = '#FF5E00'
 const FONT = "'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif"
 const UPLOAD_ENDPOINT = '/products/upload-image/'
 const fmt = (n) => (Number(n) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })

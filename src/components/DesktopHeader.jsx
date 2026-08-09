@@ -466,7 +466,7 @@ function SubCategoryItem({ sub }) {
 
 // ── MegaMenu ──────────────────────────────────────────────────────
 const POUR_VOUS_ID = '__pour_vous__'
-const _cache = { categories: null, allSubs: null, subs: {} }
+const _cache = { categories: null, allSubs: null, subs: {}, pourVousSubs: null }
 
 const MegaMenu = forwardRef(function MegaMenu({ onMouseEnter, onMouseLeave }, ref) {
   const navigate = useNavigate()
@@ -516,7 +516,7 @@ const MegaMenu = forwardRef(function MegaMenu({ onMouseEnter, onMouseLeave }, re
     }
   }
 
-  useEffect(() => {
+useEffect(() => {
     if (_cache.categories) return
     products.categories().then(data => {
       const cats = data || []
@@ -539,10 +539,9 @@ const MegaMenu = forwardRef(function MegaMenu({ onMouseEnter, onMouseLeave }, re
     ? { id: POUR_VOUS_ID, name: 'Catégories pour vous', emoji: '⭐' }
     : categories.find(c => c.id === activeId)
 
-  const activeSubs = activeId === POUR_VOUS_ID
-    ? (() => { const all = _cache.allSubs || []; return [...all].sort(() => Math.random() - 0.5).slice(0, 14) })()
+const activeSubs = activeId === POUR_VOUS_ID
+    ? (_cache.pourVousSubs || [])
     : (_cache.subs[activeId] || [])
-
   return (
     <div ref={ref} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} className="gh-dd"
       style={{ ...MENU_STYLE, height: '540px', display: 'flex' }}>
@@ -609,8 +608,7 @@ const MegaMenu = forwardRef(function MegaMenu({ onMouseEnter, onMouseLeave }, re
             ) : activeId === POUR_VOUS_ID ? (
               (() => {
                 const cats = _cache.categories || []
-                const allSubs = Object.values(_cache.subs).flat()
-                const randomSubs = [...allSubs].sort(() => Math.random() - 0.5).slice(0, 14)
+                const randomSubs = _cache.pourVousSubs || []
                 return (
                   <div>
                     <div style={{ marginBottom: '32px' }}>

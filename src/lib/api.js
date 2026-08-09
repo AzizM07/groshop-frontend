@@ -206,7 +206,9 @@ export const products = {
   async recommendations(id) {
     return request(`/products/${id}/recommendations/`)
   },
-
+  async categoriesForYou() {
+  return request('/products/categories/for-you/')
+},
   async categories() {
     if (_productsCategoriesCache)   return _productsCategoriesCache
     if (_productsCategoriesPromise) return _productsCategoriesPromise

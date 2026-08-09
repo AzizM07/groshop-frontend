@@ -410,14 +410,14 @@ function DesktopProductCard({
           </div>
         )}
 
-        {moq && (
-          <div style={{ fontSize: S.moq, color: INK }}>
-            Quantité min. : {moq} {moqUnit}
-            {soldCount != null && (
-              <span style={{ color: MUTE }}> · {fmtCount(soldCount)} vendus</span>
-            )}
-          </div>
-        )}
+{moq && (
+  <div style={{ fontSize: S.moq, color: INK, display: 'flex', flexWrap: 'wrap', columnGap: '4px', rowGap: '2px' }}>
+    <span style={{ whiteSpace: 'nowrap' }}>Quantité min. : {moq} {moqUnit}</span>
+    {soldCount != null && (
+      <span style={{ color: MUTE, whiteSpace: 'nowrap' }}>· {fmtCount(soldCount)} vendus</span>
+    )}
+  </div>
+)}
 
         {!moq && soldCount != null && (
           <div style={{ fontSize: S.sold, color: MUTE }}>

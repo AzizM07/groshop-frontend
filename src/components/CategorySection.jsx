@@ -34,8 +34,6 @@ function mapTrendingProduct(p) {
     soldCount:      p.sold_count,
     moq:            p.moq,
     moqUnit:        p.unit || 'pcs',
-    isBestSeller:   (p.sold_count || 0) > 1000,
-    isFreeShipping: p.is_free_shipping || false,
     image:          p.primary_image,
     category:       p.category_name || 'Autre',
     // supplier, verified, medals, years volontairement omis

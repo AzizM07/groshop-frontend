@@ -303,8 +303,8 @@ export default function DesktopHeader() {
               </Link>
               <Link to="/signup/buyer" className="gh-cta"
                 style={{ background: '#FF4500', color: '#fff', textDecoration: 'none', fontSize: '14px', fontWeight: 700, padding: '10px 24px', borderRadius: '6px', marginLeft: '10px', whiteSpace: 'nowrap', flexShrink: 0 }}
-                onMouseEnter={e => { e.currentTarget.style.background = '#D63A00' }}
-                onMouseLeave={e => { e.currentTarget.style.background = '#FF4500' }}>
+                onMouseEnter={e => { e.currentTarget.style.background = '#ff3c00' }}
+                onMouseLeave={e => { e.currentTarget.style.background = '#ff5e20' }}>
                 Créer un compte
               </Link>
             </>

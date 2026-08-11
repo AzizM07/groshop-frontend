@@ -10,7 +10,7 @@ import { useUnread } from '../context/UnreadContext'
 import { messaging, orders, addresses as addressesApi } from '../lib/api'
 import * as Icons from 'lucide-react'
 import PHONE_ICON from '../assets/phone.png'
-
+import { getLanguage, setLanguage } from '../lib/api'
 // --- Leaflet ---
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
@@ -921,23 +921,26 @@ export function AppDownloadDropdown() {
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   LANGUE / DEVISE — au clic
+   LANGUE — au clic (FR / EN / AR)
    ═══════════════════════════════════════════════════════════════════ */
 export function LanguageDropdown() {
   const [open, setOpen] = useState(false)
   const wrapRef = useRef(null)
   const panelRef = useRef(null)
 
-  const [selectedLang, setSelectedLang] = useState('Français')
+  const [selectedLang, setSelectedLang] = useState(getLanguage())
   const [selectedCurrency, setSelectedCurrency] = useState('TND')
 
   const languages = [
     { code: 'fr', label: 'Français' },
     { code: 'en', label: 'English' },
+    { code: 'ar', label: 'العربية' },
   ]
   const currencies = [
     { code: 'TND', label: 'TND' },
   ]
+
+  const currentLabel = languages.find(l => l.code === selectedLang)?.label || 'Français'
 
   useEffect(() => {
     const handleClose = () => setOpen(false)
@@ -959,9 +962,13 @@ export function LanguageDropdown() {
     }
   }, [open])
 
+  // Reload complet : le plus sûr pour re-fetcher toutes les données
+  // traduites (produits, catégories) et appliquer dir="rtl" partout
+  // sans avoir à invalider chaque composant à la main.
   const handleSave = () => {
-    console.log('Langue:', selectedLang, 'Devise:', selectedCurrency)
+    setLanguage(selectedLang)
     setOpen(false)
+    window.location.reload()
   }
 
   const toggleOpen = () => {
@@ -979,7 +986,7 @@ export function LanguageDropdown() {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" style={{ width: 'clamp(17px, 1.5vw, 21px)', height: 'clamp(17px, 1.5vw, 21px)', flexShrink: 0 }}>
           <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"/>
         </svg>
-        <span className="gh-lang-text">{selectedLang} · {selectedCurrency}</span>
+        <span className="gh-lang-text">{currentLabel} · {selectedCurrency}</span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ width: 'clamp(11px, 1vw, 14px)', height: 'clamp(11px, 1vw, 14px)', flexShrink: 0 }}>
           <polyline points="6 9 12 15 18 9"/>
         </svg>
@@ -1005,16 +1012,16 @@ export function LanguageDropdown() {
           }}>
             <div style={{ marginBottom: 16 }}>
               <div style={{ fontSize: '13px', fontWeight: 600, color: MUTE, marginBottom: 8 }}>Langue</div>
-              <div style={{ display: 'flex', gap: 12 }}>
+              <div style={{ display: 'flex', gap: 8 }}>
                 {languages.map(lang => (
                   <button
                     key={lang.code}
-                    onClick={() => setSelectedLang(lang.label)}
+                    onClick={() => setSelectedLang(lang.code)}
                     style={{
-                      flex: 1, padding: '10px 0', border: `1px solid ${selectedLang === lang.label ? ORANGE : LINE}`,
-                      borderRadius: 8, background: selectedLang === lang.label ? SOFT : '#fff',
-                      cursor: 'pointer', fontSize: '13px', fontWeight: selectedLang === lang.label ? 600 : 400,
-                      color: selectedLang === lang.label ? ORANGE : INK,
+                      flex: 1, padding: '10px 4px', border: `1px solid ${selectedLang === lang.code ? ORANGE : LINE}`,
+                      borderRadius: 8, background: selectedLang === lang.code ? SOFT : '#fff',
+                      cursor: 'pointer', fontSize: '13px', fontWeight: selectedLang === lang.code ? 600 : 400,
+                      color: selectedLang === lang.code ? ORANGE : INK,
                       transition: 'border-color 0.15s, background 0.15s',
                     }}
                   >

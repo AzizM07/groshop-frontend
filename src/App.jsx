@@ -48,6 +48,7 @@ import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import OrderConfirmationPage from './pages/OrderConfirmationPage'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { getLanguage } from './lib/api'
 
 const NO_LAYOUT   = ['/login', '/signup', '/pending', '/supplier', '/dashboard', '/categories', '/checkout','/commande/confirmation']
 const FOOTER_ONLY = ['/devenir-fournisseur']
@@ -79,15 +80,25 @@ function DashSoon() {
 function AppContent() {
   const location    = useLocation()
   const { user, loading: authLoading } = useAuth()
+
   useEffect(() => {
-  ;(async () => {
-    const token = await requestPushToken()
-    if (token) await notifications.registerToken(token)
-  })()
-  onForegroundMessage((payload) => {
-    console.log('Push (foreground):', payload)
-  })
-}, [])
+    ;(async () => {
+      const token = await requestPushToken()
+      if (token) await notifications.registerToken(token)
+    })()
+    onForegroundMessage((payload) => {
+      console.log('Push (foreground):', payload)
+    })
+  }, [])
+
+  // ⭐ Applique dir="rtl" (arabe uniquement) et lang="xx" sur <html> dès le
+  //    premier chargement, à partir de la langue déjà enregistrée en local.
+  useEffect(() => {
+    const lang = getLanguage()
+    document.documentElement.dir  = lang === 'ar' ? 'rtl' : 'ltr'
+    document.documentElement.lang = lang
+  }, [])
+
   // ⭐ Un compte = un rôle. Le fournisseur n'a accès qu'à son dashboard.
   //    /produit/:id reste public (SEO + prévisualisation de ses fiches).
   const BUYER_PATHS = ['/', '/search', '/panier']

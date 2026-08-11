@@ -13,12 +13,31 @@ function getCookie(name) {
   return null
 }
 
+// ── Langue (FR / EN / AR) ──────────────────────────────────────────
+const VALID_LANGS = ['fr', 'en', 'ar']
+
+export function getLanguage() {
+  const stored = localStorage.getItem('groshop_lang')
+  return VALID_LANGS.includes(stored) ? stored : 'fr'
+}
+
+// Change la langue active : persiste, invalide le cache catégories
+// (qui contient des noms traduits), et applique dir="rtl" seulement pour l'arabe.
+export function setLanguage(lang) {
+  if (!VALID_LANGS.includes(lang)) return
+  localStorage.setItem('groshop_lang', lang)
+  products.categoriesInvalidate()
+  document.documentElement.dir  = lang === 'ar' ? 'rtl' : 'ltr'
+  document.documentElement.lang = lang
+}
+
 async function request(endpoint, options = {}, _retried = false) {
   const csrfToken = getCookie('csrftoken')
 
   const headers = {
     'Content-Type': 'application/json',
     ...(csrfToken ? { 'X-CSRFToken': csrfToken } : {}),
+    'X-Lang': getLanguage(),
     ...options.headers,
   }
 
@@ -138,7 +157,6 @@ export const auth = {
   },
 
   // ── Vérification téléphone (OTP SMS) ──
-  // Chemins finaux : /api/auth/phone/request-otp/ et /api/auth/phone/verify-otp/
   async requestPhoneOtp(phone) {
     return request('/auth/phone/request-otp/', {
       method: 'POST',
@@ -168,10 +186,6 @@ export const auth = {
 
 // ── Products ──────────────────────────────────────────────────────
 
-// Cache module-level pour /products/categories/ — évite les fetchs doublés
-// entre Header (mega menu) et PopularCategories (homepage). Les appels
-// concurrents partagent la même Promise en flight, les appels ultérieurs
-// retournent directement les données mises en cache.
 let _productsCategoriesCache   = null
 let _productsCategoriesPromise = null
 
@@ -207,8 +221,8 @@ export const products = {
     return request(`/products/${id}/recommendations/`)
   },
   async categoriesForYou() {
-  return request('/products/categories/for-you/')
-},
+    return request('/products/categories/for-you/')
+  },
   async categories() {
     if (_productsCategoriesCache)   return _productsCategoriesCache
     if (_productsCategoriesPromise) return _productsCategoriesPromise
@@ -220,14 +234,14 @@ export const products = {
         return data
       })
       .catch(err => {
-        _productsCategoriesPromise = null   // permet de re-tenter au prochain appel
+        _productsCategoriesPromise = null
         throw err
       })
 
     return _productsCategoriesPromise
   },
   categoryBanner: (q) =>
-  request(`/products/category-banner/?q=${encodeURIComponent(q)}`),
+    request(`/products/category-banner/?q=${encodeURIComponent(q)}`),
   categoriesCached() {
     return _productsCategoriesCache
   },
@@ -259,7 +273,6 @@ export const products = {
     body: JSON.stringify(data),
   }),
 
-  // ── Favoris ──
   async favorites() {
     return request('/products/favorites/')
   },
@@ -273,7 +286,7 @@ export const products = {
     return request(`/products/favorites/${id}/`, { method: 'DELETE' })
   },
 }
-// ── Subscriptions (abonnement fournisseur) — app store, sous /api/store/ ──
+
 export const subscriptions = {
   plans:      ()       => request('/store/subscriptions/plans/'),
   mine:       ()       => request('/store/subscriptions/me/'),
@@ -282,7 +295,6 @@ export const subscriptions = {
     body: JSON.stringify({ plan_id: planId }),
   }),
 }
-// ── Cart ──────────────────────────────────────────────────────────
 
 export const cart = {
 
@@ -321,11 +333,8 @@ export const cart = {
   },
 }
 
-// ── Suppliers ─────────────────────────────────────────────────────
-
 export const suppliers = {
 
-  // ── Public (vitrine d'un fournisseur) ──
   async profile(slug) {
     return request(`/auth/suppliers/${slug}/`)
   },
@@ -335,13 +344,10 @@ export const suppliers = {
     return request(`/auth/suppliers/${slug}/products/?${query}`)
   },
 
-  // ── Fournisseur connecté (édition de SA vitrine) ──
-  // GET  ma vitrine (profil + store imbriqué)
   async myShop() {
     return request('/auth/supplier/me/')
   },
 
-  // PATCH un ou plusieurs champs de la vitrine (partial)
   async updateStore(data) {
     return request('/auth/supplier/store/', {
       method: 'PATCH',
@@ -349,13 +355,10 @@ export const suppliers = {
     })
   },
 
-  // Upload d'une image de vitrine → renvoie { url } (WebP optimisé)
   async uploadStoreImage(file) {
     return uploadFile('/auth/supplier/store/upload/', file)
   },
 }
-
-// ── Orders ────────────────────────────────────────────────────────
 
 export const orders = {
 
@@ -382,7 +385,6 @@ export const orders = {
 
   toReview: () => request('/orders/to-review/'),
 
-  // ── Espace fournisseur ──
   async supplier(params = {}) {
     const q = new URLSearchParams(params).toString()
     return request(`/orders/supplier/${q ? '?' + q : ''}`)
@@ -396,15 +398,11 @@ export const orders = {
   },
 }
 
-// ── Analytics ─────────────────────────────────────────────────────
-
 export const analytics = {
   async supplierStats() { return request('/analytics/supplier/stats/') },
   async activeUsers()   { return request('/analytics/supplier/active-users/') },
   async regions()       { return request('/analytics/supplier/regions/') },
 }
-
-// ── Messaging ─────────────────────────────────────────────────────
 
 export const messaging = {
 
@@ -442,7 +440,6 @@ export const messaging = {
   },
 }
 
-// ── Notifications ─────────────────────────────────────────────────
 export const notifications = {
   registerToken: (token, platform = 'web') =>
     request('/notifications/register/', { method: 'POST', body: JSON.stringify({ token, platform }) }),
@@ -450,24 +447,20 @@ export const notifications = {
     request('/notifications/unregister/', { method: 'POST', body: JSON.stringify({ token }) }),
 }
 
-// ── Delivery (transporteurs & expéditions) — app `delivery` sous /api/delivery/ ──
 export const delivery = {
-  // Catalogue des transporteurs disponibles (code -> label)
   carriers:            ()         => request('/delivery/carriers/'),
 
-  // Transporteurs activés par le fournisseur connecté (credentials write-only côté back)
   carrierConfigs:      ()         => request('/delivery/carrier-configs/'),
   createCarrierConfig: (data)     => request('/delivery/carrier-configs/', { method: 'POST', body: JSON.stringify(data) }),
   updateCarrierConfig: (id, data) => request(`/delivery/carrier-configs/${id}/`, { method: 'PATCH', body: JSON.stringify(data) }),
   removeCarrierConfig: (id)       => request(`/delivery/carrier-configs/${id}/`, { method: 'DELETE' }),
 
-  // Expéditions
   shipments:           ()         => request('/delivery/shipments/'),
   shipment:            (id)       => request(`/delivery/shipments/${id}/`),
   createShipment:      (data)     => request('/delivery/shipments/', { method: 'POST', body: JSON.stringify(data) }),
   refreshShipment:     (id)       => request(`/delivery/shipments/${id}/refresh/`, { method: 'POST' }),
 }
-// ── Store (recherche, plans publics, etc.) ───────────────────────
+
 export const store = {
   async recentSearches() {
     return request('/store/recent-searches/')
@@ -475,14 +468,9 @@ export const store = {
   async clearRecentSearches() {
     return request('/store/recent-searches/clear/', { method: 'POST' })
   },
-  // Plans publics affichés sur la landing "devenir fournisseur" (AllowAny)
-  // Chemin sans '/api' : request() préfixe déjà BASE_URL (…/api) → /api/store/plans/
   plans: () => request('/store/plans/'),
 }
 
-// ── Adresses (carnet acheteur) ────────────────────────────────────
-// ⚠️ Chemins SANS '/api' en tête : request() préfixe déjà BASE_URL (…/api).
-//    Les vues adresses vivent dans users/urls.py, monté sous /api/auth/.
 export const addresses = {
   list:       ()          => request('/auth/addresses/'),
   create:     (data)      => request('/auth/addresses/', { method: 'POST', body: JSON.stringify(data) }),

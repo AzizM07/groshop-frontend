@@ -162,7 +162,7 @@ export default function HeroSearch() {
             // ⭐ CORRIGÉ : priorité de chargement élevée — c'est une image
             // above-the-fold, le navigateur doit la traiter en priorité
             // plutôt que de la mettre en concurrence avec d'autres ressources.
-            fetchpriority="high"
+            fetchPriority="high"
             decoding="async"
             style={{
               width: '100%', height: '100%',

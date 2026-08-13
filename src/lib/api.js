@@ -21,14 +21,26 @@ export function getLanguage() {
   return VALID_LANGS.includes(stored) ? stored : 'fr'
 }
 
-// Change la langue active : persiste, invalide le cache catégories
-// (qui contient des noms traduits), et applique dir="rtl" seulement pour l'arabe.
-export function setLanguage(lang) {
+// ⭐ async + retourne la promesse : l'appelant (ex: LanguageDropdown.handleSave)
+// peut l'attendre avant de recharger la page, pour garantir que le PATCH
+// /auth/language/ part bien avant que window.location.reload() ne coupe tout.
+// N'échoue jamais bruyamment : si non connecté (401) ou hors-ligne, on
+// continue quand même (le local reste la source de vérité côté client).
+export async function setLanguage(lang) {
   if (!VALID_LANGS.includes(lang)) return
   localStorage.setItem('groshop_lang', lang)
   products.categoriesInvalidate()
   document.documentElement.dir  = lang === 'ar' ? 'rtl' : 'ltr'
   document.documentElement.lang = lang
+
+  try {
+    await request('/auth/language/', {
+      method: 'PATCH',
+      body: JSON.stringify({ language: lang }),
+    })
+  } catch {
+    // silencieux : non connecté ou hors-ligne, pas bloquant
+  }
 }
 
 async function request(endpoint, options = {}, _retried = false) {

@@ -25,6 +25,12 @@ const toInt = (v) => { const n = parseInt(v); return isNaN(n) ? 0 : n }
 const fmt = (n) => (Number(n) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const splitPrice = (n) => { const [a, b] = fmt(n).split(','); return [a, b] }
 
+/* ⭐ Résout le nom d'affichage d'un produit, quelle que soit la forme renvoyée
+   par le backend : name (résolu par modeltranslation) OU name_fr/name_en/name_ar
+   si la traduction active n'a pas été résolue côté serializer. Centralisé ici
+   pour ne pas répéter la même chaîne de fallback à chaque usage. */
+const productName = (p = {}) => p.name || p.name_fr || p.name_en || p.name_ar || ''
+
 /* ── Mapper : produit API (similar / reco) → props attendues par <ProductCard>.
    Les endpoints similar/reco renvoient base_price_tnd / rating_avg / primary_image…
    alors que ProductCard attend price / rating / image. On traduit ici, en étant
@@ -35,7 +41,7 @@ const toCardProduct = (p = {}) => {
   const gallery = Array.isArray(p.images) ? p.images.map(im => im?.url || im).filter(Boolean) : []
   return {
     id: p.id,
-    name: p.name,
+    name: productName(p),
     price,
     was: old > price ? old : null,
     rating: toNum(p.rating_avg) || null,
@@ -155,6 +161,9 @@ function DesktopProductPage() {
   if (error || !product) return <div style={{ minHeight: '70vh', display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center', justifyContent: 'center', background: BG, fontFamily: FONT }}><span style={{ color: MUTE }}>{error || 'Produit introuvable.'}</span><button onClick={() => navigate('/')} style={{ background: 'none', border: 'none', color: ORANGE, fontWeight: 700, cursor: 'pointer' }}>Retour à l'accueil</button></div>
 
   const p = product
+  // ⭐ Fallback : le backend peut renvoyer name_fr/name_en/name_ar (modeltranslation)
+  // au lieu de name si la traduction active n'est pas résolue côté serializer.
+  const displayName = productName(p)
   const images = p.images?.length ? p.images : (p.primary_image ? [{ url: p.primary_image }] : [])
   const mainImage = imgOverride || images[imgIdx]?.url
   const unit = p.unit || 'pièce'
@@ -223,7 +232,7 @@ function DesktopProductPage() {
           <Link to="/" style={{ color: MUTE, textDecoration: 'none' }}>Accueil</Link>
           {p.category_name && <><ChevronRight size={14} /><Link to={`/search?cat=${p.category_id || ''}`} style={{ color: MUTE, textDecoration: 'none' }}>{p.category_name}</Link></>}
           <ChevronRight size={14} />
-          <span style={{ color: INK, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 320 }}>{p.name}</span>
+          <span style={{ color: INK, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 320 }}>{displayName}</span>
         </div>
 
         {/* ═══ [ gauche : produit + société + accordéons ] + [ droite : buy box sticky ] ═══ */}
@@ -238,7 +247,7 @@ function DesktopProductPage() {
                 <div style={{ minWidth: 0 }}>
                   <div style={{ position: 'relative', width: '100%', aspectRatio: '1', borderRadius: 10, overflow: 'hidden', background: '#F7F8FA' }}>
                     {mainImage
-                      ? <img src={mainImage} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
+                      ? <img src={mainImage} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
                       : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 60 }}>📦</div>}
                     <div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
                       <button onClick={toggleWishlist} style={circBtn}><Heart size={20} fill={wishlisted ? ORANGE : 'none'} color={wishlisted ? ORANGE : INK} /></button>
@@ -261,7 +270,7 @@ function DesktopProductPage() {
 
                 {/* Infos produit */}
                 <div style={{ minWidth: 0 }}>
-                  <h1 style={{ margin: 0, fontSize: 'clamp(19px, 1.5vw, 26px)', fontWeight: 800, lineHeight: 1.22, letterSpacing: '-0.3px' }}>{p.name}</h1>
+                  <h1 style={{ margin: 0, fontSize: 'clamp(19px, 1.5vw, 26px)', fontWeight: 800, lineHeight: 1.22, letterSpacing: '-0.3px' }}>{displayName}</h1>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
                     <Stars value={rating} /><span style={{ fontSize: 14, fontWeight: 700 }}>{rating.toFixed(1)} / 5</span>
                     <button onClick={() => avisRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })} style={{ background: 'none', border: 'none', color: NAVY, fontSize: 13, textDecoration: 'underline', cursor: 'pointer', padding: 0 }}>{reviewCount} avis</button>

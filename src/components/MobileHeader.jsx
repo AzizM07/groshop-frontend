@@ -11,20 +11,14 @@ import { useCart } from '../context/CartContext'
 const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
 
 /* ══════════════ COULEURS COORDONNÉES HEADER ⇄ HOME ══════════════
-   Le gradient global couvre header (0→134px) puis MobileHome (0→320px).
-   Les 3 couleurs ci-dessous DOIVENT rester identiques dans les 2 fichiers,
-   c'est ce qui rend le raccord invisible. */
-export const GRADIENT_TOP    = '#FF6600' // très haut du viewport (100% orange)
-export const GRADIENT_MID    = '#FF8A2B' // raccord bas-header / haut-contenu
-export const GRADIENT_END    = '#FFFFFF' // blanc pur, bas du fade
+   Ces couleurs DOIVENT rester identiques dans MobileHome. */
+export const GRADIENT_TOP = '#FF6600' // top écran (100% orange)
+export const GRADIENT_MID = '#FF8A2B' // raccord header / contenu
+export const GRADIENT_END = '#FFFFFF'
 
-/* Orange "brand" pour les icônes, badges, chips, etc. */
 const ORANGE = '#FF7A00'
-
-/* Gradient utilisé par le header en mode HOME au repos */
 const HEADER_GRADIENT = `linear-gradient(180deg, ${GRADIENT_TOP} 0%, ${GRADIENT_MID} 100%)`
 
-/* Routes */
 const PRODUCT_ROUTES = ['/produit/:id']
 const HOME_ROUTES = ['/']
 
@@ -37,7 +31,6 @@ export function useIsHomeRoute() {
   return HOME_ROUTES.some(p => matchPath({ path: p, end: true }, pathname))
 }
 
-/* Hauteurs header home */
 const H_HOME_TOP      = 134
 const H_HOME_SCROLLED = 86
 const H_DEFAULT       = 56
@@ -86,23 +79,23 @@ export default function MobileHeader() {
   }
   const openDrop = showDropdown && suggestions.length > 0
 
-  /* onDark = header sur fond orange (produit ou home au repos) */
   const onDark = isProduct || (isHome && !scrolled)
 
   let spacerH = H_DEFAULT
   if (isProduct) spacerH = H_PRODUCT
   else if (isHome) spacerH = scrolled ? H_HOME_SCROLLED : H_HOME_TOP
 
-  /* Fond du header :
-     - Home au repos → gradient (top→mid)
-     - Home scrollé  → blanc
-     - Produit       → orange uni (comme avant)
-     - Autres pages  → blanc */
   let headerBg = '#fff'
   if (isProduct) headerBg = ORANGE
   else if (isHome && !scrolled) headerBg = HEADER_GRADIENT
 
-  /* Barre de recherche */
+  /* ⬇️ FIX : le spacer reprend la MÊME couleur que le bas du header
+     → aucune bande blanche possible même si les hauteurs sont légèrement
+     décalées de quelques pixels. */
+  let spacerBg = 'transparent'
+  if (isProduct) spacerBg = ORANGE
+  else if (isHome && !scrolled) spacerBg = GRADIENT_MID
+
   const searchField = ({ dark }) => (
     <form onSubmit={e => { e.preventDefault(); goToSearch(query) }}
       style={{ flex: 1, minWidth: 0, position: 'relative' }}>
@@ -159,7 +152,6 @@ export default function MobileHeader() {
     </form>
   )
 
-  /* Tabs à l'intérieur du header */
   const HomeTabs = ({ dark }) => {
     const [params] = useSearchParams()
     const active = params.get('cat')
@@ -211,7 +203,6 @@ export default function MobileHeader() {
       }}>
 
         {isProduct ? (
-          /* ═══ VARIANTE PRODUIT — inchangée ═══ */
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, height: 52, padding: '0 14px' }}>
               <button onClick={() => navigate(-1)} aria-label="Retour"
@@ -242,7 +233,6 @@ export default function MobileHeader() {
             <div style={{ padding: '0 14px 12px' }}>{searchField({ dark: true })}</div>
           </>
         ) : isHome ? (
-          /* ═══ VARIANTE HOME — gradient au repos, morph blanc au scroll ═══ */
           <>
             {!scrolled && (
               <div style={{
@@ -277,7 +267,6 @@ export default function MobileHeader() {
             <HomeTabs dark={!scrolled} />
           </>
         ) : (
-          /* ═══ VARIANTE NORMALE — autres pages ═══ */
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, height: 56, padding: '0 12px' }}>
             <Link to="/" style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
               <img src={LOGO_SRC} alt="GROSHOP.tn"
@@ -289,7 +278,12 @@ export default function MobileHeader() {
         )}
       </header>
 
-      <div style={{ height: spacerH, transition: 'height .18s' }} aria-hidden="true" />
+      {/* ⬇️ Spacer avec bg coloré : élimine toute bande blanche au raccord */}
+      <div style={{
+        height: spacerH,
+        background: spacerBg,
+        transition: 'height .18s, background .18s',
+      }} aria-hidden="true" />
     </>
   )
 }

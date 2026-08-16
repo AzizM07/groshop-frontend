@@ -15,6 +15,11 @@ const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-ser
 const HEADER_H = 56
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
+/* Dégradé orange "AliExpress-style" : vif en haut → blanc */
+const TOP_GRADIENT =
+  'linear-gradient(180deg, #FF7A00 0%, #FF9838 25%, #FFC896 55%, #FFFFFF 100%)'
+const TAB_ORANGE = '#FF7A00'
+
 /* ══════════════ Grille MASONRY 2 colonnes ══════════════ */
 function MasonryProducts({ items = [], loading = false, adEvery = 6, gap = 8 }) {
   if (loading) {
@@ -52,7 +57,7 @@ function MasonryProducts({ items = [], loading = false, adEvery = 6, gap = 8 }) 
   )
 }
 
-/* ══════════════ Onglets sticky ══════════════ */
+/* ══════════════ Onglets sticky (fond orange vif) ══════════════ */
 function StickyTabs({ cats }) {
   const [params] = useSearchParams()
   const active = params.get('cat')
@@ -65,7 +70,7 @@ function StickyTabs({ cats }) {
   return (
     <div style={{
       position: 'sticky', top: HEADER_H, zIndex: 900,
-      background: '#fff', borderBottom: '1px solid #F0F0F0',
+      background: TAB_ORANGE,
       display: 'flex', gap: 22, overflowX: 'auto', padding: '0 14px',
       WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none',
     }}>
@@ -75,16 +80,16 @@ function StickyTabs({ cats }) {
           <Link key={t.id ?? 'all'} to={t.to}
             style={{
               flexShrink: 0, textDecoration: 'none', whiteSpace: 'nowrap',
-              padding: '8px 2px 6px', position: 'relative',
-              fontSize: 10, fontWeight: on ? 600 : 500,
-              color: on ? '#FF5E00' : '#9CA3AF',
+              padding: '10px 2px 8px', position: 'relative',
+              fontSize: 13, fontWeight: on ? 700 : 500,
+              color: on ? '#FFFFFF' : 'rgba(255,255,255,.75)',
               transition: 'color .15s',
             }}>
             {t.name}
             {on && (
               <span style={{
                 position: 'absolute', left: 0, right: 0, bottom: 0,
-                height: 2, borderRadius: 2, background: '#FF5E00',
+                height: 2.5, borderRadius: 2, background: '#FFFFFF',
               }} />
             )}
           </Link>
@@ -163,7 +168,6 @@ function MobileCategory({ cats, catId, items, loading }) {
 
   useEffect(() => { setActiveSub('all') }, [catId])
 
-  // Cible = sous-cat active sinon grande cat
   const target = activeSubCat || selected
 
   useEffect(() => {
@@ -171,16 +175,14 @@ function MobileCategory({ cats, catId, items, loading }) {
     setBanner(null)
     if (!target) return
 
-    // 1) Si l'objet catégorie porte déjà banner_url (serializer) → direct, sans requête
     if (target.banner_url) {
       setBanner({ image_url: target.banner_url, link: target.banner_link || null })
       return
     }
-    // 2) Sinon endpoint par nom (exactement comme SearchPage)
     if (typeof productsApi.categoryBanner !== 'function' || !target.name) return
     productsApi.categoryBanner(target.name)
       .then(d => {
-        console.log('[banner]', target.name, '→', d)   // ← retire après debug
+        console.log('[banner]', target.name, '→', d)
         if (alive) setBanner(d?.banner || null)
       })
       .catch((e) => { console.warn('[banner] erreur', e); if (alive) setBanner(null) })
@@ -195,14 +197,12 @@ function MobileCategory({ cats, catId, items, loading }) {
 
   return (
     <div>
-      {/* Bannière SOUS-CATÉGORIE : tout de suite en haut */}
       {activeSubCat && banner?.image_url && (
         <div style={{ padding: '10px 12px 0' }}>
           <SearchCategoryBannerMobile banner={banner} onClick={() => goLink(banner.link)} />
         </div>
       )}
 
-      {/* Rangée d'icônes rondes de sous-catégories */}
       <div style={{ display: 'flex', gap: 14, overflowX: 'auto', padding: '14px 12px 8px', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
         <SubIcon active={activeSub === 'all'} label="Tout" onClick={() => setActiveSub('all')} heart />
         {subs.map(s => (
@@ -211,19 +211,15 @@ function MobileCategory({ cats, catId, items, loading }) {
         ))}
       </div>
 
-      {/* Bannière GRANDE CATÉGORIE : à sa place, si aucune sous-cat active */}
-          <div style={{ padding: '4px 12px 0' }}>
-            <SearchCategoryBannerMobile banner={banner} onClick={() => goLink(banner.link)} />
-          </div>
+      <div style={{ padding: '4px 12px 0' }}>
+        <SearchCategoryBannerMobile banner={banner} onClick={() => goLink(banner.link)} />
+      </div>
 
-
-      {/* Titre "Offres du jour" */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '18px 12px 12px' }}>
         <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#0F1419' }}>Offres du jour</h2>
         <span style={{ color: '#8A94A0', fontSize: 18 }}>›</span>
       </div>
 
-      {/* Chips de filtres */}
       <div style={{ display: 'flex', gap: 10, overflowX: 'auto', padding: '0 12px 14px', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
         <FilterChip label="Tout" active={activeSub === 'all'} onClick={() => setActiveSub('all')} />
         {subs.map(s => (
@@ -231,7 +227,6 @@ function MobileCategory({ cats, catId, items, loading }) {
         ))}
       </div>
 
-      {/* Grille produits */}
       <div style={{ padding: '0 12px 24px' }}>
         <MasonryProducts items={items} loading={loading} />
       </div>
@@ -326,7 +321,12 @@ export default function MobileHome({ items = [], trending = [], loading, error, 
   }, [])
 
   return (
-    <div style={{ fontFamily: FONT, background: '#fff' }}>
+    <div style={{
+      fontFamily: FONT,
+      // Dégradé orange en haut (couvre onglets + zone hero) → blanc
+      background: `${TOP_GRADIENT} top / 100% 380px no-repeat, #fff`,
+      minHeight: '100vh',
+    }}>
       <StickyTabs cats={cats} />
       {activeCat
         ? <MobileCategory cats={cats} catId={activeCat} items={items} loading={loading} />

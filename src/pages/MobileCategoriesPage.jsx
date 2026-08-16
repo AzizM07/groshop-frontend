@@ -321,55 +321,131 @@ export default function MobileCategoriesPage() {
           }
         </div>
 
-        {/* ══════ Panneau droit ══════ */}
-        <div style={{ flex: 1, minWidth: 0, overflowY: 'auto', height: '100%', padding: '14px 12px 100px', background: '#fff' }}>
+
+        {/* Panneau droit */}
+        <div style={{ flex: 1, minWidth: 0, overflowY: 'auto', height: '100%', padding: '12px 10px', paddingBottom: 70 }}>
           {loading ? (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', rowGap: 26, columnGap: 6 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px 4px' }}>
               {[...Array(9)].map((_, i) => (
                 <div key={i} style={{ textAlign: 'center' }}>
-                  <div style={{ width: 78, height: 78, background: '#F2F3F5', borderRadius: 6, margin: '0 auto 8px' }} />
-                  <div style={{ height: 10, background: '#F2F3F5', borderRadius: 4, width: '70%', margin: '0 auto' }} />
+                  <div style={{ width: 76, aspectRatio: '1', borderRadius: 8, background: '#F2F3F5', margin: '0 auto 6px' }} />
+                  <div style={{ height: 9, background: '#F2F3F5', borderRadius: 4, width: '70%', margin: '0 auto' }} />
                 </div>
               ))}
             </div>
           ) : (
             <>
-              {showTabs && <TabsRow tab={rightTab} onChange={setRightTab} />}
-
-              {rightTitle && (
-                <div style={{ fontSize: 17, fontWeight: 800, color: '#0F1419', marginBottom: 16 }}>
-                  {rightTitle}
+              {/* Onglets Pour vous / Tendances (seulement sur "Pour vous") */}
+              {showTabs && (
+                <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+                  <button onClick={() => setRightTab('pour_vous')} style={{
+                    padding: '7px 18px', cursor: 'pointer',
+                    background: '#fff',
+                    border: rightTab === 'pour_vous' ? `1.5px solid ${ORANGE}` : '1.5px solid transparent',
+                    color: rightTab === 'pour_vous' ? ORANGE : '#3D4853',
+                    borderRadius: 20, fontSize: 13, fontWeight: rightTab === 'pour_vous' ? 700 : 500,
+                  }}>Pour vous</button>
+                  <button onClick={() => setRightTab('tendances')} style={{
+                    padding: '7px 16px', cursor: 'pointer',
+                    background: rightTab === 'tendances' ? '#fff' : '#F4F5F7',
+                    border: rightTab === 'tendances' ? `1.5px solid ${ORANGE}` : '1.5px solid transparent',
+                    color: rightTab === 'tendances' ? ORANGE : '#3D4853',
+                    borderRadius: 20, fontSize: 13, fontWeight: rightTab === 'tendances' ? 700 : 500,
+                    display: 'flex', alignItems: 'center', gap: 4,
+                  }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={ORANGE} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>
+                    </svg>
+                    Tendances
+                  </button>
                 </div>
+              )}
+
+              {/* Titre catégorie (uniquement quand une vraie catégorie est sélectionnée) */}
+              {rightTitle && (
+                <div style={{ fontSize: 17, fontWeight: 800, color: '#0F1419', marginBottom: 16 }}>{rightTitle}</div>
               )}
 
               {rightSubs.length === 0 ? (
                 <div style={{ color: '#9AA3AE', fontSize: 13 }}>Aucune sous-catégorie</div>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', rowGap: 26, columnGap: 6, paddingTop: showTabs ? 14 : 4 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px 4px' }}>
                   {rightSubs.map((sub, i) => (
-                    <SubCategoryTile key={`${sub.id}-${i}`} sub={sub}
-                      onClick={() => navigate(`/search?cat=${sub.id}`)} />
+                    <button key={`${sub.id}-${i}`} onClick={() => navigate(`/search?cat=${sub.id}`)}
+                      style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'center', minWidth: 0 }}>
+                      {/* CARRÉ ARRONDI au lieu de cercle */}
+                      <div style={{
+                        width: '100%', aspectRatio: '1', maxWidth: 76,
+                        borderRadius: 8, overflow: 'hidden',
+                        margin: '0 auto 6px', background: '#F4F5F7',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        {sub.image_url ? (
+                          <img src={sub.image_url} alt={sub.name} loading="lazy"
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            onError={e => { e.currentTarget.style.display = 'none' }} />
+                        ) : (
+                          <span style={{ fontSize: 26 }}>{sub.emoji || (sub.name && sub.name[0])}</span>
+                        )}
+                      </div>
+                      <div style={{
+                        fontSize: 11, color: '#1F2937', lineHeight: 1.2,
+                        display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                        padding: '0 2px',
+                      }}>
+                        {sub.name}
+                      </div>
+                    </button>
                   ))}
                 </div>
               )}
 
-              {/* Vraies cartes produits (comme AliExpress en bas de la grille) */}
+              {/* ── Inspiration produit (seulement sur "Pour vous") ── */}
               {showInspo && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 22 }}>
-                  {inspo.map(p => (
-                    <ProductCard key={p.id} product={p}
-                      onClick={() => navigate(`/produit/${p.id}`)} />
-                  ))}
-                </div>
+                <>
+                  <div style={{ height: 1, background: '#F0F0F0', margin: '20px 0 16px' }} />
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#0F1419', marginBottom: 12, lineHeight: 1.25 }}>
+                    Trouvez de l'inspiration
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    {inspo.map(p => (
+                      <button key={p.id} onClick={() => navigate(`/produit/${p.id}`)}
+                        style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}>
+                        <div style={{ width: '100%', aspectRatio: '1', borderRadius: 10, overflow: 'hidden', background: '#F4F5F7' }}>
+                          {p.primary_image
+                            ? <img src={p.primary_image} alt={p.name} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>📦</div>}
+                        </div>
+                        <div style={{ padding: '6px 2px 0' }}>
+                          {p.price != null && (
+                            <div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419' }}>
+                              TND {Number(p.price).toFixed(2)}
+                            </div>
+                          )}
+                          {(p.sold_count != null || p.rating != null) && (
+                            <div style={{ fontSize: 11, color: '#6B7785', marginTop: 2 }}>
+                              {p.sold_count != null && `${p.sold_count}+ vendus`}
+                              {p.sold_count != null && p.rating != null && ' · '}
+                              {p.rating != null && `★ ${Number(p.rating).toFixed(1)}`}
+                            </div>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </>
               )}
             </>
           )}
         </div>
       </div>
-
-      {/* Pilule flottante + nav */}
-      <FloatingPill label={['Livraison', 'gratuite']} onClick={() => navigate('/livraison')} />
       <MobileBottomNav />
     </div>
   )
 }
+
+
+
+
+
+

@@ -10,15 +10,16 @@ import AdSlot from '../components/AdSlot'
 import PopularCategoriesMobile from '../components/PopularCategoriesMobile'
 import SearchCategoryBannerMobile from '../components/SearchCategoryBannerMobile'
 import { DotLottieReact } from '@lottiefiles/dotlottie-react'
-import heartAnim from '../assets/lottie/heart.json' // ajuste le chemin si besoin
+import heartAnim from '../assets/lottie/heart.json'
+
 const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
-const HEADER_H = 56
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
-/* Dégradé orange "AliExpress-style" : vif en haut → blanc */
+/* Orange harmonisé — MÊME valeur que MobileHeader → aucune coupure au raccord */
+const ORANGE = '#FF7A00'
+/* Dégradé : part du même orange que le header, descend en douceur vers blanc */
 const TOP_GRADIENT =
-  'linear-gradient(180deg, #FF7A00 0%, #FF9838 25%, #FFC896 55%, #FFFFFF 100%)'
-const TAB_ORANGE = '#FF7A00'
+  'linear-gradient(180deg, #FF7A00 0%, #FF8A1F 22%, #FFA85C 48%, #FFD6B0 75%, #FFFFFF 100%)'
 
 /* ══════════════ Grille MASONRY 2 colonnes ══════════════ */
 function MasonryProducts({ items = [], loading = false, adEvery = 6, gap = 8 }) {
@@ -57,7 +58,7 @@ function MasonryProducts({ items = [], loading = false, adEvery = 6, gap = 8 }) 
   )
 }
 
-/* ══════════════ Onglets sticky (fond orange vif) ══════════════ */
+/* ══════════════ Onglets sticky (fond orange, collent sous le header) ══════════════ */
 function StickyTabs({ cats }) {
   const [params] = useSearchParams()
   const active = params.get('cat')
@@ -69,8 +70,9 @@ function StickyTabs({ cats }) {
 
   return (
     <div style={{
-      position: 'sticky', top: HEADER_H, zIndex: 900,
-      background: TAB_ORANGE,
+      // Sticky sous le header fixe (56px)
+      position: 'sticky', top: 56, zIndex: 900,
+      background: ORANGE,
       display: 'flex', gap: 22, overflowX: 'auto', padding: '0 14px',
       WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none',
     }}>
@@ -80,7 +82,7 @@ function StickyTabs({ cats }) {
           <Link key={t.id ?? 'all'} to={t.to}
             style={{
               flexShrink: 0, textDecoration: 'none', whiteSpace: 'nowrap',
-              padding: '10px 2px 8px', position: 'relative',
+              padding: '10px 2px 9px', position: 'relative',
               fontSize: 13, fontWeight: on ? 700 : 500,
               color: on ? '#FFFFFF' : 'rgba(255,255,255,.75)',
               transition: 'color .15s',
@@ -140,7 +142,7 @@ function MobileHeroGrid() {
       {slides.length > 1 && (
         <div style={{ position: 'absolute', bottom: 10, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 5 }}>
           {slides.map((_, k) => (
-            <span key={k} style={{ width: k === i ? 16 : 6, height: 6, borderRadius: 3, background: k === i ? '#FF5E00' : 'rgba(255,255,255,.7)', transition: 'width .25s' }} />
+            <span key={k} style={{ width: k === i ? 16 : 6, height: 6, borderRadius: 3, background: k === i ? '#fff' : 'rgba(255,255,255,.7)', transition: 'width .25s' }} />
           ))}
         </div>
       )}
@@ -148,7 +150,7 @@ function MobileHeroGrid() {
   )
 
   return (
-    <div style={{ margin: '10px 12px 0', borderRadius: 14, overflow: 'hidden' }}>
+    <div style={{ margin: '12px 12px 0', borderRadius: 14, overflow: 'hidden' }}>
       {s.link ? <a href={s.link} style={{ display: 'block', textDecoration: 'none' }}>{inner}</a> : inner}
     </div>
   )
@@ -181,11 +183,8 @@ function MobileCategory({ cats, catId, items, loading }) {
     }
     if (typeof productsApi.categoryBanner !== 'function' || !target.name) return
     productsApi.categoryBanner(target.name)
-      .then(d => {
-        console.log('[banner]', target.name, '→', d)
-        if (alive) setBanner(d?.banner || null)
-      })
-      .catch((e) => { console.warn('[banner] erreur', e); if (alive) setBanner(null) })
+      .then(d => { if (alive) setBanner(d?.banner || null) })
+      .catch(() => { if (alive) setBanner(null) })
     return () => { alive = false }
   }, [target?.id, target?.name, target?.banner_url])
 
@@ -241,7 +240,7 @@ function SubIcon({ label, img, emoji, active, heart, onClick }) {
         width: 62, height: 62, borderRadius: '50%', overflow: 'hidden',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         background: active ? '#FFF0E9' : '#F4F5F7',
-        border: active ? '2px solid #FF5E00' : '2px solid transparent',
+        border: active ? `2px solid ${ORANGE}` : '2px solid transparent',
       }}>
         {heart ? (
           <DotLottieReact
@@ -256,7 +255,7 @@ function SubIcon({ label, img, emoji, active, heart, onClick }) {
           <span style={{ fontSize: 26 }}>{emoji || (label && label[0])}</span>
         )}
       </span>
-      <span style={{ fontSize: 11, color: active ? '#FF5E00' : '#3D4853', textAlign: 'center', lineHeight: 1.15, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{label}</span>
+      <span style={{ fontSize: 11, color: active ? ORANGE : '#3D4853', textAlign: 'center', lineHeight: 1.15, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{label}</span>
     </button>
   )
 }
@@ -266,15 +265,14 @@ function FilterChip({ label, active, onClick }) {
       flexShrink: 0, whiteSpace: 'nowrap', cursor: 'pointer',
       fontSize: 14, fontWeight: active ? 700 : 600,
       color: active ? '#fff' : '#3D4853',
-      background: active ? '#FF5E00' : '#fff',
-      border: active ? '1px solid #FF5E00' : '1px solid #E5E7EB',
+      background: active ? ORANGE : '#fff',
+      border: active ? `1px solid ${ORANGE}` : '1px solid #E5E7EB',
       padding: '9px 18px', borderRadius: 24,
     }}>{label}</button>
   )
 }
 
 /* ═══════════════════════ FEED "POUR VOUS" ═══════════════════════ */
-const SHORTCUTS = []
 function HomeFeed({ items, trending, loading, error, isPersonalized }) {
   return (
     <>
@@ -289,7 +287,7 @@ function HomeFeed({ items, trending, loading, error, isPersonalized }) {
         <h2 style={{ margin: '0 0 12px', fontSize: 15, fontWeight: 700, color: '#0F1419' }}>
           {isPersonalized ? 'Recommandé pour vous' : 'Produits recommandés'}
         </h2>
-        {error && <div style={{ color: '#FF5E00', fontSize: 13, marginBottom: 12 }}>{error}</div>}
+        {error && <div style={{ color: ORANGE, fontSize: 13, marginBottom: 12 }}>{error}</div>}
         <MasonryProducts items={items} loading={loading} />
       </div>
       <Footer />
@@ -323,10 +321,11 @@ export default function MobileHome({ items = [], trending = [], loading, error, 
   return (
     <div style={{
       fontFamily: FONT,
-      // Dégradé orange en haut (couvre onglets + zone hero) → blanc
-      background: `${TOP_GRADIENT} top / 100% 380px no-repeat, #fff`,
+      // Le dégradé part du même orange que le header (aucune coupure) et s'étend sur ~460px
+      background: `${TOP_GRADIENT} top / 100% 460px no-repeat, #fff`,
       minHeight: '100vh',
     }}>
+      {/* ⚠️ Plus de MobileTopBar ici — MobileHeader (fixed) s'en occupe désormais */}
       <StickyTabs cats={cats} />
       {activeCat
         ? <MobileCategory cats={cats} catId={activeCat} items={items} loading={loading} />

@@ -8,68 +8,156 @@ import MobileBottomNav from '../components/MobileBottomNav'
 
 const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
 const POUR_VOUS_ID = '__pour_vous__'
+const ORANGE = '#FF7A00'
 
+/* ═══════════════ Barre de recherche (style AliExpress) ═══════════════ */
+function SearchHeader({ onSearchClick, onCameraClick, onBellClick, placeholder = 'Rechercher un produit…' }) {
+  return (
+    <div style={{ flexShrink: 0, padding: '10px 12px 10px', background: '#fff' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        {/* Pilule de recherche */}
+        <div
+          onClick={onSearchClick}
+          style={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            background: '#fff',
+            border: '1.5px solid #111',
+            borderRadius: 24,
+            height: 44,
+            padding: '0 4px 0 14px',
+            cursor: 'pointer',
+          }}
+        >
+          <button
+            onClick={e => { e.stopPropagation(); onCameraClick?.() }}
+            aria-label="Recherche image"
+            style={{ background: 'none', border: 'none', padding: 0, display: 'flex', cursor: 'pointer' }}
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/>
+              <circle cx="12" cy="13" r="4"/>
+            </svg>
+          </button>
+          <div style={{ width: 1, height: 22, background: '#D0D3D8', margin: '0 10px' }} />
+          <span style={{ flex: 1, fontSize: 14, color: '#111', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {placeholder}
+          </span>
+          <button
+            onClick={e => { e.stopPropagation(); onSearchClick?.() }}
+            aria-label="Rechercher"
+            style={{
+              width: 36, height: 36, borderRadius: '50%', background: '#111', border: 'none',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+          </button>
+        </div>
+
+        {/* Cloche avec badge */}
+        <button
+          onClick={onBellClick}
+          aria-label="Notifications"
+          style={{ position: 'relative', background: 'none', border: 'none', padding: 4, cursor: 'pointer', display: 'flex' }}
+        >
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>
+          </svg>
+          <span style={{
+            position: 'absolute', top: 0, right: 0,
+            background: '#FF3B30', color: '#fff', fontSize: 10, fontWeight: 700,
+            borderRadius: 10, minWidth: 18, height: 18, padding: '0 4px',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>99</span>
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/* ═══════════════ Bannière promo orange ═══════════════ */
+function PromoBanner() {
+  return (
+    <div style={{
+      flexShrink: 0, background: ORANGE, padding: '9px 14px',
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#fff',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/>
+          <circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>
+        </svg>
+        <span style={{ fontSize: 13, fontWeight: 600 }}>Livraison gratuite dès 200 DT</span>
+      </div>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.85 }}>
+        <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>
+    </div>
+  )
+}
+
+/* ═══════════════ PAGE ═══════════════ */
 export default function MobileCategoriesPage() {
   const isMobile = useIsMobile()
   const navigate = useNavigate()
   const [activeId, setActiveId] = useState(POUR_VOUS_ID)
+  const [rightTab, setRightTab] = useState('pour_vous') // 'pour_vous' | 'tendances'
 
-  // productsApi.categories() a déjà son propre cache interne (voir lib/api.js),
-  // useQuery ajoute simplement la gestion loading/cache côté composant.
   const { data: cats = [], isLoading: loading } = useQuery({
     queryKey: ['products', 'categories'],
     queryFn: () => productsApi.categories(),
   })
 
-  // Même clé que HomePage / FavorisPage / CartPage → cache partagé
   const { data: recoData } = useQuery({
     queryKey: ['products', 'recommended'],
     queryFn: () => productsApi.recommended(),
   })
-  const inspo = recoData ? (recoData.results || []).slice(0, 8) : []
+  const inspo = recoData ? (recoData.results || []).slice(0, 6) : []
 
   if (!isMobile) return <Navigate to="/" replace />
 
   const allSubs   = cats.flatMap(c => (c.children || []).map(s => ({ ...s, parent: c.name })))
   const activeCat = activeId === POUR_VOUS_ID ? null : cats.find(c => String(c.id) === String(activeId))
   const rightSubs = activeId === POUR_VOUS_ID ? allSubs.slice(0, 30) : (activeCat?.children || [])
-  const rightTitle = activeId === POUR_VOUS_ID ? 'Recommandations' : (activeCat?.name || '')
+  const showTabs   = activeId === POUR_VOUS_ID
   const showInspo  = activeId === POUR_VOUS_ID && inspo.length > 0
+  const rightTitle = activeId === POUR_VOUS_ID ? null : (activeCat?.name || '')
 
   const leftItems = [{ id: POUR_VOUS_ID, name: 'Pour vous' }, ...cats]
 
   return (
     <div style={{ height: '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#fff', fontFamily: FONT }}>
 
-      {/* Barre du haut */}
-      <div style={{ flexShrink: 0, height: 53, display: 'flex', alignItems: 'center', padding: '0 14px', borderBottom: '1px solid #F0F0F0' }}>
-        <button onClick={() => navigate(-1)} aria-label="Retour" style={{ background: 'none', border: 'none', padding: 4, cursor: 'pointer', display: 'flex', color: '#0F1419' }}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-        </button>
-        <span style={{ flex: 1, textAlign: 'center', fontSize: 19, fontWeight: 800, color: '#0F1419' }}>Catégories</span>
-        <button aria-label="Aide" style={{ background: 'none', border: 'none', padding: 4, cursor: 'pointer', display: 'flex', color: '#6B7785' }}>
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9.5 9a2.5 2.5 0 1 1 3 2.4c-.6.2-1 .8-1 1.6"/><line x1="11.5" y1="16.5" x2="11.5" y2="16.51"/></svg>
-        </button>
-      </div>
+      <SearchHeader
+        onSearchClick={() => navigate('/search')}
+        onCameraClick={() => navigate('/search?mode=image')}
+        onBellClick={() => navigate('/notifications')}
+      />
+
+      <PromoBanner />
 
       {/* Corps : sidebar + panneau droit */}
       <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
 
-        {/* Sidebar catégories */}
-        <div style={{ width: 118, flexShrink: 0, overflowY: 'auto', height: '100%', background: '#F7F8FA', paddingBottom: 70 }}>
+        {/* Sidebar catégories (plus fine, style AliExpress) */}
+        <div style={{ width: 96, flexShrink: 0, overflowY: 'auto', height: '100%', background: '#F7F8FA', paddingBottom: 70 }}>
           {loading
-            ? [...Array(10)].map((_, i) => <div key={i} style={{ height: 52, margin: '6px 10px', background: '#ECEEF1', borderRadius: 6 }} />)
+            ? [...Array(10)].map((_, i) => <div key={i} style={{ height: 48, margin: '6px 8px', background: '#ECEEF1', borderRadius: 6 }} />)
             : leftItems.map(cat => {
                 const on = activeId === cat.id
                 return (
                   <button key={cat.id} onClick={() => setActiveId(cat.id)}
                     style={{
                       display: 'block', width: '100%', textAlign: 'left', cursor: 'pointer',
-                      padding: '15px 12px', border: 'none',
+                      padding: '14px 10px', border: 'none',
                       background: on ? '#fff' : 'transparent',
-                      borderLeft: on ? '4px solid #FF4500' : '4px solid transparent',
-                      fontSize: 13.5, lineHeight: 1.3,
-                      fontWeight: on ? 800 : 500,
+                      borderLeft: on ? `3px solid ${ORANGE}` : '3px solid transparent',
+                      fontSize: 13, lineHeight: 1.25,
+                      fontWeight: on ? 700 : 500,
                       color: on ? '#0F1419' : '#6B7785',
                     }}>
                     {cat.name}
@@ -80,35 +168,76 @@ export default function MobileCategoriesPage() {
         </div>
 
         {/* Panneau droit */}
-        <div style={{ flex: 1, minWidth: 0, overflowY: 'auto', height: '100%', padding: '18px 12px', paddingBottom: 70 }}>
+        <div style={{ flex: 1, minWidth: 0, overflowY: 'auto', height: '100%', padding: '12px 10px', paddingBottom: 70 }}>
           {loading ? (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px 8px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px 4px' }}>
               {[...Array(9)].map((_, i) => (
                 <div key={i} style={{ textAlign: 'center' }}>
-                  <div style={{ width: '100%', aspectRatio: '1', maxWidth: 88, borderRadius: '50%', background: '#F2F3F5', margin: '0 auto 8px' }} />
+                  <div style={{ width: 76, aspectRatio: '1', borderRadius: 8, background: '#F2F3F5', margin: '0 auto 6px' }} />
                   <div style={{ height: 9, background: '#F2F3F5', borderRadius: 4, width: '70%', margin: '0 auto' }} />
                 </div>
               ))}
             </div>
           ) : (
             <>
-              <div style={{ fontSize: 17, fontWeight: 800, color: '#0F1419', marginBottom: 18 }}>{rightTitle}</div>
+              {/* Onglets Pour vous / Tendances (seulement sur "Pour vous") */}
+              {showTabs && (
+                <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+                  <button onClick={() => setRightTab('pour_vous')} style={{
+                    padding: '7px 18px', cursor: 'pointer',
+                    background: '#fff',
+                    border: rightTab === 'pour_vous' ? `1.5px solid ${ORANGE}` : '1.5px solid transparent',
+                    color: rightTab === 'pour_vous' ? ORANGE : '#3D4853',
+                    borderRadius: 20, fontSize: 13, fontWeight: rightTab === 'pour_vous' ? 700 : 500,
+                  }}>Pour vous</button>
+                  <button onClick={() => setRightTab('tendances')} style={{
+                    padding: '7px 16px', cursor: 'pointer',
+                    background: rightTab === 'tendances' ? '#fff' : '#F4F5F7',
+                    border: rightTab === 'tendances' ? `1.5px solid ${ORANGE}` : '1.5px solid transparent',
+                    color: rightTab === 'tendances' ? ORANGE : '#3D4853',
+                    borderRadius: 20, fontSize: 13, fontWeight: rightTab === 'tendances' ? 700 : 500,
+                    display: 'flex', alignItems: 'center', gap: 4,
+                  }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={ORANGE} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>
+                    </svg>
+                    Tendances
+                  </button>
+                </div>
+              )}
+
+              {/* Titre catégorie (uniquement quand une vraie catégorie est sélectionnée) */}
+              {rightTitle && (
+                <div style={{ fontSize: 17, fontWeight: 800, color: '#0F1419', marginBottom: 16 }}>{rightTitle}</div>
+              )}
 
               {rightSubs.length === 0 ? (
                 <div style={{ color: '#9AA3AE', fontSize: 13 }}>Aucune sous-catégorie</div>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px 8px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px 4px' }}>
                   {rightSubs.map((sub, i) => (
                     <button key={`${sub.id}-${i}`} onClick={() => navigate(`/search?cat=${sub.id}`)}
                       style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'center', minWidth: 0 }}>
-                      <div style={{ width: '100%', aspectRatio: '1', maxWidth: 88, borderRadius: '50%', overflow: 'hidden', margin: '0 auto 8px', background: '#F2F3F5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {/* CARRÉ ARRONDI au lieu de cercle */}
+                      <div style={{
+                        width: '100%', aspectRatio: '1', maxWidth: 76,
+                        borderRadius: 8, overflow: 'hidden',
+                        margin: '0 auto 6px', background: '#F4F5F7',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
                         {sub.image_url ? (
-                          <img src={sub.image_url} alt={sub.name} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.currentTarget.style.display = 'none' }} />
+                          <img src={sub.image_url} alt={sub.name} loading="lazy"
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            onError={e => { e.currentTarget.style.display = 'none' }} />
                         ) : (
-                          <span style={{ fontSize: 28 }}>{sub.emoji || (sub.name && sub.name[0])}</span>
+                          <span style={{ fontSize: 26 }}>{sub.emoji || (sub.name && sub.name[0])}</span>
                         )}
                       </div>
-                      <div style={{ fontSize: 12, color: '#1F2937', lineHeight: 1.2, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                      <div style={{
+                        fontSize: 11, color: '#1F2937', lineHeight: 1.2,
+                        display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                        padding: '0 2px',
+                      }}>
                         {sub.name}
                       </div>
                     </button>
@@ -119,18 +248,32 @@ export default function MobileCategoriesPage() {
               {/* ── Inspiration produit (seulement sur "Pour vous") ── */}
               {showInspo && (
                 <>
-                  <div style={{ height: 1, background: '#F0F0F0', margin: '26px 0 20px' }} />
-                  <div style={{ fontSize: 17, fontWeight: 800, color: '#0F1419', marginBottom: 16, lineHeight: 1.25 }}>
-                    Trouvez de l'inspiration pour un produit
+                  <div style={{ height: 1, background: '#F0F0F0', margin: '20px 0 16px' }} />
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#0F1419', marginBottom: 12, lineHeight: 1.25 }}>
+                    Trouvez de l'inspiration
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                     {inspo.map(p => (
                       <button key={p.id} onClick={() => navigate(`/produit/${p.id}`)}
-                        style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
-                        <div style={{ width: '100%', aspectRatio: '1', borderRadius: 12, overflow: 'hidden', background: '#F4F5F7' }}>
+                        style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}>
+                        <div style={{ width: '100%', aspectRatio: '1', borderRadius: 10, overflow: 'hidden', background: '#F4F5F7' }}>
                           {p.primary_image
                             ? <img src={p.primary_image} alt={p.name} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>📦</div>}
+                        </div>
+                        <div style={{ padding: '6px 2px 0' }}>
+                          {p.price != null && (
+                            <div style={{ fontSize: 13, fontWeight: 700, color: '#0F1419' }}>
+                              TND {Number(p.price).toFixed(2)}
+                            </div>
+                          )}
+                          {(p.sold_count != null || p.rating != null) && (
+                            <div style={{ fontSize: 11, color: '#6B7785', marginTop: 2 }}>
+                              {p.sold_count != null && `${p.sold_count}+ vendus`}
+                              {p.sold_count != null && p.rating != null && ' · '}
+                              {p.rating != null && `★ ${Number(p.rating).toFixed(1)}`}
+                            </div>
+                          )}
                         </div>
                       </button>
                     ))}

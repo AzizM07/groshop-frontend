@@ -10,8 +10,19 @@ import { useCart } from '../context/CartContext'
 
 const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
 
-/* Orange harmonisé unique */
+/* ══════════════ COULEURS COORDONNÉES HEADER ⇄ HOME ══════════════
+   Le gradient global couvre header (0→134px) puis MobileHome (0→320px).
+   Les 3 couleurs ci-dessous DOIVENT rester identiques dans les 2 fichiers,
+   c'est ce qui rend le raccord invisible. */
+export const GRADIENT_TOP    = '#FF6600' // très haut du viewport (100% orange)
+export const GRADIENT_MID    = '#FF8A2B' // raccord bas-header / haut-contenu
+export const GRADIENT_END    = '#FFFFFF' // blanc pur, bas du fade
+
+/* Orange "brand" pour les icônes, badges, chips, etc. */
 const ORANGE = '#FF7A00'
+
+/* Gradient utilisé par le header en mode HOME au repos */
+const HEADER_GRADIENT = `linear-gradient(180deg, ${GRADIENT_TOP} 0%, ${GRADIENT_MID} 100%)`
 
 /* Routes */
 const PRODUCT_ROUTES = ['/produit/:id']
@@ -27,11 +38,11 @@ export function useIsHomeRoute() {
 }
 
 /* Hauteurs header home */
-const H_HOME_TOP = 134   // logo + search + tabs (au repos)
-const H_HOME_SCROLLED = 86 // search + tabs (après scroll)
-const H_DEFAULT = 56
-const H_PRODUCT = 104
-const SCROLL_TRIGGER = 30 // px avant morph
+const H_HOME_TOP      = 134
+const H_HOME_SCROLLED = 86
+const H_DEFAULT       = 56
+const H_PRODUCT       = 104
+const SCROLL_TRIGGER  = 30
 
 export default function MobileHeader() {
   const navigate = useNavigate()
@@ -52,7 +63,6 @@ export default function MobileHeader() {
     isRecent, clearRecent, hasRecent,
   } = useSearchSuggestions(query)
 
-  // Scroll listener (uniquement sur home)
   useEffect(() => {
     if (!isHome) { setScrolled(false); return }
     const onScroll = () => setScrolled(window.scrollY > SCROLL_TRIGGER)
@@ -61,7 +71,6 @@ export default function MobileHeader() {
     return () => window.removeEventListener('scroll', onScroll)
   }, [isHome])
 
-  // Fetch cats pour les tabs (uniquement sur home)
   useEffect(() => {
     if (!isHome) return
     productsApi.categories().then(d => setCats(d || [])).catch(() => {})
@@ -77,15 +86,23 @@ export default function MobileHeader() {
   }
   const openDrop = showDropdown && suggestions.length > 0
 
-  /* Fond du header : orange sur home au repos et sur produit, sinon blanc */
+  /* onDark = header sur fond orange (produit ou home au repos) */
   const onDark = isProduct || (isHome && !scrolled)
 
-  /* Hauteur du spacer */
   let spacerH = H_DEFAULT
   if (isProduct) spacerH = H_PRODUCT
   else if (isHome) spacerH = scrolled ? H_HOME_SCROLLED : H_HOME_TOP
 
-  /* Style barre de recherche façon AliExpress */
+  /* Fond du header :
+     - Home au repos → gradient (top→mid)
+     - Home scrollé  → blanc
+     - Produit       → orange uni (comme avant)
+     - Autres pages  → blanc */
+  let headerBg = '#fff'
+  if (isProduct) headerBg = ORANGE
+  else if (isHome && !scrolled) headerBg = HEADER_GRADIENT
+
+  /* Barre de recherche */
   const searchField = ({ dark }) => (
     <form onSubmit={e => { e.preventDefault(); goToSearch(query) }}
       style={{ flex: 1, minWidth: 0, position: 'relative' }}>
@@ -142,7 +159,7 @@ export default function MobileHeader() {
     </form>
   )
 
-  /* Tabs pour le header home (dark = fond orange, sinon fond blanc) */
+  /* Tabs à l'intérieur du header */
   const HomeTabs = ({ dark }) => {
     const [params] = useSearchParams()
     const active = params.get('cat')
@@ -187,7 +204,7 @@ export default function MobileHeader() {
     <>
       <header style={{
         position: 'fixed', top: 0, left: 0, right: 0, zIndex: 1000,
-        background: onDark ? ORANGE : '#fff',
+        background: headerBg,
         boxShadow: onDark ? 'none' : '0 1px 4px rgba(0,0,0,0.06)',
         fontFamily: FONT, boxSizing: 'border-box',
         transition: 'background .18s',
@@ -225,9 +242,8 @@ export default function MobileHeader() {
             <div style={{ padding: '0 14px 12px' }}>{searchField({ dark: true })}</div>
           </>
         ) : isHome ? (
-          /* ═══ VARIANTE HOME — morph au scroll (style AliExpress) ═══ */
+          /* ═══ VARIANTE HOME — gradient au repos, morph blanc au scroll ═══ */
           <>
-            {/* Rangée logo + panier — visible uniquement au repos */}
             {!scrolled && (
               <div style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -254,16 +270,14 @@ export default function MobileHeader() {
               </div>
             )}
 
-            {/* Search bar pleine largeur */}
             <div style={{ padding: scrolled ? '8px 12px 6px' : '4px 12px 8px' }}>
               {searchField({ dark: !scrolled })}
             </div>
 
-            {/* Tabs (dans le header fixe → toujours visibles) */}
             <HomeTabs dark={!scrolled} />
           </>
         ) : (
-          /* ═══ VARIANTE NORMALE — autres pages, fond blanc ═══ */
+          /* ═══ VARIANTE NORMALE — autres pages ═══ */
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, height: 56, padding: '0 12px' }}>
             <Link to="/" style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
               <img src={LOGO_SRC} alt="GROSHOP.tn"

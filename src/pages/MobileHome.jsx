@@ -15,8 +15,28 @@ import heartAnim from '../assets/lottie/heart.json'
 const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
-/* Orange harmonisé — MÊME valeur que MobileHeader */
+/* ══════════════ COULEURS COORDONNÉES HEADER ⇄ HOME ══════════════
+   Ces valeurs DOIVENT être identiques à MobileHeader (GRADIENT_MID + GRADIENT_END)
+   sinon on voit une couture au raccord. */
+const GRADIENT_MID = '#FF8A2B'   // reprend la couleur du BAS du header
+const GRADIENT_END = '#FFFFFF'   // blanc pur
+
+/* Orange "brand" (chips, icônes, badges) */
 const ORANGE = '#FF7A00'
+
+/* Prolongation du gradient sous le header : part exactement de la couleur
+   où le header s'est arrêté, puis fond vers blanc.
+   Résultat visuel : gradient continu depuis le tout haut de l'écran
+   jusqu'au blanc pur, sans coupure au niveau du header. */
+const CONTENT_GRADIENT =
+  `linear-gradient(180deg, ` +
+    `${GRADIENT_MID} 0%, ` +
+    `#FFAE60 25%, ` +
+    `#FFC796 50%, ` +
+    `#FFDDBB 75%, ` +
+    `${GRADIENT_END} 100%` +
+  `)`
+const GRADIENT_HEIGHT = 320  // px sous le header avant blanc pur
 
 /* ══════════════ Grille MASONRY 2 colonnes ══════════════ */
 function MasonryProducts({ items = [], loading = false, adEvery = 6, gap = 8 }) {
@@ -273,8 +293,13 @@ export default function MobileHome({ items = [], trending = [], loading, error, 
   }, [])
 
   return (
-    <div style={{ fontFamily: FONT, background: '#fff', minHeight: '100vh' }}>
-      {/* Header + tabs sont désormais dans MobileHeader (fixed) — plus rien à ajouter ici en haut */}
+    <div style={{
+      fontFamily: FONT,
+      /* Le gradient part de la MÊME couleur que le bas du header (GRADIENT_MID)
+         → raccord invisible. Puis descend vers blanc pur sur 320px. */
+      background: `${CONTENT_GRADIENT} top / 100% ${GRADIENT_HEIGHT}px no-repeat, #fff`,
+      minHeight: '100vh',
+    }}>
       {activeCat
         ? <MobileCategory cats={cats} catId={activeCat} items={items} loading={loading} />
         : <HomeFeed items={items} trending={trending} loading={loading} error={error} isPersonalized={isPersonalized} />}

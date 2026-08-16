@@ -125,8 +125,14 @@ function AppContent() {
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/pending"        element={<PendingPage />} />
         <Route path="/categories"     element={<MobileCategoriesPage />} />
-        <Route path="/checkout" element={<RequireAuth><CheckoutPage /></RequireAuth>} />
-        <Route path="/commande/confirmation" element={<RequireAuth><OrderConfirmationPage /></RequireAuth>} />
+{/* ⭐ Confirmation avec ID (route principale) */}
+<Route path="/commande/:id/confirmation" element={
+  <RequireAuth><OrderConfirmationPage /></RequireAuth>
+} />
+{/* ⭐ Fallback sans ID pour compat après checkout */}
+<Route path="/commande/confirmation" element={
+  <RequireAuth><OrderConfirmationPage /></RequireAuth>
+} />        <Route path="/commande/confirmation" element={<RequireAuth><OrderConfirmationPage /></RequireAuth>} />
         <Route path="/dashboard/commandes/:id/confirmation" element={<RequireAuth><OrderConfirmationPage /></RequireAuth>} />
         <Route path="/devenir-fournisseur/inscription" element={<SupplierSignupPage />} />
 

@@ -262,7 +262,7 @@ const goToPayment = async () => {
   try {
     const created = await ordersApi.create(payload)
     if (payload.payment_method === 'cod') {
-      navigate('/commande/confirmation', { state: { order: created } })
+      navigate(`/commande/${created.id}/confirmation`, { state: { order: created } })
     } else {
       navigate('/checkout/paiement', { state: { orderId: created.id } })
     }

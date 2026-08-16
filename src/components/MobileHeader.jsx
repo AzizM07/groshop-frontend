@@ -1,30 +1,37 @@
 // src/components/MobileHeader.jsx
-import { useState } from 'react'
-import { Link, useNavigate, useLocation, matchPath } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { Link, useNavigate, useLocation, matchPath, useSearchParams } from 'react-router-dom'
 import LOGO_SRC from '../assets/logo2.png'
-import LOGO_WHITE from '../assets/logo2.png' // même image, on l'inverse via CSS
+import LOGO_WHITE from '../assets/logo2.png'
+import { products as productsApi } from '../lib/api'
 import { useSearchSuggestions, SearchDropdown } from './SearchSuggestions'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
 
 const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
 
-/* Orange harmonisé — même valeur partout dans le projet (header, gradient home, tabs, chips) */
+/* Orange harmonisé unique */
 const ORANGE = '#FF7A00'
 
-/* Routes qui déclenchent la variante « produit » (bandeau orange, 2 rangées) */
+/* Routes */
 const PRODUCT_ROUTES = ['/produit/:id']
-/* Routes qui déclenchent la variante « home » (bandeau orange, 1 rangée, style AliExpress) */
 const HOME_ROUTES = ['/']
 
 export function useIsProductRoute() {
   const { pathname } = useLocation()
-  return PRODUCT_ROUTES.some(pattern => matchPath(pattern, pathname))
+  return PRODUCT_ROUTES.some(p => matchPath(p, pathname))
 }
 export function useIsHomeRoute() {
   const { pathname } = useLocation()
-  return HOME_ROUTES.some(pattern => matchPath({ path: pattern, end: true }, pathname))
+  return HOME_ROUTES.some(p => matchPath({ path: p, end: true }, pathname))
 }
+
+/* Hauteurs header home */
+const H_HOME_TOP = 134   // logo + search + tabs (au repos)
+const H_HOME_SCROLLED = 86 // search + tabs (après scroll)
+const H_DEFAULT = 56
+const H_PRODUCT = 104
+const SCROLL_TRIGGER = 30 // px avant morph
 
 export default function MobileHeader() {
   const navigate = useNavigate()
@@ -32,6 +39,8 @@ export default function MobileHeader() {
   const isHome = useIsHomeRoute()
   const [query, setQuery] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
+  const [scrolled, setScrolled] = useState(false)
+  const [cats, setCats] = useState([])
 
   const { user } = useAuth()
   const cart = useCart()
@@ -43,68 +52,79 @@ export default function MobileHeader() {
     isRecent, clearRecent, hasRecent,
   } = useSearchSuggestions(query)
 
+  // Scroll listener (uniquement sur home)
+  useEffect(() => {
+    if (!isHome) { setScrolled(false); return }
+    const onScroll = () => setScrolled(window.scrollY > SCROLL_TRIGGER)
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [isHome])
+
+  // Fetch cats pour les tabs (uniquement sur home)
+  useEffect(() => {
+    if (!isHome) return
+    productsApi.categories().then(d => setCats(d || [])).catch(() => {})
+  }, [isHome])
+
   const goToSearch = (text) => {
     setShowDropdown(false)
     if (text.trim()) navigate(`/search?q=${encodeURIComponent(text)}`)
   }
-
   const onSelectItem = (item) => {
     setShowDropdown(false)
     if (item?.to) navigate(item.to)
   }
+  const openDrop = showDropdown && suggestions.length > 0
 
-  const open = showDropdown && suggestions.length > 0
+  /* Fond du header : orange sur home au repos et sur produit, sinon blanc */
+  const onDark = isProduct || (isHome && !scrolled)
 
-  /* Hauteur du spacer selon variante */
-  const spacerH = isProduct ? 104 : 56
+  /* Hauteur du spacer */
+  let spacerH = H_DEFAULT
+  if (isProduct) spacerH = H_PRODUCT
+  else if (isHome) spacerH = scrolled ? H_HOME_SCROLLED : H_HOME_TOP
 
-  /* Header sur fond orange (home ou produit) → search bar transparente avec bouton noir */
-  const onDark = isProduct || isHome
-
-  // ── Champ de recherche ──
-  const searchField = () => (
+  /* Style barre de recherche façon AliExpress */
+  const searchField = ({ dark }) => (
     <form onSubmit={e => { e.preventDefault(); goToSearch(query) }}
       style={{ flex: 1, minWidth: 0, position: 'relative' }}>
       <div style={{
-        display: 'flex', alignItems: 'center', height: 38,
+        display: 'flex', alignItems: 'center', height: 40,
         background: '#fff',
-        border: onDark ? 'none' : `2px solid ${ORANGE}`,
-        borderRadius: 50,
-        padding: onDark ? '0 3px 0 12px' : '0 5px 0 14px',
-        boxSizing: 'border-box',
+        border: dark ? 'none' : '1.5px solid #0F1419',
+        borderRadius: 999,
+        padding: '0 4px 0 14px', boxSizing: 'border-box',
+        transition: 'border-color .18s',
       }}>
+        <button type="button" title="Recherche par image"
+          style={{ background: 'none', border: 'none', padding: 0, marginRight: 8, display: 'flex', color: '#6B7785', cursor: 'pointer', flexShrink: 0 }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+            <circle cx="12" cy="13" r="3" />
+          </svg>
+        </button>
+        <div style={{ width: 1, height: 18, background: '#E5E7EB', marginRight: 10, flexShrink: 0 }} />
         <input value={query} onChange={e => setQuery(e.target.value)}
           onFocus={() => { if (suggestions.length) setShowDropdown(true) }}
           onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
           onKeyDown={e => handleKeyDown(e, onSelectItem)}
           placeholder="Rechercher un produit…"
           style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', fontSize: 14, background: 'transparent', color: '#0F1419' }} />
-
-        <button type="button" title="Recherche par image"
-          style={{ background: 'none', border: 'none', padding: '0 8px', display: 'flex', color: '#6B7785', cursor: 'pointer', flexShrink: 0 }}>
-          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" /><circle cx="12" cy="13" r="3" />
-          </svg>
-        </button>
-
         <button type="submit" aria-label="Rechercher"
           style={{
-            flexShrink: 0,
-            width: onDark ? 44 : 30,
-            height: onDark ? 32 : 30,
-            borderRadius: onDark ? 999 : '50%',
-            border: 'none',
-            background: onDark ? '#0F1419' : ORANGE,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: 'pointer',
+            flexShrink: 0, width: 50, height: 32,
+            borderRadius: 999, border: 'none',
+            background: '#0F1419',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
           }}>
-          <svg width={onDark ? 15 : 15} height={onDark ? 15 : 15} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round">
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
         </button>
       </div>
 
-      {open && (
+      {openDrop && (
         <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, background: '#fff', border: '1px solid #E8EAED', borderRadius: 14, boxShadow: '0 12px 32px rgba(0,0,0,.14)', overflow: 'hidden', zIndex: 2500 }}>
           <SearchDropdown
             flatItems={suggestions}
@@ -122,42 +142,78 @@ export default function MobileHeader() {
     </form>
   )
 
+  /* Tabs pour le header home (dark = fond orange, sinon fond blanc) */
+  const HomeTabs = ({ dark }) => {
+    const [params] = useSearchParams()
+    const active = params.get('cat')
+    const tabs = [
+      { id: null, name: 'Pour vous', to: '/' },
+      ...cats.map(c => ({ id: String(c.id), name: c.name, to: `/?cat=${c.id}` })),
+    ]
+    return (
+      <div style={{
+        display: 'flex', gap: 22, overflowX: 'auto', padding: '0 14px',
+        WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none',
+      }}>
+        {tabs.map(t => {
+          const on = active === t.id
+          const color = dark
+            ? (on ? '#FFFFFF' : 'rgba(255,255,255,.75)')
+            : (on ? '#0F1419' : '#6B7785')
+          const underline = dark ? '#FFFFFF' : ORANGE
+          return (
+            <Link key={t.id ?? 'all'} to={t.to}
+              style={{
+                flexShrink: 0, textDecoration: 'none', whiteSpace: 'nowrap',
+                padding: '10px 2px 9px', position: 'relative',
+                fontSize: 13, fontWeight: on ? 700 : 500,
+                color, transition: 'color .18s',
+              }}>
+              {t.name}
+              {on && (
+                <span style={{
+                  position: 'absolute', left: 0, right: 0, bottom: 0,
+                  height: 2.5, borderRadius: 2, background: underline,
+                }} />
+              )}
+            </Link>
+          )
+        })}
+      </div>
+    )
+  }
+
   return (
     <>
       <header style={{
         position: 'fixed', top: 0, left: 0, right: 0, zIndex: 1000,
         background: onDark ? ORANGE : '#fff',
-        boxShadow: onDark ? 'none' : '0 1px 4px rgba(0,0,0,0.08)',
+        boxShadow: onDark ? 'none' : '0 1px 4px rgba(0,0,0,0.06)',
         fontFamily: FONT, boxSizing: 'border-box',
+        transition: 'background .18s',
       }}>
 
         {isProduct ? (
-          /* ═══ VARIANTE PRODUIT — bandeau orange, deux rangées ═══ */
+          /* ═══ VARIANTE PRODUIT — inchangée ═══ */
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, height: 52, padding: '0 14px' }}>
               <button onClick={() => navigate(-1)} aria-label="Retour"
                 style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', color: '#fff', flexShrink: 0 }}>
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
               </button>
-
               <button onClick={() => setMenuOpen(o => !o)} aria-label="Menu"
                 style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', color: '#fff', flexShrink: 0 }}>
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" /></svg>
               </button>
-
               <Link to="/" style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center' }}>
                 <img src={LOGO_WHITE} alt="GROSHOP.tn"
                   style={{ height: 26, width: 'auto', maxWidth: 110, objectFit: 'contain', display: 'block', filter: 'brightness(0) invert(1)' }}
                   onError={e => { e.currentTarget.style.display = 'none' }} />
               </Link>
-
-              <Link to={user ? '/dashboard' : '/login'} aria-label="Compte"
-                style={{ display: 'flex', color: '#fff', flexShrink: 0 }}>
+              <Link to={user ? '/dashboard' : '/login'} aria-label="Compte" style={{ display: 'flex', color: '#fff', flexShrink: 0 }}>
                 <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
               </Link>
-
-              <Link to="/panier" aria-label="Panier"
-                style={{ position: 'relative', display: 'flex', color: '#fff', flexShrink: 0 }}>
+              <Link to="/panier" aria-label="Panier" style={{ position: 'relative', display: 'flex', color: '#fff', flexShrink: 0 }}>
                 <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" /><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6" /></svg>
                 {cartCount > 0 && (
                   <span style={{ position: 'absolute', top: -5, right: -7, minWidth: 17, height: 17, padding: '0 4px', boxSizing: 'border-box', background: '#fff', color: ORANGE, fontSize: 10, fontWeight: 800, borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -166,50 +222,60 @@ export default function MobileHeader() {
                 )}
               </Link>
             </div>
-
-            <div style={{ padding: '0 14px 12px' }}>
-              {searchField()}
-            </div>
+            <div style={{ padding: '0 14px 12px' }}>{searchField({ dark: true })}</div>
           </>
         ) : isHome ? (
-          /* ═══ VARIANTE HOME — bandeau orange AliExpress-style, une rangée ═══ */
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, height: 56, padding: '0 12px' }}>
-            <Link to="/" style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
-              <img src={LOGO_WHITE} alt="GROSHOP.tn"
-                style={{
-                  height: 30, width: 'auto', maxWidth: 110,
-                  objectFit: 'contain', display: 'block',
-                  filter: 'brightness(0) invert(1)', // logo blanc sur fond orange
-                }}
-                onError={e => { e.currentTarget.style.display = 'none' }} />
-            </Link>
+          /* ═══ VARIANTE HOME — morph au scroll (style AliExpress) ═══ */
+          <>
+            {/* Rangée logo + panier — visible uniquement au repos */}
+            {!scrolled && (
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '10px 12px 4px',
+              }}>
+                <Link to="/" style={{ display: 'flex', alignItems: 'center' }}>
+                  <img src={LOGO_WHITE} alt="GROSHOP.tn"
+                    style={{
+                      height: 28, width: 'auto', maxWidth: 130,
+                      objectFit: 'contain', display: 'block',
+                      filter: 'brightness(0) invert(1)',
+                    }}
+                    onError={e => { e.currentTarget.style.display = 'none' }} />
+                </Link>
+                <Link to="/panier" aria-label="Panier"
+                  style={{ position: 'relative', display: 'flex', color: '#fff' }}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" /><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6" /></svg>
+                  {cartCount > 0 && (
+                    <span style={{ position: 'absolute', top: -4, right: -6, minWidth: 17, height: 17, padding: '0 4px', boxSizing: 'border-box', background: '#fff', color: ORANGE, fontSize: 10, fontWeight: 800, borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {cartCount > 99 ? '99+' : cartCount}
+                    </span>
+                  )}
+                </Link>
+              </div>
+            )}
 
-            {searchField()}
+            {/* Search bar pleine largeur */}
+            <div style={{ padding: scrolled ? '8px 12px 6px' : '4px 12px 8px' }}>
+              {searchField({ dark: !scrolled })}
+            </div>
 
-            <Link to="/panier" aria-label="Panier"
-              style={{ position: 'relative', display: 'flex', color: '#fff', flexShrink: 0, padding: 2 }}>
-              <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" /><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6" /></svg>
-              {cartCount > 0 && (
-                <span style={{ position: 'absolute', top: -3, right: -5, minWidth: 16, height: 16, padding: '0 4px', boxSizing: 'border-box', background: '#fff', color: ORANGE, fontSize: 10, fontWeight: 800, borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {cartCount > 99 ? '99+' : cartCount}
-                </span>
-              )}
-            </Link>
-          </div>
+            {/* Tabs (dans le header fixe → toujours visibles) */}
+            <HomeTabs dark={!scrolled} />
+          </>
         ) : (
-          /* ═══ VARIANTE NORMALE — fond blanc, une rangée (autres pages) ═══ */
+          /* ═══ VARIANTE NORMALE — autres pages, fond blanc ═══ */
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, height: 56, padding: '0 12px' }}>
             <Link to="/" style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
               <img src={LOGO_SRC} alt="GROSHOP.tn"
                 style={{ height: 30, width: 'auto', maxWidth: 120, objectFit: 'contain', display: 'block' }}
                 onError={e => { e.currentTarget.style.display = 'none' }} />
             </Link>
-            {searchField()}
+            {searchField({ dark: false })}
           </div>
         )}
       </header>
 
-      <div style={{ height: spacerH }} aria-hidden="true" />
+      <div style={{ height: spacerH, transition: 'height .18s' }} aria-hidden="true" />
     </>
   )
 }

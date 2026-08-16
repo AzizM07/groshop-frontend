@@ -15,11 +15,8 @@ import heartAnim from '../assets/lottie/heart.json'
 const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
-/* Orange harmonisé — MÊME valeur que MobileHeader → aucune coupure au raccord */
+/* Orange harmonisé — MÊME valeur que MobileHeader */
 const ORANGE = '#FF7A00'
-/* Dégradé : part du même orange que le header, descend en douceur vers blanc */
-const TOP_GRADIENT =
-  'linear-gradient(180deg, #FF7A00 0%, #FF8A1F 22%, #FFA85C 48%, #FFD6B0 75%, #FFFFFF 100%)'
 
 /* ══════════════ Grille MASONRY 2 colonnes ══════════════ */
 function MasonryProducts({ items = [], loading = false, adEvery = 6, gap = 8 }) {
@@ -54,49 +51,6 @@ function MasonryProducts({ items = [], loading = false, adEvery = 6, gap = 8 }) 
             : <ProductCard key={it.data.id} product={it.data} />)}
         </div>
       ))}
-    </div>
-  )
-}
-
-/* ══════════════ Onglets sticky (fond orange, collent sous le header) ══════════════ */
-function StickyTabs({ cats }) {
-  const [params] = useSearchParams()
-  const active = params.get('cat')
-
-  const tabs = [
-    { id: null, name: 'Pour vous', to: '/' },
-    ...cats.map(c => ({ id: String(c.id), name: c.name, to: `/?cat=${c.id}` })),
-  ]
-
-  return (
-    <div style={{
-      // Sticky sous le header fixe (56px)
-      position: 'sticky', top: 56, zIndex: 900,
-      background: ORANGE,
-      display: 'flex', gap: 22, overflowX: 'auto', padding: '0 14px',
-      WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none',
-    }}>
-      {tabs.map(t => {
-        const on = active === t.id
-        return (
-          <Link key={t.id ?? 'all'} to={t.to}
-            style={{
-              flexShrink: 0, textDecoration: 'none', whiteSpace: 'nowrap',
-              padding: '10px 2px 9px', position: 'relative',
-              fontSize: 13, fontWeight: on ? 700 : 500,
-              color: on ? '#FFFFFF' : 'rgba(255,255,255,.75)',
-              transition: 'color .15s',
-            }}>
-            {t.name}
-            {on && (
-              <span style={{
-                position: 'absolute', left: 0, right: 0, bottom: 0,
-                height: 2.5, borderRadius: 2, background: '#FFFFFF',
-              }} />
-            )}
-          </Link>
-        )
-      })}
     </div>
   )
 }
@@ -319,14 +273,8 @@ export default function MobileHome({ items = [], trending = [], loading, error, 
   }, [])
 
   return (
-    <div style={{
-      fontFamily: FONT,
-      // Le dégradé part du même orange que le header (aucune coupure) et s'étend sur ~460px
-      background: `${TOP_GRADIENT} top / 100% 460px no-repeat, #fff`,
-      minHeight: '100vh',
-    }}>
-      {/* ⚠️ Plus de MobileTopBar ici — MobileHeader (fixed) s'en occupe désormais */}
-      <StickyTabs cats={cats} />
+    <div style={{ fontFamily: FONT, background: '#fff', minHeight: '100vh' }}>
+      {/* Header + tabs sont désormais dans MobileHeader (fixed) — plus rien à ajouter ici en haut */}
       {activeCat
         ? <MobileCategory cats={cats} catId={activeCat} items={items} loading={loading} />
         : <HomeFeed items={items} trending={trending} loading={loading} error={error} isPersonalized={isPersonalized} />}

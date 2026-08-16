@@ -64,14 +64,16 @@ const isUnder = (el, pad = 6) => {
 /* ═══════════════════════════════════════════════════════════════════
    Coque générique : icône + badge + panneau au survol
    ═══════════════════════════════════════════════════════════════════ */
-export function IconDropdown({ to, title, badge = 0, width = 380, icon, children }) {
+/* ═══════════════════════════════════════════════════════════════════
+   Coque générique : icône + badge + panneau au survol
+   ═══════════════════════════════════════════════════════════════════ */
+export function IconDropdown({ to, title, badge = 0, width = 380, icon, children, compact = false }) {
   const [open, setOpen] = useState(false)
   const [hov, setHov]   = useState(false)
   const timerRef = useRef(null)
   const wrapRef  = useRef(null)
   const panelRef = useRef(null)
 
-  // Écoute l'événement global pour fermer ce menu
   useEffect(() => {
     const handleClose = () => setOpen(false)
     window.addEventListener('closeDropdowns', handleClose)
@@ -99,7 +101,7 @@ export function IconDropdown({ to, title, badge = 0, width = 380, icon, children
   return (
     <div ref={wrapRef} style={{ position: 'relative', display: 'flex', alignItems: 'center' }}
       onMouseEnter={handleEnter} onMouseLeave={handleLeave}>
-      <Link to={to} title={title} className="gh-util"
+      <Link to={to} title={title} className={compact ? '' : 'gh-util'}
         style={{
           position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center',
           color: (hov || open) ? ORANGE : INK, textDecoration: 'none',
@@ -256,7 +258,7 @@ export function MessagesDropdown() {
   return (
     <div onMouseEnter={() => setArmed(true)} style={{ display: 'flex' }}>
       <IconDropdown to="/messages" title="Messages" badge={unread} width={400} icon={
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
           <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
         </svg>
       }>
@@ -301,7 +303,7 @@ export function OrdersDropdown() {
   return (
     <div style={{ display: 'flex' }}>
       <IconDropdown to="/dashboard/commandes" title="Mes commandes" badge={activeCount} width={380} icon={
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
           <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
           <rect x="8" y="2" width="8" height="4" rx="1"/>
           <line x1="8" y1="11" x2="16" y2="11"/><line x1="8" y1="15" x2="13" y2="15"/>
@@ -334,39 +336,27 @@ export function OrdersDropdown() {
 // CartDropdown.jsx — GROSHOP.tn
 
 
-export function CartDropdown() {
+// CartDropdown.jsx — GROSHOP.tn
+export function CartDropdown({ compact = false }) {
   const { items = [], count = 0 } = useCart()
   const total = items.reduce((sum, i) => sum + (parseFloat(i.unit_price_tnd) || 0) * (Number(i.quantity) || 0), 0)
+  const iconSize = compact ? 20 : 22
 
   return (
-    <IconDropdown to="/panier" title="Panier" badge={count} width={380} icon={
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+    <IconDropdown to="/panier" title="Panier" badge={count} width={380} compact={compact} icon={
+      <svg width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
         <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
       </svg>
     }>
-      {/* ── En-tête : icône panier + badge à gauche, Total à droite ── */}
+      {/* ── En-tête : "Panier" à gauche, Total à droite (plus d'icône cart) ── */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '16px 18px 14px', borderBottom: `1px solid ${LINE}`,
       }}>
-        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={ORANGE} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
-            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
-          </svg>
-          <span style={{
-            position: 'absolute', top: '-8px', right: '-10px',
-            minWidth: 18, height: 18, padding: '0 4px', borderRadius: 9,
-            background: ORANGE, color: '#fff', fontSize: 10.5, fontWeight: 700,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            border: '2px solid #fff', boxSizing: 'border-box',
-          }}>
-            {count > 9 ? '9+' : count}
-          </span>
-        </div>
+        <span style={{ fontSize: 15, fontWeight: 700, color: INK }}>Panier</span>
         <div style={{ fontSize: 13.5, color: MUTE }}>
-          Total : <span style={{ color: BLUE, fontWeight: 800 }}>{fmtPrice(total)} TND</span>
+          Total : <span style={{ color: BLUE, fontWeight: 700 }}>{fmtPrice(total)} TND</span>
         </div>
       </div>
 
@@ -405,12 +395,12 @@ export function CartDropdown() {
         </div>
       )}
 
-      {/* ── Bouton pleine largeur ── */}
       {items.length > 0 && (
         <div style={{ padding: '14px 18px 16px' }}>
           <Link to="/panier" style={{
             display: 'block', textAlign: 'center', padding: '13px',
-            background: `linear-gradient(135deg, ${ORANGE_DEEP} 0%, ${ORANGE} 100%)`, boxShadow: '0 6px 20px rgba(255,94,32,.45)', color: '#fff', borderRadius: 30,
+            background: `linear-gradient(135deg, ${ORANGE_DEEP} 0%, ${ORANGE} 100%)`,
+            boxShadow: '0 6px 20px rgba(255,94,32,.45)', color: '#fff', borderRadius: 30,
             fontSize: 14, fontWeight: 700, textDecoration: 'none',
           }}>
             Commander

@@ -281,35 +281,32 @@ export default function DesktopHeader() {
 <AddressDropdown />
 <Divider />
 <LanguageDropdown />
-          {user ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(12px, 1.7vw, 24px)', marginLeft: 'clamp(12px, 1.8vw, 26px)', flexShrink: 0 }}>
-              <MessagesDropdown />
-              <OrdersDropdown />
-              <CartDropdown />
-              <AccountMenu signOut={signOut} />
-            </div>
-          ) : (
-            <>
-              <Divider />
-              <button style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', cursor: 'pointer', color: '#0F1419', padding: '0 14px', flexShrink: 0 }}>
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/>
-                </svg>
-              </button>
-              <Divider />
-              <Link to="/login" style={{ ...topLinkStyle, padding: '0 14px', flexShrink: 0 }}>
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" style={{ marginRight: '5px' }}><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                <span className="gh-account-text">Se connecter</span>
-              </Link>
-              <Link to="/signup/buyer" className="gh-cta"
-                style={{ background: '#FF4500', color: '#fff', textDecoration: 'none', fontSize: '14px', fontWeight: 700, padding: '10px 24px', borderRadius: '6px', marginLeft: '10px', whiteSpace: 'nowrap', flexShrink: 0 }}
-                onMouseEnter={e => { e.currentTarget.style.background = '#ff3c00' }}
-                onMouseLeave={e => { e.currentTarget.style.background = '#ff5e20' }}>
-                Créer un compte
-              </Link>
-            </>
-          )}
-        </div>
+
+{user ? (
+  <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(14px, 1.7vw, 22px)', marginLeft: 'clamp(14px, 1.7vw, 22px)', flexShrink: 0 }}>
+    <MessagesDropdown />
+    <OrdersDropdown />
+    <CartDropdown />
+    <AccountMenu signOut={signOut} />
+  </div>
+) : (
+  <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(14px, 1.7vw, 22px)', marginLeft: 'clamp(14px, 1.7vw, 22px)', flexShrink: 0 }}>
+    <CartDropdown compact />
+    <Link to="/login" style={{ ...topLinkStyle, whiteSpace: 'nowrap' }}>
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" style={{ marginRight: '6px' }}>
+        <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
+      </svg>
+      <span className="gh-account-text">Se connecter</span>
+    </Link>
+    <Link to="/signup/buyer" className="gh-cta"
+      style={{ background: '#FF4500', color: '#fff', textDecoration: 'none', fontSize: '14px', fontWeight: 700, padding: '10px 22px', borderRadius: '6px', whiteSpace: 'nowrap' }}
+      onMouseEnter={e => { e.currentTarget.style.background = '#ff3c00' }}
+      onMouseLeave={e => { e.currentTarget.style.background = '#ff5e20' }}>
+      Créer un compte
+    </Link>
+  </div>
+)}
+</div>
 
         {/* ══ LIGNE 2 ══ */}
         <nav className="gh-line2" style={{ display: 'flex', alignItems: 'center', padding: '0 clamp(16px, 3.5vw, 40px)', height: '38px', background: '#fff', position: 'relative', overflow: 'visible', maxWidth: '100%', boxSizing: 'border-box' }}>

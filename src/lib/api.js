@@ -313,7 +313,9 @@ export const cart = {
   async list() {
     return request('/cart/')
   },
-
+  async merge() {
+  return request('/cart/merge/', { method: 'POST' })
+},
   async add(productId, quantity = 1, variantId = null) {
     return request('/cart/', {
       method: 'POST',

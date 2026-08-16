@@ -230,8 +230,17 @@ function DesktopProductPage() {
         {/* Fil d'ariane */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: MUTE, marginBottom: 16, flexWrap: 'wrap' }}>
           <Link to="/" style={{ color: MUTE, textDecoration: 'none' }}>Accueil</Link>
-          {p.category_name && <><ChevronRight size={14} /><Link to={`/search?cat=${p.category_id || ''}`} style={{ color: MUTE, textDecoration: 'none' }}>{p.category_name}</Link></>}
-          <ChevronRight size={14} />
+{p.category_name && p.category_slug && (
+  <>
+    <ChevronRight size={14} />
+    <Link 
+      to={`/search?cat=${p.category_slug}`} 
+      style={{ color: MUTE, textDecoration: 'none' }}
+    >
+      {p.category_name}
+    </Link>
+  </>
+)}          <ChevronRight size={14} />
           <span style={{ color: INK, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 320 }}>{displayName}</span>
         </div>
 

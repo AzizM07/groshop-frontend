@@ -105,6 +105,7 @@ const SORTS = [
 export default function SearchPage() {
   const [params]  = useSearchParams()
   const query     = params.get('q') || ''
+  const cat       = params.get('cat') || ''    // ⭐ AJOUTÉ
   const navigate  = useNavigate()
   const isMobile  = useIsMobile()
 
@@ -118,12 +119,18 @@ export default function SearchPage() {
 
   usePageTracking({ pageType: 'search' })
 
-  /* ── Résultats ── */
+  /* ── Résultats : par mot-clé (q) OU par catégorie (cat) ── */
   useEffect(() => {
-    if (!query.trim()) { setResults([]); setTotal(0); setLoading(false); return }
+    // Rien à chercher si ni q ni cat
+    if (!query.trim() && !cat.trim()) {
+      setResults([]); setTotal(0); setLoading(false)
+      return
+    }
     let alive = true
     setLoading(true); setError(null)
-    productsApi.search(query)
+
+    // ⭐ On envoie q ET/OU cat au backend. Si seulement cat, q reste vide.
+    productsApi.search(query, cat ? { cat } : {})
       .then(d => {
         if (!alive) return
         setResults(d?.results || [])
@@ -131,6 +138,16 @@ export default function SearchPage() {
       })
       .catch(() => { if (alive) setError('Erreur lors de la recherche.') })
       .finally(() => { if (alive) setLoading(false) })
+    return () => { alive = false }
+  }, [query, cat])
+
+  /* ── Bannière (uniquement si mot-clé) ── */
+  useEffect(() => {
+    if (!query.trim() || typeof productsApi.categoryBanner !== 'function') { setBanner(null); return }
+    let alive = true
+    productsApi.categoryBanner(query)
+      .then(d => { if (alive) setBanner(d?.banner || null) })
+      .catch(() => { if (alive) setBanner(null) })
     return () => { alive = false }
   }, [query])
 
@@ -189,12 +206,13 @@ export default function SearchPage() {
         )}
 
         {/* ── Nombre de résultats (plus de fil d'Ariane ni de gros titre) ── */}
-        {!loading && query && (
+        {!loading && (query || cat) && (
           <div style={{ marginBottom: 16 }}>
             <span style={{ fontSize: 16, fontWeight: 700, color: '#0F1419' }}>
               {total} produit{total > 1 ? 's' : ''} trouvé{total > 1 ? 's' : ''}
             </span>
-            <span style={{ fontSize: 14, color: '#6B7785' }}> pour « {query} »</span>
+            {query && <span style={{ fontSize: 14, color: '#6B7785' }}> pour « {query} »</span>}
+{cat && !query && <span style={{ fontSize: 14, color: '#6B7785' }}> dans « {cat} »</span>}
             {category && <span style={{ fontSize: 14, color: '#6B7785' }}> · {category}</span>}
           </div>
         )}
@@ -232,8 +250,8 @@ export default function SearchPage() {
         {/* ── Contenu ── */}
         {error ? (
           <EmptyState icon="⚠️" title="Erreur" text={error} />
-        ) : !query.trim() ? (
-          <EmptyState icon="🔍" title="Que cherchez-vous ?" text="Saisissez un produit, une catégorie ou un fournisseur." />
+) : !query.trim() && !cat.trim() ? (
+  <EmptyState icon="🔍" title="Que cherchez-vous ?" text="Saisissez un produit, une catégorie ou un fournisseur." />
         ) : loading ? (
           <div style={grid} className="gs-search-grid">{[...Array(10)].map((_, i) => <SkeletonCard key={i} />)}</div>
         ) : shown.length === 0 ? (

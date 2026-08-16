@@ -242,7 +242,34 @@ function useCheckout() {
   // Continue vers l'écran de paiement : on valide juste que tout est prêt,
   // le paiement (total, promo, moyen de paiement) se fait sur l'écran suivant.
 const goToPayment = async () => {
-  if (!user)             { setError('Veuillez vous connecter pour continuer'); return }
+  const goToPayment = async () => {
+  if (!user) {
+    // Invité : on redirige vers /login, retour auto sur checkout après
+    navigate('/login', { state: { from: '/checkout' } })
+    return
+  }
+  if (!selected.length)  { setError('Votre panier est vide'); return }
+  if (!selectedAddress)  { setError('Veuillez choisir une adresse de livraison'); return }
+  setError('')
+
+  const payload = {
+    address_id: selectedAddress.id,
+    payment_method: 'cod',
+    notes: notes.trim(),
+    items: selected.map(i => ({ product_id: i.product.id, quantity: i.quantity })),
+  }
+
+  try {
+    const created = await ordersApi.create(payload)
+    if (payload.payment_method === 'cod') {
+      navigate('/commande/confirmation', { state: { order: created } })
+    } else {
+      navigate('/checkout/paiement', { state: { orderId: created.id } })
+    }
+  } catch (e) {
+    setError(e.data?.error || e.message || 'Erreur lors de la création de la commande')
+  }
+}
   if (!selected.length)  { setError('Votre panier est vide'); return }
   if (!selectedAddress)  { setError('Veuillez choisir une adresse de livraison'); return }
   setError('')

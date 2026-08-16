@@ -1,30 +1,25 @@
 // src/context/CartContext.jsx — GROSHOP.tn
-// État central du panier : items, badge, ajout/suppression.
-// Quantité : mise à jour locale instantanée (recalcul des paliers) + appel API débounced.
-// Non connecté → redirection vers /login avec retour automatique.
+// Panier universel : marche pour invités (cookie gs_guest_id posé par
+// le middleware Django) ET pour utilisateurs connectés. Fusion auto
+// au login via cartApi.merge().
 
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
 import { cart as cartApi } from '../lib/api'
 import { useAuth } from './AuthContext'
 
 const CartContext = createContext({})
 
-/* ── Recalcule le prix unitaire selon les paliers (comme le backend) ──
-   Permet un feedback instantané sans attendre la réponse serveur.       */
 function recomputePrice(item, qty) {
   const p     = item.product || {}
   const tiers = p.price_tiers || []
   let unit    = parseFloat(p.base_price_tnd) || 0
 
   if (tiers.length) {
-    // 1. Palier exact : min_qty <= qty <= max_qty
     let best = tiers.find(t => {
       const min = Number(t.min_qty)
       const max = t.max_qty != null ? Number(t.max_qty) : null
       return qty >= min && (max == null || qty <= max)
     })
-    // 2. Sinon : le plus grand min_qty applicable
     if (!best) {
       for (const t of tiers) {
         const min = Number(t.min_qty)
@@ -44,17 +39,17 @@ function recomputePrice(item, qty) {
 
 export function CartProvider({ children }) {
   const { user } = useAuth()
-  const navigate = useNavigate()
-  const location = useLocation()
 
   const [items, setItems]     = useState([])
   const [loading, setLoading] = useState(false)
-  const [adding, setAdding]   = useState(null)   // id du produit en cours d'ajout
+  const [adding, setAdding]   = useState(null)
   const debouncers = useRef({})
+  const prevUserRef = useRef(undefined)  // undefined = pas encore initialisé
 
-  /* ── Chargement ── */
+  /* ── Chargement — marche invité ET connecté ── */
   const refresh = useCallback(async () => {
-    if (!user || user.role === 'supplier') { setItems([]); return }
+    // Suppliers n'ont pas de panier acheteur
+    if (user?.role === 'supplier') { setItems([]); return }
     setLoading(true)
     try {
       const data = await cartApi.list()
@@ -66,19 +61,34 @@ export function CartProvider({ children }) {
     }
   }, [user])
 
-  useEffect(() => { refresh() }, [refresh])
+  /* ── Fusion auto au login ──
+     Détecte la transition "invité → connecté" et fusionne le panier
+     invité dans celui de l'user avant de rafraîchir. */
+  useEffect(() => {
+    const prev = prevUserRef.current
+    const wasGuest = prev === null
+    const isLoggedInBuyer = user && user.role !== 'supplier'
 
-  // Nettoie les timers au démontage
+    if (prev !== undefined && wasGuest && isLoggedInBuyer) {
+      // Transition invité → connecté : merge puis refresh
+      cartApi.merge()
+        .catch(e => console.error('Merge panier :', e.message))
+        .finally(() => refresh())
+    } else {
+      // Chargement normal (au montage, ou changement d'user)
+      refresh()
+    }
+    prevUserRef.current = user || null
+  }, [user, refresh])
+
   useEffect(() => () => {
     Object.values(debouncers.current).forEach(clearTimeout)
   }, [])
 
-  /* ── Dérivés ── */
   const count    = items.length
   const totalQty = items.reduce((s, i) => s + (Number(i.quantity) || 0), 0)
   const total    = items.reduce((s, i) => s + (parseFloat(i.total_price_tnd) || 0), 0)
 
-  /* ── Supprimer (optimiste) ── */
   const remove = useCallback(async (itemId) => {
     clearTimeout(debouncers.current[itemId])
     delete debouncers.current[itemId]
@@ -93,19 +103,16 @@ export function CartProvider({ children }) {
     }
   }, [])
 
-  /* ── Ajouter ── */
+  /* ── Ajouter : marche invité OU connecté ──
+     Plus de redirect vers /login : le backend accepte l'invité via
+     le cookie gs_guest_id posé par le middleware Django. */
   const add = useCallback(async (productId, quantity = 1, variantId = null) => {
-    if (!user) {
-      navigate('/login', { state: { from: location.pathname + location.search } })
-      return { ok: false, reason: 'auth' }
+    if (user?.role === 'supplier') {
+      return { ok: false, reason: 'supplier' }
     }
     setAdding(productId)
     try {
       const res = await cartApi.add(productId, quantity, variantId)
-      if (res === null) {                 // session expirée
-        navigate('/login', { state: { from: location.pathname } })
-        return { ok: false, reason: 'auth' }
-      }
       await refresh()
       return { ok: true, item: res }
     } catch (e) {
@@ -113,16 +120,11 @@ export function CartProvider({ children }) {
     } finally {
       setAdding(null)
     }
-  }, [user, navigate, location, refresh])
+  }, [user, refresh])
 
-  /* ── Quantité : local instantané + API débouncée (400 ms) ── */
   const setQty = useCallback((itemId, qty) => {
     if (qty < 1) { remove(itemId); return }
-
-    // 1. UI immédiate + prix recalculé selon les paliers
     setItems(prev => prev.map(i => i.id === itemId ? recomputePrice(i, qty) : i))
-
-    // 2. Backend débouncé — évite 1 requête par clic sur +
     clearTimeout(debouncers.current[itemId])
     debouncers.current[itemId] = setTimeout(async () => {
       try {
@@ -130,18 +132,16 @@ export function CartProvider({ children }) {
         if (!updated) return
         setItems(prev => prev.map(i => {
           if (i.id !== itemId) return i
-          // l'utilisateur a re-cliqué entre-temps → on garde le local
           if (Number(i.quantity) !== qty) return i
           return updated
         }))
       } catch (e) {
         console.error('Panier :', e.message)
-        refresh()   // état réconcilié depuis le serveur
+        refresh()
       }
     }, 400)
   }, [remove, refresh])
 
-  /* ── Vider ── */
   const clear = useCallback(async () => {
     let backup
     setItems(prev => { backup = prev; return [] })

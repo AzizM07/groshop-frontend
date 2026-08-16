@@ -6,6 +6,10 @@
 // RecoSection utilise React Query (fetchQuery) pour partager le cache avec HomePage/FavorisPage,
 // et ProductCard (variant="catalog") pour un rendu identique à la card normale (étoiles, MOQ +
 // ventes, fournisseur + Verified/médailles/années, tags, bouton) — voir mapRecoProduct ci-dessous.
+//
+// GUEST CHECKOUT : la page /panier est accessible sans compte (plus de mur "Connectez-vous").
+// Le login n'est demandé qu'au clic sur "Commander", avec reprise vers /checkout après connexion
+// (voir goCheckout + LoginPage qui doit lire location.state.from).
 import { products as productsApi, addresses as addressesApi } from '../lib/api'
 import { useState, useMemo, useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
@@ -27,7 +31,7 @@ const MUTE   = '#7A7A7A'
 const FAINT  = '#A0A0A0'
 const LINE   = '#E8E8E8'
 const SOFT   = '#FFF0E8'
-const GREEN  = '#0E9F6E'
+const GREEN = '#12B76A'
 const RED    = '#DC2626'
 const BG     = '#FFFFFF'
 
@@ -189,6 +193,7 @@ function CartPageDesktop() {
   const defaultAddr = useDefaultAddress()
 
   // Libellé du badge : ville (ou gouvernorat) + pays réels de l'adresse par défaut.
+  // Invité (pas de user) → pas d'adresse, on invite à se connecter pour livrer.
   const addrLabel = defaultAddr
     ? [defaultAddr.city || defaultAddr.region, countryFr(defaultAddr.country)].filter(Boolean).join(', ')
     : 'Ajouter une adresse'
@@ -235,11 +240,26 @@ function CartPageDesktop() {
   const allSelected = items.length > 0 && selected.size === items.length
   const toggleAll = () => setSelected(allSelected ? new Set() : new Set(items.map(i => i.id)))
 
-  const goCheckout = () => navigate('/checkout', { state: { itemIds: [...selected] } })
+  // Invité (pas de user) : on sauve la sélection + la destination, puis on renvoie vers /login.
+  // LoginPage doit relire location.state.from + checkoutItems et rediriger dessus après connexion,
+  // sinon l'invité atterrit sur "/" et doit re-cliquer "Commander".
+  const goCheckout = () => {
+    if (!user) {
+      navigate('/login', {
+        state: {
+          from: '/checkout',
+          checkoutItems: [...selected],
+        },
+      })
+      return
+    }
+    navigate('/checkout', { state: { itemIds: [...selected] } })
+  }
 
   /* ── États ── */
+  // Plus de mur "Connectez-vous" : le panier se rend même sans user, l'invité voit ses items
+  // (stockés côté client / fusionnés après login) comme un utilisateur connecté.
   if (authLoading) return <Shell><Center><Spinner /></Center></Shell>
-  if (!user)       return <Shell><LoginPrompt /></Shell>
   if (loading && !items.length) return <Shell><Center><Spinner /></Center></Shell>
   if (!items.length) return <Shell><EmptyCart /></Shell>
 
@@ -265,13 +285,13 @@ function CartPageDesktop() {
               }}>
                 Mon panier ({items.length})
               </h1>
-              {/* Badge de livraison → adresse par défaut réelle, cliquable vers la gestion des adresses */}
-              <Link to="/dashboard/addresses" style={{
+              {/* Badge de livraison → adresse par défaut réelle si connecté, sinon invite à se connecter */}
+              <Link to={user ? '/dashboard/addresses' : '/login'} style={{
                 display: 'inline-flex', alignItems: 'center', gap: 4,
                 background: SOFT, color: ORANGE, padding: '4px 10px',
                 borderRadius: 999, fontSize: 11.5, fontWeight: 500, textDecoration: 'none',
               }}>
-                <MapPin size={12} /> {addrLabel}
+                <MapPin size={12} /> {user ? addrLabel : 'Se connecter pour livrer'}
               </Link>
               <div style={{ flex: 1 }} />
               <Link to="/" style={{
@@ -751,18 +771,6 @@ function EmptyCart() {
   )
 }
 
-function LoginPrompt() {
-  return (
-    <Center>
-      <div style={{ textAlign: 'center' }}>
-        <div style={{ display: 'flex', justifyContent: 'center' }}><Bubble emoji="🔒" /></div>
-        <div style={{ fontSize: 19, fontWeight: 600, color: INK, marginTop: 20 }}>Connectez-vous</div>
-        <div style={{ fontSize: 13, color: FAINT, marginTop: 6, marginBottom: 24 }}>pour voir votre panier</div>
-        <CtaButton to="/login">Se connecter</CtaButton>
-      </div>
-    </Center>
-  )
-}
 export default function CartPage() {
   const isMobile = useIsMobile()
   return isMobile ? <MobileCart /> : <CartPageDesktop />

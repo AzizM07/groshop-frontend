@@ -9,6 +9,8 @@ import Footer from '../components/Footer'
 import AdSlot from '../components/AdSlot'
 import PopularCategoriesMobile from '../components/PopularCategoriesMobile'
 import SearchCategoryBannerMobile from '../components/SearchCategoryBannerMobile'
+import { DotLottieReact } from '@lottiefiles/dotlottie-react'
+import heartAnim from '../assets/lottie/heart.json' // ajuste le chemin si besoin
 const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
 const HEADER_H = 56
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
@@ -64,7 +66,7 @@ function StickyTabs({ cats }) {
     <div style={{
       position: 'sticky', top: HEADER_H, zIndex: 900,
       background: '#fff', borderBottom: '1px solid #F0F0F0',
-      display: 'flex', gap: 20, overflowX: 'auto', padding: '0 14px',
+      display: 'flex', gap: 22, overflowX: 'auto', padding: '0 14px',
       WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none',
     }}>
       {tabs.map(t => {
@@ -73,12 +75,18 @@ function StickyTabs({ cats }) {
           <Link key={t.id ?? 'all'} to={t.to}
             style={{
               flexShrink: 0, textDecoration: 'none', whiteSpace: 'nowrap',
-              padding: '13px 2px', position: 'relative',
-              fontSize: 15, fontWeight: on ? 800 : 500,
-              color: on ? '#0F1419' : '#8A94A0',
+              padding: '8px 2px 6px', position: 'relative',
+              fontSize: 10, fontWeight: on ? 600 : 500,
+              color: on ? '#FF5E00' : '#9CA3AF',
+              transition: 'color .15s',
             }}>
             {t.name}
-            {on && <span style={{ position: 'absolute', left: 0, right: 0, bottom: 6, height: 3, borderRadius: 3, background: '#FF4500' }} />}
+            {on && (
+              <span style={{
+                position: 'absolute', left: 0, right: 0, bottom: 0,
+                height: 2, borderRadius: 2, background: '#FF5E00',
+              }} />
+            )}
           </Link>
         )
       })}
@@ -127,7 +135,7 @@ function MobileHeroGrid() {
       {slides.length > 1 && (
         <div style={{ position: 'absolute', bottom: 10, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 5 }}>
           {slides.map((_, k) => (
-            <span key={k} style={{ width: k === i ? 16 : 6, height: 6, borderRadius: 3, background: k === i ? '#FF4500' : 'rgba(255,255,255,.7)', transition: 'width .25s' }} />
+            <span key={k} style={{ width: k === i ? 16 : 6, height: 6, borderRadius: 3, background: k === i ? '#FF5E00' : 'rgba(255,255,255,.7)', transition: 'width .25s' }} />
           ))}
         </div>
       )}
@@ -238,29 +246,33 @@ function SubIcon({ label, img, emoji, active, heart, onClick }) {
         width: 62, height: 62, borderRadius: '50%', overflow: 'hidden',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         background: active ? '#FFF0E9' : '#F4F5F7',
-        border: active ? '2px solid #FF4500' : '2px solid transparent',
+        border: active ? '2px solid #FF5E00' : '2px solid transparent',
       }}>
         {heart ? (
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="#FF4500" stroke="none"><path d="M12 21s-8-4.5-8-10a5 5 0 0 1 9-3 5 5 0 0 1 9 3c0 5.5-8 10-8 10z"/></svg>
+          <DotLottieReact
+            src="/src/assets/lottie/heart.json"
+            autoplay={active}
+            loop={active}
+            style={{ width: 34, height: 34 }}
+          />
         ) : img ? (
           <img src={img} alt={label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.currentTarget.style.display = 'none' }} />
         ) : (
           <span style={{ fontSize: 26 }}>{emoji || (label && label[0])}</span>
         )}
       </span>
-      <span style={{ fontSize: 11, color: active ? '#FF4500' : '#3D4853', textAlign: 'center', lineHeight: 1.15, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{label}</span>
+      <span style={{ fontSize: 11, color: active ? '#FF5E00' : '#3D4853', textAlign: 'center', lineHeight: 1.15, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{label}</span>
     </button>
   )
 }
-
 function FilterChip({ label, active, onClick }) {
   return (
     <button onClick={onClick} style={{
       flexShrink: 0, whiteSpace: 'nowrap', cursor: 'pointer',
       fontSize: 14, fontWeight: active ? 700 : 600,
       color: active ? '#fff' : '#3D4853',
-      background: active ? '#FF4500' : '#fff',
-      border: active ? '1px solid #FF4500' : '1px solid #E5E7EB',
+      background: active ? '#FF5E00' : '#fff',
+      border: active ? '1px solid #FF5E00' : '1px solid #E5E7EB',
       padding: '9px 18px', borderRadius: 24,
     }}>{label}</button>
   )
@@ -282,7 +294,7 @@ function HomeFeed({ items, trending, loading, error, isPersonalized }) {
         <h2 style={{ margin: '0 0 12px', fontSize: 15, fontWeight: 700, color: '#0F1419' }}>
           {isPersonalized ? 'Recommandé pour vous' : 'Produits recommandés'}
         </h2>
-        {error && <div style={{ color: '#D32F2F', fontSize: 13, marginBottom: 12 }}>{error}</div>}
+        {error && <div style={{ color: '#FF5E00', fontSize: 13, marginBottom: 12 }}>{error}</div>}
         <MasonryProducts items={items} loading={loading} />
       </div>
       <Footer />

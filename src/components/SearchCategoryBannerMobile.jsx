@@ -1,6 +1,3 @@
-// src/components/SearchCategoryBannerMobile.jsx
-// Bannière de catégorie — version mobile (1/4 de l'écran : 25vh)
-
 export default function SearchCategoryBannerMobile({ banner, onClick }) {
   if (!banner?.image_url) return null
   const clickable = !!banner.link
@@ -9,10 +6,14 @@ export default function SearchCategoryBannerMobile({ banner, onClick }) {
       onClick={clickable ? onClick : undefined}
       style={{
         width: '100%',
-        height: '25vh',        // un quart de la hauteur de l'écran mobile
-        minHeight: 120,
-        marginBottom: 14,
-        borderRadius: 10,
+        aspectRatio: '3 / 1',
+        minHeight: 90,
+        maxHeight: 140,
+        marginBottom: 0,              // ⭐ 14 → 0
+        borderTopLeftRadius: 10,      // ⭐ arrondi seulement en haut
+        borderTopRightRadius: 10,
+        borderBottomLeftRadius: 0,    // ⭐ coins bas carrés
+        borderBottomRightRadius: 0,
         overflow: 'hidden',
         cursor: clickable ? 'pointer' : 'default',
       }}

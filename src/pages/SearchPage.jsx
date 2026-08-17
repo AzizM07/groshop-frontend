@@ -152,40 +152,42 @@ function MasonryProducts({ items = [], loading = false, adEvery = 8, gap = 8 }) 
   )
 }
 
-/* ══════════════ Chip ronde sous-catégorie (mobile) ══════════════ */
+/* ══════════════ Chip pilule sous-catégorie (mobile, style neutre) ══════════════ */
 function SubIcon({ label, img, emoji, active, heart, onClick }) {
   return (
     <button onClick={onClick} style={{
-      flexShrink: 0, width: 64, background: 'none', border: 'none', padding: 0,
-      cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+      flexShrink: 0,
+      display: 'flex', alignItems: 'center', gap: 6,
+      padding: '2px 12px 2px 2px',        // ⭐ hauteur encore réduite
+      borderRadius: 999,
+      border: active ? '1.5px solid #0F1419' : '1.5px solid #E5E7EB',  // ⭐ noir si actif, gris clair sinon
+      background: '#fff',
+      cursor: 'pointer',
+      whiteSpace: 'nowrap',
+      transition: 'all .18s',
     }}>
       <span style={{
-        width: 62, height: 62, borderRadius: '50%', overflow: 'hidden',
+        width: 22, height: 22, borderRadius: '50%', overflow: 'hidden',   // ⭐ icône réduite 26 → 22
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: active ? '#FFF0E9' : '#F4F5F7',
-        border: active ? `2px solid ${ORANGE}` : '2px solid transparent',
-        transition: 'all .18s',
+        flexShrink: 0, background: '#F4F5F7',
       }}>
         {heart ? (
-          <span style={{ fontSize: 26, color: active ? ORANGE : '#3D4853' }}>♥</span>
+          <span style={{ fontSize: 12, color: '#E53935' }}>♥</span>
         ) : img ? (
           <img src={img} alt={label}
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             onError={e => { e.currentTarget.style.display = 'none' }} />
         ) : (
-          <span style={{ fontSize: 26 }}>{emoji || (label && label[0])}</span>
+          <span style={{ fontSize: 11 }}>{emoji || (label && label[0])}</span>
         )}
       </span>
       <span style={{
-        fontSize: 11, color: active ? ORANGE : '#3D4853',
-        textAlign: 'center', lineHeight: 1.15,
-        display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-        fontWeight: active ? 700 : 500,
+        fontSize: 13, color: '#0F1419',
+        fontWeight: 500,
       }}>{label}</span>
     </button>
   )
 }
-
 /* ══════════════════════════ VUE MOBILE ══════════════════════════ */
 function MobileSearchView({ query, cat, catObj, results, loading, error, banner, goBannerLink }) {
   const [activeSub, setActiveSub] = useState('all')
@@ -221,22 +223,22 @@ function MobileSearchView({ query, cat, catObj, results, loading, error, banner,
       )}
 
       {/* ── Chips sous-catégories rondes (défilement horizontal) ── */}
-      {subs.length > 0 && (
-        <div style={{
-          background: '#fff',
-          display: 'flex', gap: 14, overflowX: 'auto',
-          padding: '14px 12px 12px',
-          WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none',
-        }}
-        className="gs-nosb">
-          <SubIcon label="Tout" active={activeSub === 'all'} onClick={() => setActiveSub('all')} heart />
-          {subs.map(s => (
-            <SubIcon key={s.id} label={s.name} img={s.image_url} emoji={s.emoji}
-              active={activeSub === String(s.id)}
-              onClick={() => setActiveSub(String(s.id))} />
-          ))}
-        </div>
-      )}
+{subs.length > 0 && (
+  <div style={{
+    background: '#fff',
+    display: 'flex', gap: 10, overflowX: 'auto',
+    padding: '10px 12px 12px',   // ⭐ 14 → 10 en haut
+    WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none',
+  }}
+  className="gs-nosb">
+    <SubIcon label="Tout" active={activeSub === 'all'} onClick={() => setActiveSub('all')} heart />
+    {subs.map(s => (
+      <SubIcon key={s.id} label={s.name} img={s.image_url} emoji={s.emoji}
+        active={activeSub === String(s.id)}
+        onClick={() => setActiveSub(String(s.id))} />
+    ))}
+  </div>
+)}
 
       {/* ── Bandeau "Top sale ▼" ── */}
       {!loading && shown.length > 0 && (

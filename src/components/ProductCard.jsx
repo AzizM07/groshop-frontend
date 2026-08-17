@@ -4,27 +4,22 @@
 // quantité min · fournisseur · Verified + médailles + années + drapeau · bouton Commander.
 // Card "invisible" : pas de bordure, pas d'ombre, pas de bg différent de la page.
 //
-// 5 variantes via la prop `variant` :
-//   • 'default'   → compact, pensé pour 6 colonnes (inchangé).
-//   • 'wholesale' → texte agrandi (façon Alibaba), pensé pour 5 colonnes,
-//                   bouton "Ajouter au panier" noir qui devient orange au survol.
-//   • 'mini'      → plus dense, pensé pour 7 colonnes. Toutes les tailles sont
-//                   fluides (clamp + vw) → la carte reste proportionnelle à
-//                   la largeur de l'écran.
-//   • 'catalog'   → mêmes infos que la card normale (étoiles, MOQ + ventes,
-//                   fournisseur + Verified/médailles/années, tags, bouton),
-//                   juste avec ses propres tailles de texte (SIZES.catalog).
-//   • 'trending'  → texte plus grand, pensée pour CategorySection (Best Sellers).
-//                   Pas de bouton par défaut, pas de bloc fournisseur affiché
-//                   (le bloc ne s'affiche de toute façon que si supplier/verified/
-//                   medals/years sont fournis — CategorySection ne les passe pas).
+// 6 variantes via la prop `variant` :
+//   • 'default'    → compact, pensé pour 6 colonnes (inchangé).
+//   • 'wholesale'  → texte agrandi (façon Alibaba), pensé pour 5 colonnes,
+//                    bouton "Ajouter au panier" noir qui devient orange au survol.
+//   • 'mini'       → plus dense, pensé pour 7 colonnes.
+//   • 'catalog'    → mêmes infos que la card normale, tailles propres.
+//   • 'trending'   → texte plus grand, pour CategorySection (Best Sellers).
+//   • 'aliexpress' → NOUVEAU. Style mobile façon AliExpress pour
+//                    MobileCategoriesPage : bandeau "Certified Original" en bas
+//                    de l'image, badges Marque+/Promo/custom, nom 2 lignes,
+//                    ventes + note, prix, badge "Prix à venir".
+//                    Rendu identique sur mobile et desktop (bypass MobileProductCard).
 //
 // Props additionnelles :
 //   • hideButton      → masque le bouton d'action, quelle que soit la variante.
 //   • hideReviewCount → masque le nombre d'avis à côté de la note, garde les étoiles.
-//
-// Badge "Tendance" : activé via `product.isTrending = true`, affiché en haut
-// à gauche de l'image, même style que celui utilisé dans CategorySection.
 
 import { useState } from 'react'
 import { Star, ShoppingCart } from 'lucide-react'
@@ -32,13 +27,18 @@ import { useNavigate } from 'react-router-dom'
 import { useCart } from '../context/CartContext'
 import { useIsMobile } from '../hooks/useIsMobile'
 import MobileProductCard from './MobileProductCard'
-const ORANGE = '#ff5e20'
+
+const ORANGE      = '#ff5e20'
 const ORANGE_DEEP = '#ff8820'
-const INK    = '#0F1419'
-const MUTE   = '#6B7785'
-const FAINT  = '#9AA3AE'
-const BLUE   = '#1A6DD2'   // badge Verified (style Alibaba)
-const GREEN  = '#0F9D58'
+const INK         = '#0F1419'
+const MUTE        = '#6B7785'
+const FAINT       = '#9AA3AE'
+const BLUE        = '#1A6DD2'
+const GREEN       = '#0F9D58'
+const CERT_BLUE   = '#2E7CF6'   // bandeau Certified Original
+const PROMO_RED   = '#FF3B30'
+const AMBER_BG    = '#FFF3D6'
+const AMBER_INK   = '#B25E00'
 
 // ── Jeux de tailles selon la variante ──
 const SIZES = {
@@ -131,9 +131,6 @@ const SIZES = {
     withCartIcon: false,
     withButton:  false,
   },
-  // ── Variante "Best Sellers" (CategorySection) : texte agrandi, pas de bloc
-  // fournisseur (le bloc ne s'affiche de toute façon que si les données sont
-  // fournies — CategorySection ne les passe pas), pas de bouton par défaut.
   trending: {
     name:        '15px',
     nameMinH:    '40px',
@@ -182,6 +179,164 @@ function Stars({ value = 0, size = 15 }) {
   )
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   VARIANTE 'aliexpress' — style mobile façon AliExpress
+   Utilisée par MobileCategoriesPage.
+   Champs produit lus (tous optionnels sauf name) :
+     - id, name, primary_image (ou image)
+     - price, upcoming_price
+     - certified (bool)           → bandeau bleu "Certifié Original"
+     - is_brand_plus (bool)       → badge "Marque+"
+     - is_promo (bool)            → badge "Promo"
+     - badges (string[])          → petites étiquettes grises
+     - sold_count (number), rating (number)
+   ══════════════════════════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════════════════
+   VARIANTE 'aliexpress' — style mobile façon AliExpress
+   Mappée sur le shape réel de l'API GROSHOP :
+     - base_price_tnd (string) → prix
+     - old_price_tnd  (string) → prix barré + badge Promo
+     - primary_image           → image
+     - rating_avg (string), rating_count, sold_count
+     - badge_choice (bool)     → bandeau bleu "Certifié Original"
+     - badge_flash  (bool)     → badge "Promo"
+     - is_free_shipping (bool) → petite étiquette verte
+     - in_stock (bool)         → overlay "Rupture" si false
+     - moq, unit               → "MOQ 100 pièces"
+   ══════════════════════════════════════════════════════════════════ */
+function AliExpressMobileCard({ product, onClick }) {
+  const navigate = useNavigate()
+  const p = product || {}
+
+  const img       = p.primary_image || p.image || null
+  const price     = p.base_price_tnd != null ? Number(p.base_price_tnd) : null
+  const oldPrice  = p.old_price_tnd  != null ? Number(p.old_price_tnd)  : null
+  const rating    = p.rating_avg != null ? Number(p.rating_avg) : null
+  const sold      = p.sold_count ?? null
+  const certified = !!p.badge_choice
+  const promo     = !!p.badge_flash || (oldPrice && price && oldPrice > price)
+  const discount  = (oldPrice && price && oldPrice > price)
+    ? Math.round((1 - price / oldPrice) * 100)
+    : null
+
+  const handleClick = (e) => {
+    e?.stopPropagation?.()
+    if (onClick) return onClick(product)
+    if (p.id) navigate(`/produit/${p.id}`)
+  }
+
+  return (
+    <button
+      onClick={handleClick}
+      style={{
+        background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+        textAlign: 'left', width: '100%', minWidth: 0,
+        fontFamily: "'DM Sans', -apple-system, system-ui, sans-serif",
+      }}
+    >
+      {/* image */}
+      <div style={{
+        width: '100%', aspectRatio: '1', borderRadius: 8, overflow: 'hidden',
+        background: '#F4F5F7', position: 'relative',
+      }}>
+        {img
+          ? <img src={img} alt={p.name || ''} loading="lazy"
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              onError={e => { e.currentTarget.style.display = 'none' }} />
+          : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32 }}>📦</div>}
+
+        {/* Rupture de stock */}
+        {p.in_stock === false && (
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: 'rgba(255,255,255,.75)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 12, fontWeight: 700, color: '#0F1419', letterSpacing: 0.5,
+          }}>RUPTURE</div>
+        )}
+
+        {/* Bandeau Certifié Original */}
+        {certified && (
+          <div style={{
+            position: 'absolute', bottom: 0, left: 0, right: 0,
+            background: CERT_BLUE, color: '#fff',
+            fontSize: 10, fontWeight: 700, textAlign: 'center', padding: '3px 0',
+          }}>Certifié Original</div>
+        )}
+      </div>
+
+      {/* infos */}
+      <div style={{ padding: '6px 2px 0' }}>
+        {/* badges */}
+        {(promo || p.is_free_shipping) && (
+          <div style={{ display: 'flex', gap: 3, marginBottom: 3, flexWrap: 'wrap' }}>
+            {promo && (
+              <span style={{ background: PROMO_RED, color: '#fff', fontSize: 9, fontWeight: 700, padding: '1px 4px', borderRadius: 2 }}>Promo</span>
+            )}
+            {p.is_free_shipping && (
+              <span style={{ background: GREEN, color: '#fff', fontSize: 9, fontWeight: 700, padding: '1px 4px', borderRadius: 2 }}>Livraison offerte</span>
+            )}
+          </div>
+        )}
+
+        {/* nom */}
+        <div style={{
+          fontSize: 12, color: INK, lineHeight: 1.25, fontWeight: 500,
+          overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+        }}>
+          {p.name}
+        </div>
+
+        {/* ventes + note */}
+        {(sold != null || rating != null) && (
+          <div style={{ fontSize: 10.5, color: MUTE, marginTop: 3, display: 'flex', alignItems: 'center' }}>
+            {sold != null && <span>{fmtCount(sold)}+ vendus</span>}
+            {sold != null && rating != null && <span style={{ color: '#DDD', margin: '0 4px' }}>|</span>}
+            {rating != null && (
+              <>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="#FFB800" style={{ marginRight: 2 }}>
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                </svg>
+                <span>{rating.toFixed(1)}</span>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* prix */}
+        {price != null && (
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginTop: 3, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 14, fontWeight: 800, color: INK }}>
+              TND {price.toFixed(2).replace('.', ',')}
+            </span>
+            {oldPrice != null && oldPrice > price && (
+              <>
+                <span style={{ fontSize: 10.5, color: FAINT, textDecoration: 'line-through' }}>
+                  {oldPrice.toFixed(2).replace('.', ',')}
+                </span>
+                {discount != null && (
+                  <span style={{ fontSize: 10.5, color: PROMO_RED, fontWeight: 700 }}>
+                    -{discount}%
+                  </span>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
+        {/* MOQ */}
+        {p.moq && (
+          <div style={{ fontSize: 10.5, color: MUTE, marginTop: 3 }}>
+            Min. {p.moq} {p.unit || 'pcs'}
+          </div>
+        )}
+      </div>
+    </button>
+  )
+}
+/* ══════════════════════════════════════════════════════════════════
+   VARIANTES DESKTOP (default/wholesale/mini/catalog/trending)
+   ══════════════════════════════════════════════════════════════════ */
 function DesktopProductCard({
   product,
   onOrder,
@@ -395,7 +550,6 @@ function DesktopProductCard({
           )}
         </div>
 
-        {/* Étoiles + note + nombre d'avis (format "1.0k avis", comme le nombre de ventes) */}
         {rating != null && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
             <Stars value={rating} size={S.star} />
@@ -410,14 +564,14 @@ function DesktopProductCard({
           </div>
         )}
 
-{moq && (
-  <div style={{ fontSize: S.moq, color: INK, display: 'flex', flexWrap: 'wrap', columnGap: '4px', rowGap: '2px' }}>
-    <span style={{ whiteSpace: 'nowrap' }}>Quantité min. : {moq} {moqUnit}</span>
-    {soldCount != null && (
-      <span style={{ color: MUTE, whiteSpace: 'nowrap' }}>· {fmtCount(soldCount)} vendus</span>
-    )}
-  </div>
-)}
+        {moq && (
+          <div style={{ fontSize: S.moq, color: INK, display: 'flex', flexWrap: 'wrap', columnGap: '4px', rowGap: '2px' }}>
+            <span style={{ whiteSpace: 'nowrap' }}>Quantité min. : {moq} {moqUnit}</span>
+            {soldCount != null && (
+              <span style={{ color: MUTE, whiteSpace: 'nowrap' }}>· {fmtCount(soldCount)} vendus</span>
+            )}
+          </div>
+        )}
 
         {!moq && soldCount != null && (
           <div style={{ fontSize: S.sold, color: MUTE }}>
@@ -502,7 +656,13 @@ const arrowBtn = {
   transition: 'opacity .18s',
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   EXPORT — routage par variante
+   • 'aliexpress' → composant dédié, rendu identique mobile/desktop
+   • sinon        → MobileProductCard sur mobile, DesktopProductCard sinon
+   ══════════════════════════════════════════════════════════════════ */
 export default function ProductCard(props) {
+  if (props.variant === 'aliexpress') return <AliExpressMobileCard {...props} />
   const isMobile = useIsMobile()
   return isMobile ? <MobileProductCard {...props} /> : <DesktopProductCard {...props} />
 }

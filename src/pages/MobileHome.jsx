@@ -36,7 +36,7 @@ const CONTENT_GRADIENT =
     `#FFDDBB 75%, ` +
     `${GRADIENT_END} 100%` +
   `)`
-const GRADIENT_HEIGHT = 320  // px sous le header avant blanc pur
+const GRADIENT_HEIGHT = 130  // px sous le header avant blanc pur
 
 /* ══════════════ Grille MASONRY 2 colonnes ══════════════ */
 function MasonryProducts({ items = [], loading = false, adEvery = 6, gap = 8 }) {

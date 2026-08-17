@@ -299,6 +299,12 @@ export default function MobileHome({ items = [], trending = [], loading, error, 
          → raccord invisible. Puis descend vers blanc pur sur 320px. */
       background: `${CONTENT_GRADIENT} top / 100% ${GRADIENT_HEIGHT}px no-repeat, #fff`,
       minHeight: '100vh',
+      /* ⬇️ FIX bandeau blanc : sans ceci, le margin-top de MobileHeroGrid
+         (premier enfant) "collapse" à travers ce div (margin collapsing CSS),
+         ce qui pousse tout le fond dégradé plus bas et expose le blanc de la
+         page juste sous le header. overflow crée un nouveau block formatting
+         context et empêche ce collapse. */
+      overflow: 'hidden',
     }}>
       {activeCat
         ? <MobileCategory cats={cats} catId={activeCat} items={items} loading={loading} />

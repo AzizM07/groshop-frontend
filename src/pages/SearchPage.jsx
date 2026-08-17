@@ -1,5 +1,7 @@
 // pages/SearchPage.jsx — GROSHOP.tn
-// Résultats de recherche — /search?q=...
+// Résultats de recherche — /search?q=... ou /search?cat=<id>
+// Mobile : layout façon AliExpress (hero + chips rondes + masonry 2 colonnes)
+// Desktop : layout existant (grille + filtres + tri)
 
 import { useState, useEffect, useMemo } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
@@ -8,10 +10,13 @@ import { usePageTracking } from '../hooks/usePageTracking'
 import { useIsMobile } from '../hooks/useIsMobile'
 import ProductCard from '../components/ProductCard'
 import Footer from '../components/Footer'
+import AdSlot from '../components/AdSlot'
 import SearchCategoryBannerDesktop from '../components/SearchCategoryBannerDesktop'
 import SearchCategoryBannerMobile from '../components/SearchCategoryBannerMobile'
 
 const LAYOUT = { maxWidth: '1500px', padding: '0 2%' }
+const ORANGE = '#FF7A00'
+const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
 
 function Container({ children, style = {} }) {
   return (
@@ -32,7 +37,7 @@ function computePrice(p) {
   return min === max ? min : [min, max]
 }
 
-/* ── Django API → props ProductCard (identique à HomePage) ── */
+/* ── Django API → props ProductCard ── */
 function mapProduct(p) {
   return {
     id:             p.id,
@@ -56,22 +61,30 @@ function mapProduct(p) {
     years:          p.years_active || null,
     flag:           '🇹🇳',
     image:          p.primary_image,
-    images:         extractImages(p),          // galerie pour le carrousel
+    images:         extractImages(p),
     supplier:       p.supplier_name,
     supplierSlug:   p.supplier_slug,
   }
 }
 
-/* ── Galerie d'images du produit (pour le carrousel de la carte) ──
-   Forme renvoyée par l'API : p.images = [{ url: '...' }, …].
-   ⚠️ Nécessite que l'endpoint de recherche renvoie bien `images`
-      (champ à ajouter dans ProductListSerializer côté Django). */
 function extractImages(p) {
   const raw = p.images || p.gallery || p.product_images || p.image_urls || []
   const list = (Array.isArray(raw) ? raw : [])
     .map(im => (typeof im === 'string' ? im : (im?.image || im?.url || im?.src)))
     .filter(Boolean)
   return list.length ? list : null
+}
+
+/* ── Cherche récursivement une catégorie par ID dans l'arbre ── */
+function findCategoryById(cats, id) {
+  if (!id) return null
+  const target = String(id)
+  for (const c of cats || []) {
+    if (String(c.id) === target) return c
+    const found = findCategoryById(c.children || [], id)
+    if (found) return found
+  }
+  return null
 }
 
 function SkeletonCard() {
@@ -102,10 +115,177 @@ const SORTS = [
   { key: 'rating',     label: 'Mieux notés' },
 ]
 
+/* ══════════════ Grille MASONRY 2 colonnes (mobile) ══════════════ */
+function MasonryProducts({ items = [], loading = false, adEvery = 8, gap = 8 }) {
+  if (loading) {
+    const cols = [[], []]
+    for (let i = 0; i < 8; i++) cols[i % 2].push(i)
+    return (
+      <div style={{ display: 'flex', gap, alignItems: 'flex-start' }}>
+        {cols.map((col, c) => (
+          <div key={c} style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap }}>
+            {col.map(i => <SkeletonCard key={i} />)}
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  const stream = []
+  items.forEach((p, i) => {
+    stream.push({ kind: 'product', data: p })
+    if (adEvery && (i + 1) % adEvery === 0) stream.push({ kind: 'ad', at: i })
+  })
+  const cols = [[], []]
+  stream.forEach((it, idx) => cols[idx % 2].push(it))
+
+  return (
+    <div style={{ display: 'flex', gap, alignItems: 'flex-start' }}>
+      {cols.map((col, c) => (
+        <div key={c} style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap }}>
+          {col.map(it => it.kind === 'ad'
+            ? <AdSlot key={`ad-${it.at}`} index={it.at} />
+            : <ProductCard key={it.data.id} product={mapProduct(it.data)} variant="wholesale" />)}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/* ══════════════ Chip ronde sous-catégorie (mobile) ══════════════ */
+function SubIcon({ label, img, emoji, active, heart, onClick }) {
+  return (
+    <button onClick={onClick} style={{
+      flexShrink: 0, width: 64, background: 'none', border: 'none', padding: 0,
+      cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+    }}>
+      <span style={{
+        width: 62, height: 62, borderRadius: '50%', overflow: 'hidden',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: active ? '#FFF0E9' : '#F4F5F7',
+        border: active ? `2px solid ${ORANGE}` : '2px solid transparent',
+        transition: 'all .18s',
+      }}>
+        {heart ? (
+          <span style={{ fontSize: 26, color: active ? ORANGE : '#3D4853' }}>♥</span>
+        ) : img ? (
+          <img src={img} alt={label}
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            onError={e => { e.currentTarget.style.display = 'none' }} />
+        ) : (
+          <span style={{ fontSize: 26 }}>{emoji || (label && label[0])}</span>
+        )}
+      </span>
+      <span style={{
+        fontSize: 11, color: active ? ORANGE : '#3D4853',
+        textAlign: 'center', lineHeight: 1.15,
+        display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+        fontWeight: active ? 700 : 500,
+      }}>{label}</span>
+    </button>
+  )
+}
+
+/* ══════════════════════════ VUE MOBILE ══════════════════════════ */
+function MobileSearchView({ query, cat, catObj, results, loading, error, banner, goBannerLink }) {
+  const [activeSub, setActiveSub] = useState('all')
+  const subs = catObj?.children || []
+
+  // Reset filtre sous-catégorie quand la grande catégorie change
+  useEffect(() => { setActiveSub('all') }, [cat])
+
+  // Sous-catégorie active (objet)
+  const activeSubObj = activeSub !== 'all'
+    ? subs.find(s => String(s.id) === String(activeSub))
+    : null
+
+  // Filtrage local : par nom de sous-catégorie sur les résultats
+  const shown = useMemo(() => {
+    if (activeSub === 'all' || !activeSubObj) return results
+    return results.filter(p => p.category_name === activeSubObj.name)
+  }, [results, activeSub, activeSubObj])
+
+  // Titre au-dessus de la grille
+  const gridLabel = query
+    ? `${shown.length} résultat${shown.length > 1 ? 's' : ''}`
+    : (activeSubObj?.name || catObj?.name || 'Top ventes')
+
+  return (
+    <div style={{ background: '#F5F5F5', minHeight: '100vh', fontFamily: FONT }}>
+
+      {/* ── Bannière hero pleine largeur ── */}
+      {banner?.image_url && (
+        <div style={{ background: '#fff' }}>
+          <SearchCategoryBannerMobile banner={banner} onClick={goBannerLink} />
+        </div>
+      )}
+
+      {/* ── Chips sous-catégories rondes (défilement horizontal) ── */}
+      {subs.length > 0 && (
+        <div style={{
+          background: '#fff',
+          display: 'flex', gap: 14, overflowX: 'auto',
+          padding: '14px 12px 12px',
+          WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none',
+        }}
+        className="gs-nosb">
+          <SubIcon label="Tout" active={activeSub === 'all'} onClick={() => setActiveSub('all')} heart />
+          {subs.map(s => (
+            <SubIcon key={s.id} label={s.name} img={s.image_url} emoji={s.emoji}
+              active={activeSub === String(s.id)}
+              onClick={() => setActiveSub(String(s.id))} />
+          ))}
+        </div>
+      )}
+
+      {/* ── Bandeau "Top sale ▼" ── */}
+      {!loading && shown.length > 0 && (
+        <div style={{
+          background: '#fff',
+          padding: '10px 14px 8px',
+          fontSize: 13, fontWeight: 600, color: '#3D4853',
+          display: 'flex', alignItems: 'center', gap: 4,
+        }}>
+          <span>{gridLabel}</span>
+          <span style={{ fontSize: 11, color: '#8A94A0' }}>▼</span>
+        </div>
+      )}
+
+      {/* ── Grille masonry ── */}
+      <div style={{ padding: '8px 8px 80px' }}>
+        {error ? (
+          <EmptyState icon="⚠️" title="Erreur" text={error} />
+        ) : !query && !cat ? (
+          <EmptyState icon="🔍" title="Que cherchez-vous ?" text="Saisissez un produit ou choisissez une catégorie." />
+        ) : loading ? (
+          <MasonryProducts loading />
+        ) : shown.length === 0 ? (
+          <EmptyState
+            icon="📦"
+            title="Aucun résultat"
+            text={activeSubObj
+              ? `Aucun produit dans « ${activeSubObj.name} ».`
+              : query
+                ? `Aucun produit ne correspond à « ${query} ».`
+                : `Aucun produit dans cette catégorie pour le moment.`}
+          />
+        ) : (
+          <MasonryProducts items={shown} />
+        )}
+      </div>
+
+      <style>{`
+        .gs-nosb::-webkit-scrollbar { display: none; }
+      `}</style>
+    </div>
+  )
+}
+
+/* ═══════════════════════════ PAGE ═══════════════════════════ */
 export default function SearchPage() {
   const [params]  = useSearchParams()
-  const query     = params.get('q') || ''
-  const cat       = params.get('cat') || ''    // ⭐ AJOUTÉ
+  const query     = (params.get('q')   || '').trim()
+  const cat       = (params.get('cat') || '').trim()   // ID de catégorie
   const navigate  = useNavigate()
   const isMobile  = useIsMobile()
 
@@ -114,52 +294,61 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState(null)
   const [sort, setSort]       = useState('relevance')
-  const [category, setCategory] = useState(null)
+  const [category, setCategory] = useState(null)  // filtre desktop (par nom)
   const [banner, setBanner]   = useState(null)
+  const [catObj, setCatObj]   = useState(null)
 
   usePageTracking({ pageType: 'search' })
 
-  /* ── Résultats : par mot-clé (q) OU par catégorie (cat) ── */
+  /* ── Résolution de la catégorie via l'arbre ── */
   useEffect(() => {
-    // Rien à chercher si ni q ni cat
-    if (!query.trim() && !cat.trim()) {
+    if (!cat) { setCatObj(null); return }
+    let alive = true
+    productsApi.categories()
+      .then(tree => { if (alive) setCatObj(findCategoryById(tree || [], cat)) })
+      .catch(() => { if (alive) setCatObj(null) })
+    return () => { alive = false }
+  }, [cat])
+
+  /* ── Chargement des résultats ──
+     q présent → products.search()
+     q absent + cat présent → products.list({ category_id, include_descendants: 1 })
+     (même endpoint que MobileCategoriesPage qui fonctionne déjà) */
+  useEffect(() => {
+    if (!query && !cat) {
       setResults([]); setTotal(0); setLoading(false)
       return
     }
     let alive = true
     setLoading(true); setError(null)
 
-    // ⭐ On envoie q ET/OU cat au backend. Si seulement cat, q reste vide.
-    productsApi.search(query, cat ? { cat } : {})
+    const promise = query
+      ? productsApi.search(query, cat ? { category_id: cat, include_descendants: 1 } : {})
+      : productsApi.list({ category_id: cat, include_descendants: 1, page_size: 60 })
+
+    promise
       .then(d => {
         if (!alive) return
-        setResults(d?.results || [])
-        setTotal(d?.total ?? (d?.results?.length || 0))
+        const list = d?.results || d || []
+        setResults(Array.isArray(list) ? list : [])
+        setTotal(d?.total ?? d?.count ?? (Array.isArray(list) ? list.length : 0))
       })
       .catch(() => { if (alive) setError('Erreur lors de la recherche.') })
       .finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
   }, [query, cat])
 
-  /* ── Bannière (uniquement si mot-clé) ── */
+  /* ── Bannière : par mot-clé OU par nom de catégorie résolu ── */
   useEffect(() => {
-    if (!query.trim() || typeof productsApi.categoryBanner !== 'function') { setBanner(null); return }
+    if (typeof productsApi.categoryBanner !== 'function') { setBanner(null); return }
+    const term = query || catObj?.name || ''
+    if (!term) { setBanner(null); return }
     let alive = true
-    productsApi.categoryBanner(query)
+    productsApi.categoryBanner(term)
       .then(d => { if (alive) setBanner(d?.banner || null) })
       .catch(() => { if (alive) setBanner(null) })
     return () => { alive = false }
-  }, [query])
-
-  /* ── Bannière de la catégorie correspondant au terme recherché ── */
-  useEffect(() => {
-    if (!query.trim() || typeof productsApi.categoryBanner !== 'function') { setBanner(null); return }
-    let alive = true
-    productsApi.categoryBanner(query)
-      .then(d => { if (alive) setBanner(d?.banner || null) })
-      .catch(() => { if (alive) setBanner(null) })
-    return () => { alive = false }
-  }, [query])
+  }, [query, catObj?.name])
 
   const goBannerLink = () => {
     const l = banner?.link
@@ -168,23 +357,39 @@ export default function SearchPage() {
     else navigate(l)
   }
 
-  /* ── Catégories présentes dans les résultats ── */
-  const categories = useMemo(
-    () => [...new Set(results.map(p => p.category_name).filter(Boolean))],
-    [results],
-  )
+  /* ══════════════════════════════════════════════════════
+     MOBILE : nouvelle vue façon AliExpress
+     ══════════════════════════════════════════════════════ */
+  if (isMobile) {
+    return (
+      <MobileSearchView
+        query={query}
+        cat={cat}
+        catObj={catObj}
+        results={results}
+        loading={loading}
+        error={error}
+        banner={banner}
+        goBannerLink={goBannerLink}
+      />
+    )
+  }
 
-  /* ── Onglets de catégories : "Tout" + chaque catégorie, avec son compte ── */
-  const catTabs = useMemo(() => ([
+  /* ══════════════════════════════════════════════════════
+     DESKTOP : layout existant (inchangé)
+     ══════════════════════════════════════════════════════ */
+
+  const categories = [...new Set(results.map(p => p.category_name).filter(Boolean))]
+
+  const catTabs = [
     { name: null, label: 'Tout', count: results.length },
     ...categories.map(c => ({
       name: c, label: c,
       count: results.filter(p => p.category_name === c).length,
     })),
-  ]), [results, categories])
+  ]
 
-  /* ── Filtre + tri (côté client — l'API renvoie déjà le top 20) ── */
-  const shown = useMemo(() => {
+  const shown = (() => {
     let r = category ? results.filter(p => p.category_name === category) : [...results]
     const num = (p) => parseFloat(p.base_price_tnd) || 0
     if (sort === 'price_asc')       r.sort((a, b) => num(a) - num(b))
@@ -192,36 +397,33 @@ export default function SearchPage() {
     else if (sort === 'sold')       r.sort((a, b) => (b.sold_count || 0) - (a.sold_count || 0))
     else if (sort === 'rating')     r.sort((a, b) => (parseFloat(b.rating_avg) || 0) - (parseFloat(a.rating_avg) || 0))
     return r
-  }, [results, category, sort])
+  })()
+
+  const displayCatName = catObj?.name || ''
 
   return (
-    <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif' }}>
+    <div style={{ fontFamily: FONT }}>
       <Container style={{ paddingTop: '1.5rem', paddingBottom: '3rem' }}>
 
-        {/* ── Bannière de catégorie (1/4 de page) — Desktop ou Mobile ── */}
-        {query && banner && (
-          isMobile
-            ? <SearchCategoryBannerMobile  banner={banner} onClick={goBannerLink} />
-            : <SearchCategoryBannerDesktop banner={banner} onClick={goBannerLink} />
+        {banner && (
+          <SearchCategoryBannerDesktop banner={banner} onClick={goBannerLink} />
         )}
 
-        {/* ── Nombre de résultats (plus de fil d'Ariane ni de gros titre) ── */}
         {!loading && (query || cat) && (
           <div style={{ marginBottom: 16 }}>
             <span style={{ fontSize: 16, fontWeight: 700, color: '#0F1419' }}>
               {total} produit{total > 1 ? 's' : ''} trouvé{total > 1 ? 's' : ''}
             </span>
             {query && <span style={{ fontSize: 14, color: '#6B7785' }}> pour « {query} »</span>}
-{cat && !query && <span style={{ fontSize: 14, color: '#6B7785' }}> dans « {cat} »</span>}
+            {cat && !query && displayCatName && (
+              <span style={{ fontSize: 14, color: '#6B7785' }}> dans « {displayCatName} »</span>
+            )}
             {category && <span style={{ fontSize: 14, color: '#6B7785' }}> · {category}</span>}
           </div>
         )}
 
-        {/* ── Barre de catégories (une ligne défilable + séparateurs) · Trier par à droite ── */}
         {!loading && results.length > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18, borderBottom: '1px solid #EEF0F2', paddingBottom: 10 }}>
-
-            {/* Onglets défilables horizontalement */}
             <div className="gs-cat-strip" style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', overflowX: 'auto' }}>
               {catTabs.map((c, i) => {
                 const active = category === c.name
@@ -236,7 +438,6 @@ export default function SearchPage() {
               })}
             </div>
 
-            {/* Trier par — épinglé à droite */}
             <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, paddingLeft: 12, borderLeft: '1px solid #E2E5E9' }}>
               <label style={{ fontSize: 12.5, color: '#6B7785', whiteSpace: 'nowrap' }}>Trier par</label>
               <select value={sort} onChange={e => setSort(e.target.value)}
@@ -247,11 +448,10 @@ export default function SearchPage() {
           </div>
         )}
 
-        {/* ── Contenu ── */}
         {error ? (
           <EmptyState icon="⚠️" title="Erreur" text={error} />
-) : !query.trim() && !cat.trim() ? (
-  <EmptyState icon="🔍" title="Que cherchez-vous ?" text="Saisissez un produit, une catégorie ou un fournisseur." />
+        ) : !query && !cat ? (
+          <EmptyState icon="🔍" title="Que cherchez-vous ?" text="Saisissez un produit, une catégorie ou un fournisseur." />
         ) : loading ? (
           <div style={grid} className="gs-search-grid">{[...Array(10)].map((_, i) => <SkeletonCard key={i} />)}</div>
         ) : shown.length === 0 ? (
@@ -260,7 +460,9 @@ export default function SearchPage() {
             title="Aucun résultat"
             text={results.length
               ? `Aucun produit dans « ${category} ». Essayez un autre filtre.`
-              : `Aucun produit ne correspond à « ${query} ». Essayez d'autres mots-clés.`}
+              : query
+                ? `Aucun produit ne correspond à « ${query} ». Essayez d'autres mots-clés.`
+                : `Aucun produit dans cette catégorie pour le moment.`}
           />
         ) : (
           <div style={grid} className="gs-search-grid">
@@ -299,7 +501,7 @@ const catItem = (active) => ({
 
 function EmptyState({ icon, title, text }) {
   return (
-    <div style={{ padding: '70px 20px', textAlign: 'center' }}>
+    <div style={{ padding: '70px 20px', textAlign: 'center', background: '#fff', borderRadius: 12, margin: 12 }}>
       <div style={{ fontSize: 40, marginBottom: 12 }}>{icon}</div>
       <div style={{ fontSize: 17, fontWeight: 700, color: '#0F1419', marginBottom: 6 }}>{title}</div>
       <div style={{ fontSize: 13.5, color: '#9AA3AE', maxWidth: 420, margin: '0 auto' }}>{text}</div>

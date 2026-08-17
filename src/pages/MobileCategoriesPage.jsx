@@ -105,13 +105,17 @@ export default function MobileCategoriesPage() {
   })
 
   // ── Produits : "Pour vous" = recommandés, sinon liste filtrée par catégorie ──
-  const { data: prodData } = useQuery({
-    queryKey: ['products', 'catalog-mobile', activeId],
-    queryFn: () => activeId === POUR_VOUS_ID
-      ? productsApi.recommended()
-      : productsApi.list({ category_id: activeId, page_size: 20 }),
-    keepPreviousData: true,
-  })
+const { data: prodData } = useQuery({
+  queryKey: ['products', 'catalog-mobile', activeId],
+  queryFn: () => activeId === POUR_VOUS_ID
+    ? productsApi.recommended()
+    : productsApi.list({
+        category_id: activeId,
+        include_descendants: 1,
+        page_size: 20,          // note : la vue lit 'limit', voir remarque ci-dessous
+      }),
+  keepPreviousData: true,
+})
   const productsList = (prodData?.results || prodData || []).slice(0, 12)
 
   if (!isMobile) return <Navigate to="/" replace />

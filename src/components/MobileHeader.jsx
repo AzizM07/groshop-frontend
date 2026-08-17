@@ -21,6 +21,7 @@ const HEADER_GRADIENT = `linear-gradient(180deg, ${GRADIENT_TOP} 0%, ${GRADIENT_
 
 const PRODUCT_ROUTES = ['/produit/:id']
 const HOME_ROUTES = ['/']
+const SEARCH_ROUTES = ['/search']
 
 export function useIsProductRoute() {
   const { pathname } = useLocation()
@@ -29,6 +30,10 @@ export function useIsProductRoute() {
 export function useIsHomeRoute() {
   const { pathname } = useLocation()
   return HOME_ROUTES.some(p => matchPath({ path: p, end: true }, pathname))
+}
+export function useIsSearchRoute() {
+  const { pathname } = useLocation()
+  return SEARCH_ROUTES.some(p => matchPath({ path: p, end: true }, pathname))
 }
 
 const H_HOME_TOP      = 134
@@ -41,6 +46,7 @@ export default function MobileHeader() {
   const navigate = useNavigate()
   const isProduct = useIsProductRoute()
   const isHome = useIsHomeRoute()
+  const isSearch = useIsSearchRoute()
   const [query, setQuery] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
@@ -65,9 +71,9 @@ export default function MobileHeader() {
   }, [isHome])
 
   useEffect(() => {
-    if (!isHome) return
+    if (!isHome && !isSearch) return
     productsApi.categories().then(d => setCats(d || [])).catch(() => {})
-  }, [isHome])
+  }, [isHome, isSearch])
 
   const goToSearch = (text) => {
     setShowDropdown(false)
@@ -84,6 +90,7 @@ export default function MobileHeader() {
   let spacerH = H_DEFAULT
   if (isProduct) spacerH = H_PRODUCT
   else if (isHome) spacerH = scrolled ? H_HOME_SCROLLED : H_HOME_TOP
+  else if (isSearch) spacerH = H_HOME_SCROLLED // 86px : hauteur recherche + tabs, réutilisée
 
   let headerBg = '#fff'
   if (isProduct) headerBg = ORANGE
@@ -152,45 +159,55 @@ export default function MobileHeader() {
     </form>
   )
 
-  const HomeTabs = ({ dark }) => {
-    const [params] = useSearchParams()
-    const active = params.get('cat')
-    const tabs = [
-      { id: null, name: 'Pour vous', to: '/' },
-      ...cats.map(c => ({ id: String(c.id), name: c.name, to: `/?cat=${c.id}` })),
-    ]
-    return (
-      <div style={{
-        display: 'flex', gap: 22, overflowX: 'auto', padding: '0 14px',
-        WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none',
-      }}>
-        {tabs.map(t => {
-          const on = active === t.id
-          const color = dark
-            ? (on ? '#FFFFFF' : 'rgba(255,255,255,.75)')
-            : (on ? '#0F1419' : '#6B7785')
-          const underline = dark ? '#FFFFFF' : ORANGE
-          return (
-            <Link key={t.id ?? 'all'} to={t.to}
-              style={{
-                flexShrink: 0, textDecoration: 'none', whiteSpace: 'nowrap',
-                padding: '10px 2px 9px', position: 'relative',
-                fontSize: 13, fontWeight: on ? 700 : 500,
-                color, transition: 'color .18s',
-              }}>
-              {t.name}
-              {on && (
-                <span style={{
-                  position: 'absolute', left: 0, right: 0, bottom: 0,
-                  height: 2.5, borderRadius: 2, background: underline,
-                }} />
-              )}
-            </Link>
-          )
-        })}
-      </div>
-    )
-  }
+const HomeTabs = ({ dark }) => {
+  const location = useLocation()
+  const [params] = useSearchParams()
+  // On est "actif" sur un onglet catégorie seulement si on est sur /search
+  const activeCatName = location.pathname === '/search' ? (params.get('cat') || null) : null
+
+  const tabs = [
+    { key: null, name: 'Pour vous', to: '/' },
+    ...cats.map(c => ({
+  key: c.id,
+  name: c.name,
+  to: `/search?cat=${c.id}`,
+})),
+  ]
+
+  return (
+    <div style={{
+      display: 'flex', gap: 22, overflowX: 'auto', padding: '0 14px',
+      WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none',
+    }}>
+      {tabs.map(t => {
+        const on = t.key === null
+          ? location.pathname === '/'
+          : activeCatName === t.key
+        const color = dark
+          ? (on ? '#FFFFFF' : 'rgba(255,255,255,.75)')
+          : (on ? '#0F1419' : '#6B7785')
+        const underline = dark ? '#FFFFFF' : ORANGE
+        return (
+          <Link key={t.key ?? 'all'} to={t.to}
+            style={{
+              flexShrink: 0, textDecoration: 'none', whiteSpace: 'nowrap',
+              padding: '10px 2px 9px', position: 'relative',
+              fontSize: 13, fontWeight: on ? 700 : 500,
+              color, transition: 'color .18s',
+            }}>
+            {t.name}
+            {on && (
+              <span style={{
+                position: 'absolute', left: 0, right: 0, bottom: 0,
+                height: 2.5, borderRadius: 2, background: underline,
+              }} />
+            )}
+          </Link>
+        )
+      })}
+    </div>
+  )
+}
 
   return (
     <>
@@ -265,6 +282,18 @@ export default function MobileHeader() {
             </div>
 
             <HomeTabs dark={!scrolled} />
+          </>
+        ) : isSearch ? (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, height: 56, padding: '0 12px' }}>
+              <Link to="/" style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+                <img src={LOGO_SRC} alt="GROSHOP.tn"
+                  style={{ height: 30, width: 'auto', maxWidth: 120, objectFit: 'contain', display: 'block' }}
+                  onError={e => { e.currentTarget.style.display = 'none' }} />
+              </Link>
+              {searchField({ dark: false })}
+            </div>
+            <HomeTabs dark={false} />
           </>
         ) : (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, height: 56, padding: '0 12px' }}>

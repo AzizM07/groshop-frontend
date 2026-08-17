@@ -4,18 +4,15 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import {
   Star, Truck, MapPin, ChevronDown, ChevronRight,
   Minus, Plus, ShoppingCart, MessageCircle, Store, BadgeCheck, Check,
-  ShieldCheck, RotateCcw, Heart, Share2,
+  ShieldCheck, RotateCcw, Heart, Share2, Lock, Info,
 } from 'lucide-react'
 import { useCart } from '../context/CartContext'
-import { products as productsApi } from '../lib/api'
+import { products as productsApi, messaging } from '../lib/api'
 import { usePageTracking } from '../hooks/usePageTracking'
 
-/* Seule teinte orange du projet : #ff5e20.
-   Les variations passent par une opacité de cette même couleur,
-   jamais par un autre code hexadécimal. */
 const ORANGE      = '#ff5e20'
-const ORANGE_TINT = 'rgba(255, 94, 32, .12)'   // fond de palier actif, avatars, pastilles
-const ORANGE_FILM = 'rgba(255, 94, 32, .08)'   // fond très léger (logo fournisseur)
+const ORANGE_TINT = 'rgba(255, 94, 32, .12)'
+const ORANGE_FILM = 'rgba(255, 94, 32, .08)'
 
 const INK='#0F1419', SUB='#3D4853', MUTE='#6B7785', FAINT='#9AA3AE', LINE='#ECEEF1', BG='#F0F0F0', GREEN='#0E9F6E'
 const FONT='-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
@@ -44,6 +41,7 @@ export default function MobileProductPage() {
   const [added, setAdded] = useState(false)
   const [copied, setCopied] = useState(false)
   const [lightbox, setLightbox] = useState(null)
+  const [contacting, setContacting] = useState(false)  // ⭐
 
   const { add, adding } = useCart()
 
@@ -73,7 +71,7 @@ export default function MobileProductPage() {
         } else {
           setSelected({})
         }
-      } catch (e) {
+      } catch {
         if (!cancelled) setError("Impossible de charger ce produit.")
       } finally {
         if (!cancelled) setLoading(false)
@@ -97,6 +95,21 @@ export default function MobileProductPage() {
 
   const share = () => { navigator.clipboard?.writeText(window.location.href); setCopied(true); setTimeout(() => setCopied(false), 1800) }
 
+  // ⭐ Contact fournisseur (bouton principal quand prix masqué, sinon action secondaire)
+  const contactSupplier = async () => {
+    if (!product?.supplier_slug || contacting) return
+    setContacting(true)
+    try {
+      const conv = await messaging.startConversation(product.supplier_slug, product.id)
+      if (conv?.id) navigate(`/dashboard/messages/${conv.id}`)
+      else navigate('/dashboard/messages')
+    } catch (e) {
+      if (e?.status === 401) navigate('/login?next=' + encodeURIComponent(window.location.pathname))
+      else alert(e?.message || "Impossible d'ouvrir la conversation.")
+      setContacting(false)
+    }
+  }
+
   if (loading) {
     return <div style={{ minHeight: '70dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: BG }}>
       <div style={{ width: 30, height: 30, border: `4px solid ${ORANGE}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'gs-spin .8s linear infinite' }} />
@@ -110,6 +123,8 @@ export default function MobileProductPage() {
   }
 
   const p = product
+  const priceLocked = p.price_locked === true   // ⭐
+
   const images = p.images?.length ? p.images : (p.primary_image ? [{ url: p.primary_image }] : [])
   const mainImage = imgOverride || images[imgIdx]?.url
   const moq = p.moq || 1
@@ -139,7 +154,7 @@ export default function MobileProductPage() {
   const dist = [5, 4, 3, 2, 1].map(star => ({ star, n: reviews.filter(r => Math.round(toNum(r.rating)) === star).length }))
 
   const doOrder = async () => {
-    if (!qtyValid) return
+    if (!qtyValid || priceLocked) return
     const firstVariantId = Object.values(selected)[0]?.id ?? null
     const res = await add(p.id, parsedQty, firstVariantId)
     if (res?.ok) { setAdded(true); setTimeout(() => setAdded(false), 2000) }
@@ -147,14 +162,10 @@ export default function MobileProductPage() {
   }
 
   return (
-    /* Pas de barre supérieure ici : MobileHeader gère retour, menu, compte et
-       panier dans sa variante « produit ». Le cœur et le partage vivent sur
-       l'image, comme sur les fiches Cdiscount. */
     <div style={{ background: BG, minHeight: '100dvh', fontFamily: FONT, paddingBottom: 'calc(78px + env(safe-area-inset-bottom))' }}>
 
       <div style={{ padding: '10px 10px 0' }}>
 
-        {/* Fil d'ariane */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: MUTE, marginBottom: 10, overflow: 'hidden', whiteSpace: 'nowrap' }}>
           <Link to="/" style={{ color: MUTE, textDecoration: 'none' }}>Accueil</Link>
           {p.category_name && <><ChevronRight size={13} style={{ flexShrink: 0 }} /><Link to={`/search?cat=${p.category_id || ''}`} style={{ color: MUTE, textDecoration: 'none' }}>{p.category_name}</Link></>}
@@ -162,10 +173,9 @@ export default function MobileProductPage() {
           <span style={{ color: INK, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</span>
         </div>
 
-        {/* ═══ Grosse carte : image + titre + prix + tiers + variantes + quantité ═══ */}
+        {/* ═══ Grosse carte : image + titre + prix + tiers + variantes ═══ */}
         <div style={{ background: '#fff', borderRadius: 18, overflow: 'hidden' }}>
 
-          {/* Carrousel */}
           <div style={{ position: 'relative' }}>
             <div style={{ width: '100%', aspectRatio: '1', background: '#F7F8FA' }}>
               {mainImage
@@ -173,19 +183,22 @@ export default function MobileProductPage() {
                 : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 50 }}>📦</div>}
             </div>
 
-            {oldPrice > unitPrice && (
+            {!priceLocked && oldPrice > unitPrice && (
               <span style={{ position: 'absolute', top: 12, left: 12, background: ORANGE, color: '#fff', fontSize: 12, fontWeight: 800, padding: '4px 9px', borderRadius: 7 }}>
                 -{Math.round((1 - unitPrice / oldPrice) * 100)}%
               </span>
             )}
+            {priceLocked && (
+              <span style={{ position: 'absolute', top: 12, left: 12, display: 'inline-flex', alignItems: 'center', gap: 5, background: '#FEF3C7', color: '#92600A', fontSize: 11.5, fontWeight: 800, padding: '5px 10px', borderRadius: 8 }}>
+                <Lock size={11} /> Prix réservé
+              </span>
+            )}
 
-            {/* Cœur + partage sur l'image */}
             <div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
               <button onClick={toggleWishlist} aria-label="Favori" style={circBtn}><Heart size={19} fill={wishlisted ? ORANGE : 'none'} color={wishlisted ? ORANGE : INK} /></button>
               <button onClick={share} aria-label="Partager" style={circBtn}>{copied ? <Check size={18} color={GREEN} /> : <Share2 size={17} color={INK} />}</button>
             </div>
 
-            {/* Indicateur type « pilule » */}
             {images.length > 1 && (
               <div style={{ position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(255,255,255,.55)', backdropFilter: 'blur(4px)', borderRadius: 20, padding: '5px 9px' }}>
                 {images.map((_, i) => (
@@ -196,7 +209,6 @@ export default function MobileProductPage() {
             )}
           </div>
 
-          {/* Vignettes */}
           {images.length > 1 && (
             <div style={{ display: 'flex', gap: 8, padding: '12px 16px 0', overflowX: 'auto', scrollbarWidth: 'none' }}>
               {images.map((im, i) => (
@@ -211,7 +223,6 @@ export default function MobileProductPage() {
           <div style={{ padding: 16 }}>
             <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: INK, lineHeight: 1.2, letterSpacing: '-0.25px' }}>{p.name}</h1>
 
-            {/* Stock | étoiles | avis | vendus */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: stockQty > 0 ? '#16994A' : '#DC2626' }}>
                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: stockQty > 0 ? '#22C55E' : '#EF4444' }} />
@@ -225,8 +236,7 @@ export default function MobileProductPage() {
               {soldCount > 0 && <><span style={{ color: '#DDD' }}>|</span><span style={{ fontSize: 12, color: FAINT }}>{soldCount} vendus</span></>}
             </div>
 
-            {/* Badges façon « bon plan » */}
-            {(oldPrice > unitPrice || p.badge_flash || p.badge_choice || p.brand) && (
+            {!priceLocked && (oldPrice > unitPrice || p.badge_flash || p.badge_choice || p.brand) && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 14 }}>
                 {oldPrice > unitPrice && <Badge bg={ORANGE} color="#fff">Promo</Badge>}
                 {p.badge_flash && <Badge bg={ORANGE_TINT} color={ORANGE}>Soldes</Badge>}
@@ -241,21 +251,40 @@ export default function MobileProductPage() {
 
             <div style={{ height: 1, background: LINE, margin: '18px 0' }} />
 
-            {/* Prix hero */}
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-              <span style={{ fontSize: 34, fontWeight: 800, color: INK, lineHeight: 1, letterSpacing: '-1px' }}>{fmtNum(unitPrice)}</span>
-              <span style={{ fontSize: 17, fontWeight: 700, color: INK }}>TND</span>
-              <span style={{ fontSize: 13, color: FAINT, marginLeft: 4 }}>/ {unit}</span>
-            </div>
-            {savePct > 0 && basePrice !== unitPrice && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
-                <span style={{ fontSize: 13, color: FAINT, textDecoration: 'line-through' }}>{fmtDT(basePrice)}</span>
-                <span style={{ fontSize: 11, fontWeight: 800, color: '#fff', background: ORANGE, padding: '3px 8px', borderRadius: 10 }}>Économisez {savePct}%</span>
+            {/* ⭐ Prix hero — remplacé par bloc "Prix sur devis" si verrouillé */}
+            {priceLocked ? (
+              <div style={{ padding: '14px 16px', borderRadius: 14, background: '#FEF9E7', border: '1px solid #FDE68A' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                  <div style={{ width: 38, height: 38, borderRadius: 10, background: '#FEF3C7', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Lock size={19} color="#92600A" />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 17, fontWeight: 900, color: INK, letterSpacing: '-0.3px' }}>Prix sur devis</div>
+                    <div style={{ fontSize: 11, color: MUTE, marginTop: 2 }}>Réservé aux boutiques</div>
+                  </div>
+                </div>
+                <p style={{ margin: 0, fontSize: 12.5, color: SUB, lineHeight: 1.5 }}>
+                  Contactez le fournisseur pour un devis, ou <Link to="/dashboard/ma-boutique" style={{ color: ORANGE, fontWeight: 700, textDecoration: 'none' }}>vérifiez votre boutique</Link> pour voir tous les prix.
+                </p>
               </div>
+            ) : (
+              <>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+                  <span style={{ fontSize: 34, fontWeight: 800, color: INK, lineHeight: 1, letterSpacing: '-1px' }}>{fmtNum(unitPrice)}</span>
+                  <span style={{ fontSize: 17, fontWeight: 700, color: INK }}>TND</span>
+                  <span style={{ fontSize: 13, color: FAINT, marginLeft: 4 }}>/ {unit}</span>
+                </div>
+                {savePct > 0 && basePrice !== unitPrice && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+                    <span style={{ fontSize: 13, color: FAINT, textDecoration: 'line-through' }}>{fmtDT(basePrice)}</span>
+                    <span style={{ fontSize: 11, fontWeight: 800, color: '#fff', background: ORANGE, padding: '3px 8px', borderRadius: 10 }}>Économisez {savePct}%</span>
+                  </div>
+                )}
+              </>
             )}
 
-            {/* Paliers de prix */}
-            {tiers.length > 0 && (
+            {/* ⭐ Tiers masqués si prix verrouillé */}
+            {!priceLocked && tiers.length > 0 && (
               <div style={{ marginTop: 20 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                   <span style={{ width: 4, height: 14, background: ORANGE, borderRadius: 2 }} />
@@ -283,7 +312,6 @@ export default function MobileProductPage() {
               </div>
             )}
 
-            {/* Groupes de choix (Couleur, Taille…) */}
             {p.choice_groups?.length > 0 && p.choice_groups.map(g => (
               <div key={g.id} style={{ marginTop: 20 }}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: INK, marginBottom: 10 }}>
@@ -304,35 +332,37 @@ export default function MobileProductPage() {
               </div>
             ))}
 
-            {/* MOQ + quantité */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 20, padding: '12px 14px', borderRadius: 14, border: `1px solid #EEE` }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: FAINT, letterSpacing: '.3px' }}>QUANTITÉ</div>
-                <div style={{ fontSize: 13, color: MUTE, marginTop: 2 }}>MOQ : <strong style={{ color: INK }}>{moq} {unit}</strong></div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', background: '#FAFAFB', borderRadius: 12, border: '1px solid #E0E0E0' }}>
-                <button onClick={() => setQty(q => String(Math.max(moq, (parseInt(q) || moq) - 1)))} style={qBtn(parsedQty > moq)}><Minus size={16} /></button>
-                <input type="number" value={qty} min={moq} onChange={e => setQty(e.target.value)} style={{ width: 46, textAlign: 'center', border: 'none', background: 'none', outline: 'none', fontSize: 15, fontWeight: 900, color: INK, padding: '10px 0' }} />
-                <button onClick={() => setQty(q => String((parseInt(q) || moq) + 1))} style={qBtn(true)}><Plus size={16} /></button>
-              </div>
-            </div>
-            {!qtyValid && <div style={{ fontSize: 11, fontWeight: 600, color: ORANGE, marginTop: 8 }}>Quantité minimale : {moq} {unit}</div>}
+            {/* ⭐ MOQ + qté + total : masqués si prix verrouillé */}
+            {!priceLocked && (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 20, padding: '12px 14px', borderRadius: 14, border: `1px solid #EEE` }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: FAINT, letterSpacing: '.3px' }}>QUANTITÉ</div>
+                    <div style={{ fontSize: 13, color: MUTE, marginTop: 2 }}>MOQ : <strong style={{ color: INK }}>{moq} {unit}</strong></div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', background: '#FAFAFB', borderRadius: 12, border: '1px solid #E0E0E0' }}>
+                    <button onClick={() => setQty(q => String(Math.max(moq, (parseInt(q) || moq) - 1)))} style={qBtn(parsedQty > moq)}><Minus size={16} /></button>
+                    <input type="number" value={qty} min={moq} onChange={e => setQty(e.target.value)} style={{ width: 46, textAlign: 'center', border: 'none', background: 'none', outline: 'none', fontSize: 15, fontWeight: 900, color: INK, padding: '10px 0' }} />
+                    <button onClick={() => setQty(q => String((parseInt(q) || moq) + 1))} style={qBtn(true)}><Plus size={16} /></button>
+                  </div>
+                </div>
+                {!qtyValid && <div style={{ fontSize: 11, fontWeight: 600, color: ORANGE, marginTop: 8 }}>Quantité minimale : {moq} {unit}</div>}
 
-            {/* Total */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 14, padding: '14px 16px', borderRadius: 14, background: '#F5F5F5', border: '1px solid #E8E8E8' }}>
-              <div>
-                <div style={{ fontSize: 10, fontWeight: 800, color: FAINT, letterSpacing: '.5px' }}>TOTAL</div>
-                <div style={{ fontSize: 11, color: MUTE, marginTop: 2 }}>{parsedQty} × {fmtDT(unitPrice)}</div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
-                <span style={{ fontSize: 24, fontWeight: 800, color: INK, letterSpacing: '-0.5px' }}>{fmtNum(total)}</span>
-                <span style={{ fontSize: 14, fontWeight: 700, color: INK }}>TND</span>
-              </div>
-            </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 14, padding: '14px 16px', borderRadius: 14, background: '#F5F5F5', border: '1px solid #E8E8E8' }}>
+                  <div>
+                    <div style={{ fontSize: 10, fontWeight: 800, color: FAINT, letterSpacing: '.5px' }}>TOTAL</div>
+                    <div style={{ fontSize: 11, color: MUTE, marginTop: 2 }}>{parsedQty} × {fmtDT(unitPrice)}</div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
+                    <span style={{ fontSize: 24, fontWeight: 800, color: INK, letterSpacing: '-0.5px' }}>{fmtNum(total)}</span>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: INK }}>TND</span>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
-        {/* ── Points forts ── */}
         {specs.length > 0 && (
           <div style={{ background: '#fff', borderRadius: 18, padding: 16, marginTop: 10 }}>
             <div style={{ fontSize: 16, fontWeight: 800, color: INK, marginBottom: 10 }}>Points forts</div>
@@ -342,16 +372,14 @@ export default function MobileProductPage() {
           </div>
         )}
 
-        {/* ── Livraison ── */}
         <div style={{ background: '#fff', borderRadius: 18, padding: 16, marginTop: 10 }}>
           <div style={{ fontSize: 16, fontWeight: 800, color: INK, marginBottom: 12 }}>Livraison</div>
           <Row icon={Truck}><strong>Livré par GROSHOP</strong></Row>
           <Row icon={MapPin}>Chez vous dès <strong style={{ textTransform: 'capitalize' }}>{estStr}</strong></Row>
-          <Row icon={shippingPrice > 0 ? Truck : ShieldCheck}>{shippingPrice > 0 ? `Frais de livraison : ${fmtDT(shippingPrice)}` : 'Livraison offerte'}</Row>
+          {!priceLocked && <Row icon={shippingPrice > 0 ? Truck : ShieldCheck}>{shippingPrice > 0 ? `Frais de livraison : ${fmtDT(shippingPrice)}` : 'Livraison offerte'}</Row>}
           <Row icon={RotateCcw} last>Retours acceptés sous 7 jours</Row>
         </div>
 
-        {/* ── Accordéons (chacun sa carte) ── */}
         <Accordion title="Nos offres de garanties">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, fontSize: 14, color: SUB }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><ShieldCheck size={18} color={ORANGE} /> Paiement 100% sécurisé</span>
@@ -392,7 +420,6 @@ export default function MobileProductPage() {
           {reviews.length === 0
             ? <p style={{ margin: 0, fontSize: 13, color: FAINT }}>Aucun avis pour le moment.</p>
             : <div>
-                {/* Résumé + distribution */}
                 <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 18 }}>
                   <div style={{ textAlign: 'center', flexShrink: 0 }}>
                     <div style={{ fontSize: 34, fontWeight: 900, color: INK, lineHeight: 1 }}>{rating.toFixed(1)}</div>
@@ -413,7 +440,6 @@ export default function MobileProductPage() {
                   </div>
                 </div>
 
-                {/* Liste */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                   {reviews.slice(0, 5).map(r => (
                     <div key={r.id} style={{ borderTop: `1px solid ${LINE}`, paddingTop: 14 }}>
@@ -430,7 +456,7 @@ export default function MobileProductPage() {
                           {r.photos.map((photo, i) => (
                             <button key={photo.id || i} onClick={() => setLightbox({ photos: r.photos, index: i })}
                               style={{ width: 64, height: 64, borderRadius: 8, overflow: 'hidden', padding: 0, border: `1px solid ${LINE}`, cursor: 'pointer', background: '#F7F8FA' }}>
-                              <img src={photo.url} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
+                              <img src={photo.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
                             </button>
                           ))}
                         </div>
@@ -461,27 +487,35 @@ export default function MobileProductPage() {
               </div>
             </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
-              <a href={`/fournisseur/${p.supplier_slug}`} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px', borderRadius: 12, border: '1px solid #E5E5E5', fontSize: 13, fontWeight: 600, color: INK, textDecoration: 'none' }}><Store size={15} /> Boutique</a>
-              <button style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px', borderRadius: 12, border: 'none', background: ORANGE, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}><MessageCircle size={15} /> Contacter</button>
+              <Link to={`/fournisseur/${p.supplier_slug}`} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px', borderRadius: 12, border: '1px solid #E5E5E5', fontSize: 13, fontWeight: 600, color: INK, textDecoration: 'none' }}><Store size={15} /> Boutique</Link>
+              <button onClick={contactSupplier} disabled={contacting} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px', borderRadius: 12, border: 'none', background: ORANGE, color: '#fff', fontSize: 13, fontWeight: 600, cursor: contacting ? 'wait' : 'pointer', opacity: contacting ? .7 : 1 }}><MessageCircle size={15} /> Contacter</button>
             </div>
           </div>
         )}
 
-        {/* ── Rangées produits ── */}
         {similar.length > 0 && <ScrollRow title="Produits similaires" items={similar} navigate={navigate} sponsored />}
         {reco.length > 0 && <ScrollRow title="Nos clients ont apprécié" items={reco} navigate={navigate} />}
       </div>
 
-      {/* Barre d'action fixe — seule en bas, la nav est masquée sur cette route */}
+      {/* ⭐ Barre d'action fixe — CTA change selon prix verrouillé */}
       <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 1100, background: '#fff', borderTop: `1px solid ${LINE}`, boxShadow: '0 -2px 12px rgba(0,0,0,.06)', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px calc(10px + env(safe-area-inset-bottom))' }}>
-        <button aria-label="Contacter le fournisseur" style={{ flexShrink: 0, width: 50, height: 48, borderRadius: 12, border: `1.5px solid ${ORANGE}`, background: '#fff', color: ORANGE, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><MessageCircle size={20} /></button>
-        <button onClick={doOrder} disabled={!qtyValid || adding === p.id}
-          style={{ flex: 1, height: 48, borderRadius: 12, border: 'none', color: '#fff', fontSize: 15, fontWeight: 800, cursor: qtyValid ? 'pointer' : 'default', opacity: (!qtyValid || adding === p.id) ? .6 : 1, background: added ? GREEN : ORANGE, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-          <ShoppingCart size={18} /> {adding === p.id ? 'Ajout…' : added ? '✓ Ajouté' : 'Ajouter au panier'}
-        </button>
+        {priceLocked ? (
+          <button onClick={contactSupplier} disabled={contacting}
+            style={{ flex: 1, height: 48, borderRadius: 12, border: 'none', color: '#fff', fontSize: 15, fontWeight: 800, cursor: contacting ? 'wait' : 'pointer', opacity: contacting ? .7 : 1, background: ORANGE, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+            <MessageCircle size={18} /> {contacting ? 'Ouverture…' : 'Contacter le fournisseur'}
+          </button>
+        ) : (
+          <>
+            <button onClick={contactSupplier} disabled={contacting} aria-label="Contacter le fournisseur"
+              style={{ flexShrink: 0, width: 50, height: 48, borderRadius: 12, border: `1.5px solid ${ORANGE}`, background: '#fff', color: ORANGE, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: contacting ? 'wait' : 'pointer', opacity: contacting ? .7 : 1 }}><MessageCircle size={20} /></button>
+            <button onClick={doOrder} disabled={!qtyValid || adding === p.id}
+              style={{ flex: 1, height: 48, borderRadius: 12, border: 'none', color: '#fff', fontSize: 15, fontWeight: 800, cursor: qtyValid ? 'pointer' : 'default', opacity: (!qtyValid || adding === p.id) ? .6 : 1, background: added ? GREEN : ORANGE, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+              <ShoppingCart size={18} /> {adding === p.id ? 'Ajout…' : added ? '✓ Ajouté' : 'Ajouter au panier'}
+            </button>
+          </>
+        )}
       </div>
 
-      {/* Lightbox photos d'avis */}
       {lightbox && (
         <div onClick={() => setLightbox(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.9)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <img src={lightbox.photos[lightbox.index]?.url} alt="" onClick={e => e.stopPropagation()} style={{ maxWidth: '92vw', maxHeight: '84vh', objectFit: 'contain', borderRadius: 8 }} />
@@ -516,7 +550,6 @@ function Row({ icon: Icon, children, last }) {
   )
 }
 
-/* Accordéon = sa propre carte blanche (façon Cdiscount) */
 function Accordion({ title, trailing, defaultOpen = false, children }) {
   const [open, setOpen] = useState(defaultOpen)
   return (
@@ -532,7 +565,6 @@ function Accordion({ title, trailing, defaultOpen = false, children }) {
   )
 }
 
-/* Rangée horizontale de produits */
 function ScrollRow({ title, items, navigate, sponsored }) {
   return (
     <div style={{ background: '#fff', borderRadius: 18, padding: '16px 0 16px 16px', marginTop: 10 }}>
@@ -540,9 +572,10 @@ function ScrollRow({ title, items, navigate, sponsored }) {
       <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingRight: 16, scrollbarWidth: 'none' }}>
         {items.map(sp => {
           const img = sp.primary_image
+          const locked = sp.price_locked === true
           const price = toNum(sp.base_price_tnd)
           const old = toNum(sp.old_price_tnd)
-          const disc = old > price ? Math.round((1 - price / old) * 100) : 0
+          const disc = !locked && old > price ? Math.round((1 - price / old) * 100) : 0
           return (
             <div key={sp.id} onClick={() => navigate(`/produit/${sp.id}`)} style={{ flex: '0 0 140px', cursor: 'pointer' }}>
               <div style={{ width: '100%', aspectRatio: '1', borderRadius: 10, overflow: 'hidden', background: '#F5F5F5' }}>
@@ -556,8 +589,12 @@ function ScrollRow({ title, items, navigate, sponsored }) {
                 </div>
               )}
               <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 4 }}>
-                <span style={{ fontSize: 15, fontWeight: 900, color: ORANGE }}>{fmtNum(price)} <span style={{ fontSize: 10, fontWeight: 700 }}>TND</span></span>
-                {disc > 0 && <span style={{ fontSize: 9, fontWeight: 800, color: '#fff', background: ORANGE, padding: '1px 5px', borderRadius: 4 }}>-{disc}%</span>}
+                {locked
+                  ? <span style={{ fontSize: 12, fontWeight: 700, color: '#92600A', display: 'inline-flex', alignItems: 'center', gap: 3 }}><Lock size={10} /> Prix sur devis</span>
+                  : <>
+                      <span style={{ fontSize: 15, fontWeight: 900, color: ORANGE }}>{fmtNum(price)} <span style={{ fontSize: 10, fontWeight: 700 }}>TND</span></span>
+                      {disc > 0 && <span style={{ fontSize: 9, fontWeight: 800, color: '#fff', background: ORANGE, padding: '1px 5px', borderRadius: 4 }}>-{disc}%</span>}
+                    </>}
               </div>
             </div>
           )

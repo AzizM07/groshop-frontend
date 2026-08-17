@@ -4,7 +4,7 @@ import { Link, Outlet, useLocation } from 'react-router-dom'
 import {
   LayoutGrid, MessageSquare, ClipboardList, Heart,
   Settings, Store, Truck, ChevronRight, Headphones,
-  ShoppingCart, User,
+  ShoppingCart, User, ShieldCheck,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
@@ -48,8 +48,10 @@ const NAV = [
     { label: 'Favoris',     to: '/dashboard/favoris',    icon: Heart },
   ]},
   { group: 'Services complémentaires', items: [
-    { label: 'Mes Adresses', to: '/dashboard/addresses', icon: Truck },
-    { label: 'Vendre sur GROSHOP',   to: '/vendre',               icon: Store },
+    // ⭐ Nouveau : vérification B2B pour débloquer les prix masqués
+    { label: 'Ma boutique',        to: '/dashboard/ma-boutique', icon: ShieldCheck },
+    { label: 'Mes Adresses',       to: '/dashboard/addresses',   icon: Truck },
+    { label: 'Vendre sur GROSHOP', to: '/vendre',                icon: Store },
   ]},
   { group: 'Paramètres', items: [
     { label: 'Paramètres du compte', to: '/dashboard/parametres', icon: Settings },
@@ -68,7 +70,7 @@ export default function DashboardLayout() {
   const [convos, setConvos] = useState(null)
 
   useEffect(() => {
-    if (!user || isMobile) return   // le badge topbar n'existe pas en mobile
+    if (!user || isMobile) return
     let alive = true
     messaging.conversations()
       .then(d => alive && setConvos(normalize(d)))
@@ -85,7 +87,6 @@ export default function DashboardLayout() {
     )
   }
 
-  // ── Coque mobile : plein écran + bottom nav, la page gère sa propre barre ──
   if (isMobile) {
     return (
       <div style={{ background: BG, minHeight: '100dvh', fontFamily: FONT, color: INK }}>

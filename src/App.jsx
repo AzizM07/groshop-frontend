@@ -49,7 +49,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import OrderConfirmationPage from './pages/OrderConfirmationPage'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { getLanguage } from './lib/api'
-
+import MaBoutiquePage from './pages/MaBoutiquePage'
 const NO_LAYOUT   = ['/login', '/signup', '/pending', '/supplier', '/dashboard', '/categories', '/checkout','/commande/confirmation']
 const FOOTER_ONLY = ['/devenir-fournisseur']
 
@@ -145,7 +145,7 @@ function AppContent() {
           <Route path="favoris"      element={<FavorisPage />} />
           <Route path="parametres"   element={<ParametresPage />} />
           <Route path="addresses" element={<AddressesPage />} />
-          {/* commandes/:id (détail), sous-pages parametres, logistique : à construire */}
+          <Route path="ma-boutique"  element={<MaBoutiquePage />} /> 
           <Route path="*"            element={<DashSoon />} />
         </Route>
 

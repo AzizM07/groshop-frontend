@@ -71,6 +71,7 @@ function hydrateForm(p, setters) {
     video_url: p.video_url || '',
     video_poster_url: p.video_poster_url || '',
     specs_raw: p.specs_raw || '',
+    price_visibility: p.price_visibility || 'public',
   })
 
   const imgs = (p.images || []).map((im) => ({
@@ -138,6 +139,7 @@ export default function AddProductPage() {
     shipping_block_price: '',
     delivery_days: 3,
     video_url: '', video_poster_url: '', specs_raw: '',
+    price_visibility: 'public',
   })
   const [images, setImages]     = useState([])
   const [tiers, setTiers]       = useState([{ min_qty: '', price_tnd: '', old_price_tnd: '' }])
@@ -308,6 +310,7 @@ export default function AddProductPage() {
       shipping_price_tnd:  form.shipping_mode === 'flat' ? Number(form.shipping_price_tnd || 0) : 0,
       shipping_block_size: Number(form.shipping_block_size) || 10,
       shipping_block_price: form.shipping_mode === 'per_block' ? Number(form.shipping_block_price || 0) : 0,
+      price_visibility: form.price_visibility,
       status,
       images: images.filter((im) => im.url).map((im, i) => ({ url: im.url, is_primary: im.is_primary, sort_order: i })),
       price_tiers: completeTiers.map((t) => ({
@@ -339,8 +342,8 @@ export default function AddProductPage() {
 
     try {
       const res = isEdit
-  ? await productsApi.update(id, payload)   // ← cette méthode n'existe pas encore, on l'ajoute à l'étape 2
-  : await productsApi.create(payload)
+        ? await productsApi.update(id, payload)   // ← cette méthode n'existe pas encore, on l'ajoute à l'étape 2
+        : await productsApi.create(payload)
       if (res === null) { alert('Session expirée. Reconnecte-toi puis réessaie.'); return }
       navigate('/supplier/products')
     } catch (e) {
@@ -375,6 +378,8 @@ export default function AddProductPage() {
       </div>
     )
   }
+
+  const priceHidden = form.price_visibility === 'verified_only'
 
   return (
     <div style={S.page}>
@@ -479,6 +484,51 @@ export default function AddProductPage() {
             <button style={S.addBtn} onClick={addTier} type="button"><Plus size={15} /> Ajouter une tranche</button>
             {errors.price_tiers && <div style={{ ...S.errText, marginTop: 8 }}>{errors.price_tiers}</div>}
             <p style={{ ...S.helper, marginTop: 12 }}>Le prix doit diminuer quand la quantité augmente. La borne haute de chaque tranche se calcule toute seule.</p>
+
+            {/* ── Visibilité du prix ── */}
+            <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px dashed #E3E6EB' }}>
+              <div style={{
+                display: 'flex', alignItems: 'flex-start', gap: 14,
+                background: priceHidden ? '#FEF3C7' : '#FAFBFC',
+                border: `1px solid ${priceHidden ? '#FDE68A' : '#ECEEF2'}`,
+                borderRadius: 12, padding: 14,
+                transition: 'background 0.2s, border-color 0.2s',
+              }}>
+                {/* Toggle switch */}
+                <label style={{
+                  position: 'relative', display: 'inline-block',
+                  width: 42, height: 24, flexShrink: 0, cursor: 'pointer', marginTop: 2,
+                }}>
+                  <input
+                    type="checkbox"
+                    checked={priceHidden}
+                    onChange={(e) => set('price_visibility', e.target.checked ? 'verified_only' : 'public')}
+                    style={{ opacity: 0, width: 0, height: 0 }}
+                  />
+                  <span style={{
+                    position: 'absolute', inset: 0, borderRadius: 24,
+                    background: priceHidden ? ORANGE : '#D1D5DB',
+                    transition: 'background 0.2s',
+                  }} />
+                  <span style={{
+                    position: 'absolute', top: 2,
+                    left: priceHidden ? 20 : 2,
+                    width: 20, height: 20, borderRadius: '50%', background: '#fff',
+                    transition: 'left 0.2s', boxShadow: '0 2px 4px rgba(0,0,0,.2)',
+                  }} />
+                </label>
+
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#141414', marginBottom: 4 }}>
+                    Masquer le prix aux non-boutiques
+                  </div>
+                  <div style={{ fontSize: 12.5, color: '#6B7785', lineHeight: 1.5 }}>
+                    Seules les boutiques vérifiées et les clients que vous aurez explicitement débloqués verront le prix.
+                    Les autres verront « Prix sur devis » et pourront vous contacter.
+                  </div>
+                </div>
+              </div>
+            </div>
           </section>
 
           {/* PRIX PAR VARIANTE (OVERRIDE) */}

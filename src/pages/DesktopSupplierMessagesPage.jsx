@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext'
 import { useMessaging } from '../hooks/useMessaging'
 import { useIsMobile } from '../hooks/useIsMobile'
 import MobileSupplierMessages from '../components/supplier/MobileSupplierMessages'
+import { AccessBanner } from '../components/supplier/AccessControls'   // ⭐ NOUVEAU
 
 const ORANGE = '#FF5E00'
 const ORANGE_SOFT = '#FFF1EA'
@@ -88,7 +89,6 @@ function DesktopSupplierMessagesPage() {
     return true
   }), [list, search, filter])
 
-  // sélectionne la 1re conversation par défaut
   useEffect(() => {
     if (!selectedId && list.length) setSelectedId(list[0].id)
   }, [list, selectedId])
@@ -245,6 +245,16 @@ function ChatArea({ detail, messages, loading, me, draft, setDraft, onSend, send
         )}
       </div>
 
+      {/* ⭐ Bandeau d'accès — juste sous l'en-tête, avant le fil */}
+      {detail?.buyer?.id && (
+        <AccessBanner
+          key={`${detail.id}-${detail.buyer.id}`}
+          userId={detail.buyer.id}
+          productId={detail.product_id || detail.product?.id || null}
+          buyerName={name}
+        />
+      )}
+
       <div ref={scrollRef} className="gs-scroll" style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 10, background: '#fff' }}>
         {loading ? (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -328,8 +338,6 @@ function MessageBubble({ msg, mine, buyer, name }) {
   )
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// AVATAR CLIENT — avatar réel si dispo, sinon initiales (nom réel : B2B)
 function ClientAvatar({ buyer, name, size = 40 }) {
   if (buyer?.avatar_url) {
     return <img src={buyer.avatar_url} alt={name} style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, display: 'block', background: '#EAE7DF' }} />

@@ -492,3 +492,74 @@ export const addresses = {
   remove:     (id)        => request(`/auth/addresses/${id}/`, { method: 'DELETE' }),
   setDefault: (id)        => request(`/auth/addresses/${id}/default/`, { method: 'POST' }),
 }
+
+// ─────────────────────────────────────────────
+// Business Profile (vérification boutique pour prix masqués)
+// ─────────────────────────────────────────────
+export const business = {
+  async get() {
+    return request('/users/business/')
+  },
+
+  async submit(payload) {
+    const hasFile = payload.business_document instanceof File
+    if (hasFile) {
+      const fd = new FormData()
+      Object.entries(payload).forEach(([k, v]) => {
+        if (v != null && v !== '') fd.append(k, v)
+      })
+      return request('/users/business/', { method: 'PATCH', body: fd })
+    }
+    return request('/users/business/', {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    })
+  },
+}
+
+// ─────────────────────────────────────────────
+// Access (déblocage prix masqués)
+// ─────────────────────────────────────────────
+export const access = {
+  // Consulté par le frontend messagerie pour afficher le bandeau d'état
+  async check(userId, productId = null) {
+    const qs = productId ? `?product_id=${productId}` : ''
+    return request(`/products/access/check/${userId}/${qs}`)
+  },
+
+  // Dashboard "Accès accordés" du fournisseur
+  async myUnlocks() {
+    return request('/products/access/my-unlocks/')
+  },
+
+  // Fournisseur débloque TOUT son catalogue pour ce user
+  async unlockSupplier(userId, opts = {}) {
+    return request(`/products/access/unlock-supplier/${userId}/`, {
+      method: 'POST',
+      body: JSON.stringify({
+        duration_days: opts.duration_days ?? null,
+        note:          opts.note ?? '',
+      }),
+    })
+  },
+
+  // Fournisseur débloque UN produit pour ce user
+  async unlockProduct(productId, userId, opts = {}) {
+    return request(`/products/access/unlock-product/${productId}/`, {
+      method: 'POST',
+      body: JSON.stringify({
+        user_id:       userId,
+        duration_days: opts.duration_days ?? null,
+        note:          opts.note ?? '',
+      }),
+    })
+  },
+
+  async revokeSupplier(unlockId) {
+    return request(`/products/access/revoke-supplier/${unlockId}/`, { method: 'POST' })
+  },
+
+  async revokeProduct(unlockId) {
+    return request(`/products/access/revoke-product/${unlockId}/`, { method: 'POST' })
+  },
+}

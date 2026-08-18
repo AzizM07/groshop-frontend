@@ -22,7 +22,7 @@ const   ORANGE_60         = '#fe8331'   // 60% mix     — Y=46 (haut searchbar)
 const   ORANGE_45         = '#fb9c66'   // 45% mix     — Y=134 (bas header / haut spacer)
 export const GRADIENT_MID = '#FFDEC9'   // 22% mix     — Y=268 (bas spacer / haut content)
 export const GRADIENT_END = '#FFFFFF'   //  0%         — Y=398 (milieu banner)
-const ORANGE_DEEP = '#fe6100'
+const ORANGE_DEEP = '#ff6500'
 const ORANGE = '#FF7A00'
 
 /* Header : 0 → 34% du header = 0 → Y=46, chute rapide 100→60.

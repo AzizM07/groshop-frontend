@@ -75,7 +75,7 @@ export default function MobileTrending({ products = [] }) {
           margin: '0 auto',
         }}
       >
-        <span style={{ fontSize: 20, fontWeight: 600, color: '#1105f7', letterSpacing: '-.5px' }}>
+        <span style={{ fontSize: 20, fontWeight: 600, color: '#000000', letterSpacing: '-.5px' }}>
           Best
         </span>
         <span style={{ fontSize: 20, fontWeight: 600, color: '#000000', letterSpacing: '-.5px' }}>
@@ -103,7 +103,7 @@ export default function MobileTrending({ products = [] }) {
                 fontSize: 11,
                 fontWeight: 600,
                 color: on ? '#fff' : '#5B6470',
-                background: on ? ORANGE : '#F1F2F4',
+                background: on ?' #1F8EFF ': '#F1F2F4',
                 border: 'none',
                 borderRadius: 999,
                 padding: '9px 16px',

@@ -5,8 +5,9 @@ import { ShoppingCart, Flame, ChevronRight } from 'lucide-react'
 
 const FONT   = '"DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
 const ORANGE = '#FF7A00'
+const PROMO_RED       = '#FF2E4D'
 const PILL_BG_ACTIVE = '#0F1419'
-
+const BLUE       = '#1F8EFF'
 const fmtNum = (n) => (Number(n) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 // price peut être un number OU [min, max] (fourchette de tiers)
@@ -74,11 +75,11 @@ export default function MobileTrending({ products = [] }) {
           margin: '0 auto',
         }}
       >
-        <span style={{ fontSize: 15, fontWeight: 700, color: '#0F1419', letterSpacing: '-.2px' }}>
-          Tendances
+        <span style={{ fontSize: 20, fontWeight: 700, color: PROMO_RED, letterSpacing: '-.2px' }}>
+          Best
         </span>
-        <span style={{ fontSize: 15, fontWeight: 700, color: ORANGE, letterSpacing: '-.2px' }}>
-          du moment
+        <span style={{ fontSize: 20, fontWeight: 700, color: BLUE, letterSpacing: '-.2px' }}>
+          Sellers
         </span>
         <ChevronRight size={13} color="#9AA3AE" strokeWidth={2} />
       </div>
@@ -102,7 +103,7 @@ export default function MobileTrending({ products = [] }) {
                 fontSize: 12.5,
                 fontWeight: 600,
                 color: on ? '#fff' : '#5B6470',
-                background: on ? PILL_BG_ACTIVE : '#F1F2F4',
+                background: on ? BLUE : '#F1F2F4',
                 border: 'none',
                 borderRadius: 999,
                 padding: '9px 16px',
@@ -163,8 +164,8 @@ export default function MobileTrending({ products = [] }) {
               {/* Tag "X vendus" / "Meilleur prix 30j" */}
               <div style={{ minHeight: 16, margin: '6px 0 2px' }}>
                 {showSold ? (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10.5, fontWeight: 600, color: ORANGE }}>
-                    <Flame size={11} fill={ORANGE} stroke="none" />
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10.5, fontWeight: 600, color: PROMO_RED }}>
+                    <Flame size={11} fill={PROMO_RED} stroke="none" />
                     {p.soldCount >= 1000 ? (p.soldCount / 1000).toFixed(1) + 'k' : p.soldCount} vendus
                   </span>
                 ) : discount > 0 ? (
@@ -187,7 +188,7 @@ export default function MobileTrending({ products = [] }) {
                   fontSize: 10,
                   fontWeight: 700,
                   color: '#fff',
-                  background: ORANGE,
+                  background: PROMO_RED,
                   borderRadius: 999,
                   padding: '2px 8px',
                 }}>

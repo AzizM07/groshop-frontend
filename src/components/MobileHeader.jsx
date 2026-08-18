@@ -198,7 +198,7 @@ export default function MobileHeader() {
           const isPourVous = t.key === null
 
           const color = dark
-            ? (on ? '#FFFFFF' : 'rgba(255,255,255,.75)')
+            ? (on ? '#FFFFFF' : '#FFFFFF')
             : (on ? (isPourVous ? ORANGE : '#0F1419') : '#6B7785')
 
           const underline = dark

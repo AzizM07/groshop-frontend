@@ -75,10 +75,10 @@ export default function MobileTrending({ products = [] }) {
           margin: '0 auto',
         }}
       >
-        <span style={{ fontSize: 20, fontWeight: 700, color: PROMO_RED, letterSpacing: '-.2px' }}>
+        <span style={{ fontSize: 20, fontWeight: 700, color: ORANGE, letterSpacing: '-.2px' }}>
           Best
         </span>
-        <span style={{ fontSize: 20, fontWeight: 700, color: BLUE, letterSpacing: '-.2px' }}>
+        <span style={{ fontSize: 20, fontWeight: 700, color: "#383838", letterSpacing: '-.2px' }}>
           Sellers
         </span>
         <ChevronRight size={13} color="#9AA3AE" strokeWidth={2} />
@@ -103,7 +103,7 @@ export default function MobileTrending({ products = [] }) {
                 fontSize: 12.5,
                 fontWeight: 600,
                 color: on ? '#fff' : '#5B6470',
-                background: on ? BLUE : '#F1F2F4',
+                background: on ? ORANGE : '#F1F2F4',
                 border: 'none',
                 borderRadius: 999,
                 padding: '9px 16px',
@@ -164,8 +164,8 @@ export default function MobileTrending({ products = [] }) {
               {/* Tag "X vendus" / "Meilleur prix 30j" */}
               <div style={{ minHeight: 16, margin: '6px 0 2px' }}>
                 {showSold ? (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10.5, fontWeight: 600, color: PROMO_RED }}>
-                    <Flame size={11} fill={PROMO_RED} stroke="none" />
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10.5, fontWeight: 600, color: ORANGE }}>
+                    <Flame size={11} fill={ORANGE} stroke="none" />
                     {p.soldCount >= 1000 ? (p.soldCount / 1000).toFixed(1) + 'k' : p.soldCount} vendus
                   </span>
                 ) : discount > 0 ? (
@@ -188,7 +188,7 @@ export default function MobileTrending({ products = [] }) {
                   fontSize: 10,
                   fontWeight: 700,
                   color: '#fff',
-                  background: PROMO_RED,
+                  background: ORANGE,
                   borderRadius: 999,
                   padding: '2px 8px',
                 }}>

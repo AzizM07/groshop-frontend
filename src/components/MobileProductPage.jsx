@@ -10,7 +10,7 @@ import { useCart } from '../context/CartContext'
 import { products as productsApi, messaging } from '../lib/api'
 import { usePageTracking } from '../hooks/usePageTracking'
 
-const ORANGE      = '#ff5e20'
+const ORANGE      = '#ff6500'
 const ORANGE_TINT = 'rgba(255, 94, 32, .12)'
 const ORANGE_FILM = 'rgba(255, 94, 32, .08)'
 
@@ -224,8 +224,8 @@ export default function MobileProductPage() {
             <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: INK, lineHeight: 1.2, letterSpacing: '-0.25px' }}>{p.name}</h1>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: stockQty > 0 ? '#16994A' : '#DC2626' }}>
-                <span style={{ width: 8, height: 8, borderRadius: '50%', background: stockQty > 0 ? '#22C55E' : '#EF4444' }} />
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: stockQty > 0 ? '#16994A' : '#ff0000' }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: stockQty > 0 ? '#22C55E' : '#ff6500' }} />
                 {stockQty > 0 ? 'En stock' : 'Rupture de stock'}
               </span>
               <span style={{ color: '#DDD' }}>|</span>

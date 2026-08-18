@@ -16,27 +16,20 @@ const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-ser
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 /* ══════════════ COULEURS COORDONNÉES HEADER ⇄ HOME ══════════════
-   Ces valeurs DOIVENT être identiques à MobileHeader (GRADIENT_MID + GRADIENT_END)
-   sinon on voit une couture au raccord. */
-const GRADIENT_MID = '#FF8A2B'   // reprend la couleur du BAS du header
+   Ces valeurs DOIVENT être identiques à MobileHeader (GRADIENT_MID + GRADIENT_END).
+   MobileHeader termine son spacer à GRADIENT_MID (22% mix orange) ; ici on reprend
+   pile à cette valeur et on fond vers blanc pur → gradient global continu. */
+const GRADIENT_MID = '#fb9c66'   // reprend la couleur du bas du SPACER header
 const GRADIENT_END = '#FFFFFF'   // blanc pur
 
 /* Orange "brand" (chips, icônes, badges) */
 const ORANGE = '#FF7A00'
 
-/* Prolongation du gradient sous le header : part exactement de la couleur
-   où le header s'est arrêté, puis fond vers blanc.
-   Résultat visuel : gradient continu depuis le tout haut de l'écran
-   jusqu'au blanc pur, sans coupure au niveau du header. */
-const CONTENT_GRADIENT =
-  `linear-gradient(180deg, ` +
-    `${GRADIENT_MID} 0%, ` +
-    `#FFAE60 25%, ` +
-    `#FFC796 50%, ` +
-    `#FFDDBB 75%, ` +
-    `${GRADIENT_END} 100%` +
-  `)`
-const GRADIENT_HEIGHT = 130  // px sous le header avant blanc pur
+/* Prolongation du gradient sous le header+spacer.
+   Un simple 2 stops : 22% → 0% (blanc). L'interpolation linéaire du browser
+   se charge du reste — pas besoin de multi-stops qui ré-orangeaient tout. */
+const CONTENT_GRADIENT = `linear-gradient(180deg, ${GRADIENT_MID} 0%, ${GRADIENT_END} 100%)`
+const GRADIENT_HEIGHT = 130  // px avant blanc pur — le 0% tombe pile au milieu du banner
 
 /* ══════════════ Grille MASONRY 2 colonnes ══════════════ */
 function MasonryProducts({ items = [], loading = false, adEvery = 6, gap = 8 }) {
@@ -256,7 +249,6 @@ function HomeFeed({ items, trending, loading, error, isPersonalized }) {
           <CategorySection products={trending} />
         </div>
       )}
-      {/* Espace vierge type AliExpress entre les sections, titre "Produits recommandés" retiré */}
       <div style={{ height: 10, background: '#F5F6F7', margin: '16px 0 0' }} />
       <div style={{ padding: '16px 12px 24px' }}>
         {error && <div style={{ color: ORANGE, fontSize: 13, marginBottom: 12 }}>{error}</div>}

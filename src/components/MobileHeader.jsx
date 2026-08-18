@@ -10,21 +10,27 @@ import { useCart } from '../context/CartContext'
 
 const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
 
-/* ══════════════ COULEURS COORDONNÉES HEADER ⇄ HOME ══════════════
-   Ces couleurs DOIVENT rester identiques dans MobileHome. */
-export const GRADIENT_TOP = '#ff6c0b' // top écran (100% orange)
-export const GRADIENT_MID = '#FF8A2B' // raccord header / contenu
-export const GRADIENT_END = '#FFFFFF'
+/* ══════════════ GRADIENT GLOBAL RÉPARTI SUR 3 ZONES ══════════════
+   Un seul fondu continu, du haut de l'écran jusqu'au milieu du banner :
+     • Zone 1 (header, 0→134px)    : 100% → 60% → 45%
+     • Zone 2 (spacer, 134→268px)  : 45%  → 22%
+     • Zone 3 (content dans MobileHome, 268→~398px) : 22% → 0% (blanc)
+   La chute 100→60 est CONCENTRÉE dans les 46 premiers px (au-dessus
+   de la searchbar), puis 60→0 s'étale sur les ~350px restants. */
+export const GRADIENT_TOP = '#ff6c0b'   // 100% orange — Y=0
+const   ORANGE_60         = '#fe8331'   // 60% mix     — Y=46 (haut searchbar)
+const   ORANGE_45         = '#fb9c66'   // 45% mix     — Y=134 (bas header / haut spacer)
+export const GRADIENT_MID = '#FFDEC9'   // 22% mix     — Y=268 (bas spacer / haut content)
+export const GRADIENT_END = '#FFFFFF'   //  0%         — Y=398 (milieu banner)
 
 const ORANGE = '#FF7A00'
 
-/* Arrêt intermédiaire du dégradé header, placé à 20% de la hauteur
-   (≈ le haut de la barre de recherche). Sur 0%→20% l'orange ne perd
-   que 40% d'intensité (100% → 60% vers GRADIENT_MID), puis le dégradé
-   continue normalement de 20% → 100% vers GRADIENT_MID.
-   Mix = 60% GRADIENT_TOP + 40% GRADIENT_MID. */
-const GRADIENT_STOP_20 = '#FF7818'
-const HEADER_GRADIENT = `linear-gradient(180deg, ${GRADIENT_TOP} 0%, ${GRADIENT_STOP_20} 10%, ${GRADIENT_MID} 100%)`
+/* Header : 0 → 34% du header = 0 → Y=46, chute rapide 100→60.
+            34% → 100%          = Y=46 → Y=134, chute douce 60→45. */
+const HEADER_GRADIENT = `linear-gradient(180deg, ${GRADIENT_TOP} 0%, ${ORANGE_60} 34%, ${ORANGE_45} 100%)`
+
+/* Spacer : continue la pente douce, 45% → 22%. Pas de palier plat. */
+const SPACER_GRADIENT = `linear-gradient(180deg, ${ORANGE_45} 0%, ${GRADIENT_MID} 100%)`
 
 const PRODUCT_ROUTES = ['/produit/:id']
 const HOME_ROUTES = ['/']
@@ -97,18 +103,16 @@ export default function MobileHeader() {
   let spacerH = H_DEFAULT
   if (isProduct) spacerH = H_PRODUCT
   else if (isHome) spacerH = scrolled ? H_HOME_SCROLLED : H_HOME_TOP
-  else if (isSearch) spacerH = H_HOME_SCROLLED // 86px : hauteur recherche + tabs, réutilisée
+  else if (isSearch) spacerH = H_HOME_SCROLLED
 
   let headerBg = '#fff'
   if (isProduct) headerBg = ORANGE
   else if (isHome && !scrolled) headerBg = HEADER_GRADIENT
 
-  /* ⬇️ FIX : le spacer reprend la MÊME couleur que le bas du header
-     → aucune bande blanche possible même si les hauteurs sont légèrement
-     décalées de quelques pixels. */
+  /* Spacer : dégradé 45% → 22% (continuité de la courbe, aucune bande plate) */
   let spacerBg = 'transparent'
   if (isProduct) spacerBg = ORANGE
-  else if (isHome && !scrolled) spacerBg = GRADIENT_MID
+  else if (isHome && !scrolled) spacerBg = SPACER_GRADIENT
 
   const searchField = ({ dark }) => (
     <form onSubmit={e => { e.preventDefault(); goToSearch(query) }}
@@ -166,62 +170,62 @@ export default function MobileHeader() {
     </form>
   )
 
-const HomeTabs = ({ dark }) => {
-  const location = useLocation()
-  const [params] = useSearchParams()
-  // On est "actif" sur un onglet catégorie seulement si on est sur /search
-  const activeCatName = location.pathname === '/search' ? (params.get('cat') || null) : null
+  const HomeTabs = ({ dark }) => {
+    const location = useLocation()
+    const [params] = useSearchParams()
+    // "cat" vient toujours en string depuis l'URL, on ne le compare qu'en string
+    const activeCatId = location.pathname === '/search' ? params.get('cat') : null
 
-  const tabs = [
-    { key: null, name: 'Pour vous', to: '/' },
-    ...cats.map(c => ({
-  key: c.id,
-  name: c.name,
-  to: `/search?cat=${c.id}`,
-})),
-  ]
+    const tabs = [
+      { key: null, name: 'Pour vous', to: '/' },
+      ...cats.map(c => ({
+        key: c.id,
+        name: c.name,
+        to: `/search?cat=${c.id}`,
+      })),
+    ]
 
-  return (
-    <div style={{
-      display: 'flex', gap: 22, overflowX: 'auto', padding: '0 14px',
-      WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none',
-    }}>
-{tabs.map(t => {
-  const on = t.key === null
-    ? location.pathname === '/'
-    : activeCatName === t.key
-
-  const isPourVous = t.key === null
-
-  const color = dark
-    ? (on ? '#FFFFFF' : 'rgba(255,255,255,.75)')
-    : (on ? (isPourVous ? ORANGE : '#0F1419') : '#6B7785')
-
-  const underline = dark
-    ? '#FFFFFF'
-    : (isPourVous && on ? ORANGE : '#3e3e3e')
-
-  return (
-    <Link key={t.key ?? 'all'} to={t.to}
-      style={{
-        flexShrink: 0, textDecoration: 'none', whiteSpace: 'nowrap',
-        padding: '10px 2px 9px', position: 'relative',
-        fontSize: 15, fontWeight: on ? 500 : 600,
-        color, transition: 'color .18s',
+    return (
+      <div style={{
+        display: 'flex', gap: 22, overflowX: 'auto', padding: '0 14px',
+        WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none',
       }}>
-      {t.name}
-      {on && (
-        <span style={{
-          position: 'absolute', left: 0, right: 0, bottom: 0,
-          height: 2.5, borderRadius: 2, background: underline,
-        }} />
-      )}
-    </Link>
-  )
-})}
-    </div>
-  )
-}
+        {tabs.map(t => {
+          const on = t.key === null
+            ? location.pathname === '/'
+            : activeCatId !== null && String(activeCatId) === String(t.key)
+
+          const isPourVous = t.key === null
+
+          const color = dark
+            ? (on ? '#FFFFFF' : 'rgba(255,255,255,.75)')
+            : (on ? (isPourVous ? ORANGE : '#0F1419') : '#6B7785')
+
+          const underline = dark
+            ? '#FFFFFF'
+            : (isPourVous && on ? ORANGE : '#3e3e3e')
+
+          return (
+            <Link key={t.key ?? 'all'} to={t.to}
+              style={{
+                flexShrink: 0, textDecoration: 'none', whiteSpace: 'nowrap',
+                padding: '10px 2px 9px', position: 'relative',
+                fontSize: 15, fontWeight: on ? 500 : 600,
+                color, transition: 'color .18s',
+              }}>
+              {t.name}
+              {on && (
+                <span style={{
+                  position: 'absolute', left: 0, right: 0, bottom: 0,
+                  height: 2.5, borderRadius: 2, background: underline,
+                }} />
+              )}
+            </Link>
+          )
+        })}
+      </div>
+    )
+  }
 
   return (
     <>
@@ -295,6 +299,8 @@ const HomeTabs = ({ dark }) => {
               {searchField({ dark: !scrolled })}
             </div>
 
+            {/* dark=true tant qu'on est sur le fond orange (haut de page),
+                dark=false une fois scrollé (fond blanc) */}
             <HomeTabs dark={!scrolled} />
           </>
         ) : isSearch ? (
@@ -321,7 +327,7 @@ const HomeTabs = ({ dark }) => {
         )}
       </header>
 
-      {/* ⬇️ Spacer avec bg coloré : élimine toute bande blanche au raccord */}
+      {/* Spacer avec dégradé continu 45% → 22% (aucune bande plate) */}
       <div style={{
         height: spacerH,
         background: spacerBg,

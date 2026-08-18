@@ -12,7 +12,7 @@ const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-ser
 
 /* ══════════════ COULEURS COORDONNÉES HEADER ⇄ HOME ══════════════
    Ces couleurs DOIVENT rester identiques dans MobileHome. */
-export const GRADIENT_TOP = '#FF6600' // top écran (100% orange)
+export const GRADIENT_TOP = '#ff6c0b' // top écran (100% orange)
 export const GRADIENT_MID = '#FF8A2B' // raccord header / contenu
 export const GRADIENT_END = '#FFFFFF'
 

@@ -3,7 +3,7 @@
 // Mobile : layout façon AliExpress (hero + chips rondes + masonry 2 colonnes)
 // Desktop : layout existant (grille + filtres + tri)
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { products as productsApi } from '../lib/api'
 import { usePageTracking } from '../hooks/usePageTracking'
@@ -17,6 +17,11 @@ import SearchCategoryBannerMobile from '../components/SearchCategoryBannerMobile
 const LAYOUT = { maxWidth: '1500px', padding: '0 2%' }
 const ORANGE = '#FF7A00'
 const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
+
+/* ── Cache mémoire des résultats déjà chargés ──
+   Clé : "q::cat" → affichage instantané au retour sur un onglet déjà visité,
+   pendant qu'on revalide en arrière-plan (même principe que _cache dans DesktopHeader). */
+const _searchResultsCache = new Map()
 
 function Container({ children, style = {} }) {
   return (
@@ -103,7 +108,13 @@ function SkeletonCard() {
 if (typeof document !== 'undefined' && !document.getElementById('skeleton-anim')) {
   const s = document.createElement('style')
   s.id = 'skeleton-anim'
-  s.textContent = '@keyframes skeleton-pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }'
+  s.textContent = `
+    @keyframes skeleton-pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+    @keyframes gsSlideIn {
+      from { transform: translateX(var(--gs-slide-from, 28px)); opacity: 0; }
+      to   { transform: translateX(0); opacity: 1; }
+    }
+  `
   document.head.appendChild(s)
 }
 
@@ -158,16 +169,16 @@ function SubIcon({ label, img, emoji, active, heart, onClick }) {
     <button onClick={onClick} style={{
       flexShrink: 0,
       display: 'flex', alignItems: 'center', gap: 6,
-      padding: '2px 12px 2px 2px',        // ⭐ hauteur encore réduite
+      padding: '2px 12px 2px 2px',
       borderRadius: 999,
-      border: active ? '1.5px solid #0F1419' : '1.5px solid #E5E7EB',  // ⭐ noir si actif, gris clair sinon
+      border: active ? '1.5px solid #0F1419' : '1.5px solid #E5E7EB',
       background: '#fff',
       cursor: 'pointer',
       whiteSpace: 'nowrap',
       transition: 'all .18s',
     }}>
       <span style={{
-        width: 22, height: 22, borderRadius: '50%', overflow: 'hidden',   // ⭐ icône réduite 26 → 22
+        width: 22, height: 22, borderRadius: '50%', overflow: 'hidden',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         flexShrink: 0, background: '#F4F5F7',
       }}>
@@ -188,26 +199,23 @@ function SubIcon({ label, img, emoji, active, heart, onClick }) {
     </button>
   )
 }
+
 /* ══════════════════════════ VUE MOBILE ══════════════════════════ */
-function MobileSearchView({ query, cat, catObj, results, loading, error, banner, goBannerLink }) {
+function MobileSearchView({ query, cat, catObj, results, loading, error, banner, goBannerLink, direction }) {
   const [activeSub, setActiveSub] = useState('all')
   const subs = catObj?.children || []
 
-  // Reset filtre sous-catégorie quand la grande catégorie change
   useEffect(() => { setActiveSub('all') }, [cat])
 
-  // Sous-catégorie active (objet)
   const activeSubObj = activeSub !== 'all'
     ? subs.find(s => String(s.id) === String(activeSub))
     : null
 
-  // Filtrage local : par nom de sous-catégorie sur les résultats
   const shown = useMemo(() => {
     if (activeSub === 'all' || !activeSubObj) return results
     return results.filter(p => p.category_name === activeSubObj.name)
   }, [results, activeSub, activeSubObj])
 
-  // Titre au-dessus de la grille
   const gridLabel = query
     ? `${shown.length} résultat${shown.length > 1 ? 's' : ''}`
     : (activeSubObj?.name || catObj?.name || 'Top ventes')
@@ -215,32 +223,29 @@ function MobileSearchView({ query, cat, catObj, results, loading, error, banner,
   return (
     <div style={{ background: '#F5F5F5', minHeight: '100vh', fontFamily: FONT }}>
 
-      {/* ── Bannière hero pleine largeur ── */}
       {banner?.image_url && (
         <div style={{ background: '#fff' }}>
           <SearchCategoryBannerMobile banner={banner} onClick={goBannerLink} />
         </div>
       )}
 
-      {/* ── Chips sous-catégories rondes (défilement horizontal) ── */}
-{subs.length > 0 && (
-  <div style={{
-    background: '#fff',
-    display: 'flex', gap: 10, overflowX: 'auto',
-    padding: '10px 12px 12px',   // ⭐ 14 → 10 en haut
-    WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none',
-  }}
-  className="gs-nosb">
-    <SubIcon label="Tout" active={activeSub === 'all'} onClick={() => setActiveSub('all')} heart />
-    {subs.map(s => (
-      <SubIcon key={s.id} label={s.name} img={s.image_url} emoji={s.emoji}
-        active={activeSub === String(s.id)}
-        onClick={() => setActiveSub(String(s.id))} />
-    ))}
-  </div>
-)}
+      {subs.length > 0 && (
+        <div style={{
+          background: '#fff',
+          display: 'flex', gap: 10, overflowX: 'auto',
+          padding: '10px 12px 12px',
+          WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none',
+        }}
+        className="gs-nosb">
+          <SubIcon label="Tout" active={activeSub === 'all'} onClick={() => setActiveSub('all')} heart />
+          {subs.map(s => (
+            <SubIcon key={s.id} label={s.name} img={s.image_url} emoji={s.emoji}
+              active={activeSub === String(s.id)}
+              onClick={() => setActiveSub(String(s.id))} />
+          ))}
+        </div>
+      )}
 
-      {/* ── Bandeau "Top sale ▼" ── */}
       {!loading && shown.length > 0 && (
         <div style={{
           background: '#fff',
@@ -253,15 +258,21 @@ function MobileSearchView({ query, cat, catObj, results, loading, error, banner,
         </div>
       )}
 
-      {/* ── Grille masonry ── */}
-      <div style={{ padding: '8px 8px 80px' }}>
+      {/* ⭐ key change → relance l'animation de slide à chaque nouvelle catégorie/sous-catégorie
+           opacity → fade doux pendant la revalidation réseau, même si contenu déjà affiché via cache */}
+<div
+  key={`${query}::${cat}::${activeSub}`}
+  style={{
+    padding: '8px 8px 80px',
+    animation: 'gsSlideIn .28s ease',
+    '--gs-slide-from': `${direction * 28}px`,
+  }}
+>
         {error ? (
           <EmptyState icon="⚠️" title="Erreur" text={error} />
         ) : !query && !cat ? (
           <EmptyState icon="🔍" title="Que cherchez-vous ?" text="Saisissez un produit ou choisissez une catégorie." />
-        ) : loading ? (
-          <MasonryProducts loading />
-        ) : shown.length === 0 ? (
+        ) : shown.length === 0 && !loading ? (
           <EmptyState
             icon="📦"
             title="Aucun résultat"
@@ -271,6 +282,8 @@ function MobileSearchView({ query, cat, catObj, results, loading, error, banner,
                 ? `Aucun produit ne correspond à « ${query} ».`
                 : `Aucun produit dans cette catégorie pour le moment.`}
           />
+        ) : shown.length === 0 && loading ? (
+          <MasonryProducts loading />
         ) : (
           <MasonryProducts items={shown} />
         )}
@@ -300,7 +313,28 @@ export default function SearchPage() {
   const [banner, setBanner]   = useState(null)
   const [catObj, setCatObj]   = useState(null)
 
+  // ── Direction du slide : ordre des catégories racines + comparaison ancien/nouveau ──
+  const [catOrder, setCatOrder] = useState([])
+  const prevCatRef = useRef(cat)
+  const [direction, setDirection] = useState(1)
+
   usePageTracking({ pageType: 'search' })
+
+  /* ── Ordre des catégories (pour déterminer le sens du slide) ── */
+  useEffect(() => {
+    productsApi.categories()
+      .then(tree => setCatOrder((tree || []).map(c => String(c.id))))
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    const prevIdx = catOrder.indexOf(prevCatRef.current)
+    const curIdx  = catOrder.indexOf(cat)
+    if (prevIdx !== -1 && curIdx !== -1 && prevIdx !== curIdx) {
+      setDirection(curIdx > prevIdx ? 1 : -1)
+    }
+    prevCatRef.current = cat
+  }, [cat, catOrder])
 
   /* ── Résolution de la catégorie via l'arbre ── */
   useEffect(() => {
@@ -312,17 +346,29 @@ export default function SearchPage() {
     return () => { alive = false }
   }, [cat])
 
-  /* ── Chargement des résultats ──
+  /* ── Chargement des résultats, avec cache stale-while-revalidate ──
      q présent → products.search()
      q absent + cat présent → products.list({ category_id, include_descendants: 1 })
-     (même endpoint que MobileCategoriesPage qui fonctionne déjà) */
+     Un retour sur un q/cat déjà visité affiche le cache instantanément
+     pendant qu'une requête rafraîchit les données en arrière-plan. */
   useEffect(() => {
     if (!query && !cat) {
       setResults([]); setTotal(0); setLoading(false)
       return
     }
+
+    const cacheKey = `${query}::${cat}`
+    const cached = _searchResultsCache.get(cacheKey)
+
     let alive = true
-    setLoading(true); setError(null)
+    if (cached) {
+      setResults(cached.results)
+      setTotal(cached.total)
+      setLoading(false)
+    } else {
+      setLoading(true)
+    }
+    setError(null)
 
     const promise = query
       ? productsApi.search(query, cat ? { category_id: cat, include_descendants: 1 } : {})
@@ -332,10 +378,13 @@ export default function SearchPage() {
       .then(d => {
         if (!alive) return
         const list = d?.results || d || []
-        setResults(Array.isArray(list) ? list : [])
-        setTotal(d?.total ?? d?.count ?? (Array.isArray(list) ? list.length : 0))
+        const newResults = Array.isArray(list) ? list : []
+        const newTotal = d?.total ?? d?.count ?? newResults.length
+        _searchResultsCache.set(cacheKey, { results: newResults, total: newTotal })
+        setResults(newResults)
+        setTotal(newTotal)
       })
-      .catch(() => { if (alive) setError('Erreur lors de la recherche.') })
+      .catch(() => { if (alive && !cached) setError('Erreur lors de la recherche.') })
       .finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
   }, [query, cat])
@@ -373,6 +422,7 @@ export default function SearchPage() {
         error={error}
         banner={banner}
         goBannerLink={goBannerLink}
+        direction={direction}
       />
     )
   }

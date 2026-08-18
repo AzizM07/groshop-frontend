@@ -103,7 +103,7 @@ export default function MobileTrending({ products = [] }) {
                 fontSize: 12.5,
                 fontWeight: 600,
                 color: on ? '#fff' : '#5B6470',
-                background: on ? "#383838" : '#F1F2F4',
+                background: on ? 'BLUE' : '#F1F2F4',
                 border: 'none',
                 borderRadius: 999,
                 padding: '9px 16px',

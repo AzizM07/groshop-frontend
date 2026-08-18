@@ -8,7 +8,7 @@ const ORANGE = '#ff6500'
 const PROMO_RED     = '#FF2E4D'
 const PILL_BG_ACTIVE = '#2d2d2d'
 const BLUE          = '#1b48ff'
-const RATING_COLOR  = '#ffe100'
+const RATING_COLOR  = '#FFB800'
 const MOQ_COLOR     = '#2E7CF6'
 const SOLD_COLOR    = PROMO_RED
 const PRICE_COLOR   = '#0F1419'
@@ -34,27 +34,20 @@ const INITIAL_COUNT = 6
 if (typeof document !== 'undefined' && !document.getElementById('mt-styles')) {
   const s = document.createElement('style')
   s.id = 'mt-styles'
-s.textContent = `
-  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&display=swap');
-  .mt-scroll { scrollbar-width: none; -ms-overflow-style: none; }
-  .mt-scroll::-webkit-scrollbar { display: none; }
-  .mt-card img { transition: transform .25s ease; }
-  .mt-card:active img { transform: scale(1.03); }
-  .mt-cart-btn { transition: transform .15s ease, box-shadow .15s ease; }
-  .mt-cart-btn:active { transform: scale(0.9); }
-  @keyframes mt-roll-in {
-    0%   { transform: translateY(100%); opacity: 0; }
-    60%  { opacity: 1; }
-    100% { transform: translateY(0);    opacity: 1; }
-  }
-  @keyframes mt-roll-out {
-    0%   { transform: translateY(0);     opacity: 1; }
-    40%  { opacity: 1; }
-    100% { transform: translateY(-100%); opacity: 0; }
-  }
-  .mt-roll-in  { animation: mt-roll-in .7s cubic-bezier(.22,1,.36,1) forwards; }
-  .mt-roll-out { animation: mt-roll-out .7s cubic-bezier(.22,1,.36,1) forwards; }
-`
+  s.textContent = `
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&display=swap');
+    .mt-scroll { scrollbar-width: none; -ms-overflow-style: none; }
+    .mt-scroll::-webkit-scrollbar { display: none; }
+    .mt-card img { transition: transform .25s ease; }
+    .mt-card:active img { transform: scale(1.03); }
+    .mt-cart-btn { transition: transform .15s ease, box-shadow .15s ease; }
+    .mt-cart-btn:active { transform: scale(0.9); }
+    @keyframes mt-roll-in {
+      0%   { transform: translateY(9px); opacity: 0; }
+      100% { transform: translateY(0);   opacity: 1; }
+    }
+    .mt-roll { animation: mt-roll-in .3s ease; }
+  `
   document.head.appendChild(s)
 }
 
@@ -62,62 +55,38 @@ s.textContent = `
 function RollingSoldRating({ showSold, soldCount, rating }) {
   const hasSold = !!showSold
   const hasRating = rating != null
-  const canRotate = hasSold && hasRating
-
-  const [current, setCurrent] = useState(hasSold ? 'sold' : 'rating')
-  const [prev, setPrev] = useState(null)
+  const [tick, setTick] = useState(0)
 
   useEffect(() => {
-    if (!canRotate) return
-    const id = setInterval(() => {
-      setCurrent(c => {
-        setPrev(c)
-        return c === 'sold' ? 'rating' : 'sold'
-      })
-    }, 3000)
+    if (!(hasSold && hasRating)) return
+    const id = setInterval(() => setTick(t => t + 1), 3000)
     return () => clearInterval(id)
-  }, [canRotate])
+  }, [hasSold, hasRating])
 
   if (!hasSold && !hasRating) return <div style={{ minHeight: 14, margin: '6px 0 2px' }} />
 
-  const renderContent = (type) => (
-    type === 'sold' ? (
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10.5, fontWeight: 600, color: SOLD_COLOR }}>
-        <Flame size={11} fill={SOLD_COLOR} stroke="none" />
-        {soldCount >= 1000 ? (soldCount / 1000).toFixed(1) + 'k' : soldCount} vendus
-      </span>
-    ) : (
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 700, color: RATING_COLOR }}>
-        <Star size={11} fill={RATING_COLOR} stroke="none" />
-        {Number(rating).toFixed(1)}
-      </span>
-    )
-  )
+  // Un seul des deux dispo : affichage fixe, pas de rotation
+  const showingSold = hasSold && hasRating ? tick % 2 === 0 : hasSold
 
   return (
-    <div style={{ margin: '6px 0 2px', minHeight: 14, position: 'relative', overflow: 'hidden' }}>
-      {/* élément sortant : reste affiché pendant qu'il glisse vers le haut */}
-      {prev && (
-        <div
-          key={`out-${prev}-${current}`}
-          className="mt-roll-out"
-          style={{ position: 'absolute', top: 0, left: 0 }}
-          onAnimationEnd={() => setPrev(null)}
-        >
-          {renderContent(prev)}
-        </div>
-      )}
-      {/* élément entrant : arrive par-dessous */}
-      <div
-        key={`in-${current}`}
-        className={prev ? 'mt-roll-in' : ''}
-        style={{ position: prev ? 'absolute' : 'relative', top: 0, left: 0 }}
-      >
-        {renderContent(current)}
+    <div style={{ margin: '6px 0 2px', minHeight: 14, overflow: 'hidden' }}>
+      <div key={tick} className="mt-roll">
+        {showingSold ? (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10.5, fontWeight: 600, color: SOLD_COLOR }}>
+            <Flame size={11} fill={SOLD_COLOR} stroke="none" />
+            {soldCount >= 1000 ? (soldCount / 1000).toFixed(1) + 'k' : soldCount} vendus
+          </span>
+        ) : (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 700, color: RATING_COLOR }}>
+            <Star size={11} fill={RATING_COLOR} stroke="none" />
+            {Number(rating).toFixed(1)}
+          </span>
+        )}
       </div>
     </div>
   )
 }
+
 export default function MobileTrending({ products = [] }) {
   const navigate = useNavigate()
   const [active, setActive] = useState('Tout')
@@ -233,7 +202,7 @@ export default function MobileTrending({ products = [] }) {
               {/* Ligne 4 : % (texte simple) */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
                 {discount > 0 && (
-                  <span style={{ fontSize: 10.5, fontWeight: 700, color: BLUE }}>
+                  <span style={{ fontSize: 10.5, fontWeight: 700, color: ORANGE  }}>
                     -{discount}%
                   </span>
                 )}

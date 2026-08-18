@@ -51,23 +51,21 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { getLanguage } from './lib/api'
 import MaBoutiquePage from './pages/MaBoutiquePage'
 import AccesAccordesPage from './pages/AccesAccordesPage'
-const NO_LAYOUT   = ['/login', '/signup', '/pending', '/supplier', '/dashboard', '/categories', '/checkout','/commande/confirmation']
+
+const NO_LAYOUT   = ['/login', '/signup', '/pending', '/supplier', '/dashboard', '/categories', '/checkout', '/commande/confirmation']
 const FOOTER_ONLY = ['/devenir-fournisseur']
 
-// Client React Query unique pour toute l'app (cache partagé entre
-// SupplierDashboardPage, SupplierOrdersPage, SupplierProductsPage, etc.)
+// Client React Query unique pour toute l'app
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 60_000,       // 1 min avant de considérer les données comme périmées
+      staleTime: 60_000,
       refetchOnWindowFocus: false,
       retry: 1,
     },
   },
 })
 
-// Placeholder pour les sous-pages du dashboard pas encore construites
-// (commandes, paiement, favoris, logistique, parametres…). Rendu DANS la coque.
 function DashSoon() {
   return (
     <div style={{ padding: 48, textAlign: 'center', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif' }}>
@@ -79,7 +77,7 @@ function DashSoon() {
 }
 
 function AppContent() {
-  const location    = useLocation()
+  const location = useLocation()
   const { user, loading: authLoading } = useAuth()
 
   useEffect(() => {
@@ -92,16 +90,12 @@ function AppContent() {
     })
   }, [])
 
-  // ⭐ Applique dir="rtl" (arabe uniquement) et lang="xx" sur <html> dès le
-  //    premier chargement, à partir de la langue déjà enregistrée en local.
   useEffect(() => {
     const lang = getLanguage()
     document.documentElement.dir  = lang === 'ar' ? 'rtl' : 'ltr'
     document.documentElement.lang = lang
   }, [])
 
-  // ⭐ Un compte = un rôle. Le fournisseur n'a accès qu'à son dashboard.
-  //    /produit/:id reste public (SEO + prévisualisation de ses fiches).
   const BUYER_PATHS = ['/', '/search', '/panier']
   const isBuyerPath = BUYER_PATHS.includes(location.pathname)
                    || location.pathname.startsWith('/dashboard')
@@ -126,18 +120,27 @@ function AppContent() {
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/pending"        element={<PendingPage />} />
         <Route path="/categories"     element={<MobileCategoriesPage />} />
-{/* ⭐ Confirmation avec ID (route principale) */}
-<Route path="/commande/:id/confirmation" element={
-  <RequireAuth><OrderConfirmationPage /></RequireAuth>
-} />
-{/* ⭐ Fallback sans ID pour compat après checkout */}
-<Route path="/commande/confirmation" element={
-  <RequireAuth><OrderConfirmationPage /></RequireAuth>
-} />        <Route path="/commande/confirmation" element={<RequireAuth><OrderConfirmationPage /></RequireAuth>} />
-        <Route path="/dashboard/commandes/:id/confirmation" element={<RequireAuth><OrderConfirmationPage /></RequireAuth>} />
+
+        {/* ⭐ Checkout — route qui manquait, cause du "No routes matched" */}
+        <Route path="/checkout" element={
+          <RequireAuth><CheckoutPage /></RequireAuth>
+        } />
+
+        {/* Confirmation avec ID (route principale) */}
+        <Route path="/commande/:id/confirmation" element={
+          <RequireAuth><OrderConfirmationPage /></RequireAuth>
+        } />
+        {/* Fallback sans ID pour compat après checkout */}
+        <Route path="/commande/confirmation" element={
+          <RequireAuth><OrderConfirmationPage /></RequireAuth>
+        } />
+        <Route path="/dashboard/commandes/:id/confirmation" element={
+          <RequireAuth><OrderConfirmationPage /></RequireAuth>
+        } />
+
         <Route path="/devenir-fournisseur/inscription" element={<SupplierSignupPage />} />
 
-        {/* ═══ Espace acheteur : coque persistante (topbar + sidebar), contenu via <Outlet/> ═══ */}
+        {/* ═══ Espace acheteur ═══ */}
         <Route path="/dashboard" element={<RequireAuth><DashboardLayout /></RequireAuth>}>
           <Route index               element={<DashboardPage />} />
           <Route path="messages"     element={<MessagesPage />} />
@@ -145,8 +148,8 @@ function AppContent() {
           <Route path="commandes"    element={<CommandesPage />} />
           <Route path="favoris"      element={<FavorisPage />} />
           <Route path="parametres"   element={<ParametresPage />} />
-          <Route path="addresses" element={<AddressesPage />} />
-          <Route path="ma-boutique"  element={<MaBoutiquePage />} /> 
+          <Route path="addresses"    element={<AddressesPage />} />
+          <Route path="ma-boutique"  element={<MaBoutiquePage />} />
           <Route path="*"            element={<DashSoon />} />
         </Route>
 
@@ -154,18 +157,17 @@ function AppContent() {
         <Route path="/supplier" element={
           <SupplierRoute><SupplierDashboardLayout /></SupplierRoute>
         }>
-          <Route index               element={<SupplierDashboardPage />} />
-          <Route path="products"     element={<SupplierProductsPage />} />
-          <Route path="products/new" element={<AddProductPage />} />
-          <Route path="products/:id/edit" element={<AddProductPage />} />   {/* ← à ajouter */}
-          <Route path="orders"       element={<SupplierOrdersPage />} />
-          <Route path="messages"     element={<SupplierMessagesPage />} />
-          <Route path="stats"        element={<SupplierStatsPage />} />
-          <Route path="reviews"      element={<SupplierReviewsPage />} />
-          <Route path="shop"         element={<SupplierShopPage />} />
-          <Route path="access"       element={<AccesAccordesPage />} />   {/* ⭐ NOUVEAU */}
-
-          <Route path="settings"     element={<SupplierSettingsPage />} />
+          <Route index                    element={<SupplierDashboardPage />} />
+          <Route path="products"          element={<SupplierProductsPage />} />
+          <Route path="products/new"      element={<AddProductPage />} />
+          <Route path="products/:id/edit" element={<AddProductPage />} />
+          <Route path="orders"            element={<SupplierOrdersPage />} />
+          <Route path="messages"          element={<SupplierMessagesPage />} />
+          <Route path="stats"             element={<SupplierStatsPage />} />
+          <Route path="reviews"           element={<SupplierReviewsPage />} />
+          <Route path="shop"              element={<SupplierShopPage />} />
+          <Route path="access"            element={<AccesAccordesPage />} />
+          <Route path="settings"          element={<SupplierSettingsPage />} />
         </Route>
       </Routes>
     )

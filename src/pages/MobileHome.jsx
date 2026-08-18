@@ -258,7 +258,7 @@ function HomeFeed({ items, trending, loading, error, isPersonalized }) {
       )}
       <div style={{ padding: '16px 12px 24px' }}>
         <h2 style={{ margin: '0 0 12px', fontSize: 15, fontWeight: 700, color: '#0F1419' }}>
-          {isPersonalized ? 'Recommandé pour vous' : 'Produits recommandés'}
+          {isPersonalized ? '' : 'Produits recommandés'}
         </h2>
         {error && <div style={{ color: ORANGE, fontSize: 13, marginBottom: 12 }}>{error}</div>}
         <MasonryProducts items={items} loading={loading} />

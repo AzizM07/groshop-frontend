@@ -75,6 +75,8 @@ const MENU_ITEMS = [
   { icon: 'Package',         label: 'Mes produits',    to: '/supplier/products' },
   { icon: 'ShoppingCart',    label: 'Commandes',       to: '/supplier/orders',   badge: 7 },
   { icon: 'MessageSquare',   label: 'Messages',        to: '/supplier/messages', badge: 3 },
+  // ⭐ NOUVEAU : accès B2B accordés aux clients (prix masqués débloqués)
+  { icon: 'Unlock',          label: 'Accès accordés',  to: '/supplier/access' },
   { icon: 'BarChart3',       label: 'Statistiques',    to: '/supplier/stats' },
   { icon: 'Star',            label: 'Avis',            to: '/supplier/reviews' },
   { icon: 'Store',           label: 'Ma boutique',     to: '/supplier/shop' },

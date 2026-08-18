@@ -186,32 +186,39 @@ const HomeTabs = ({ dark }) => {
       display: 'flex', gap: 22, overflowX: 'auto', padding: '0 14px',
       WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none',
     }}>
-      {tabs.map(t => {
-        const on = t.key === null
-          ? location.pathname === '/'
-          : activeCatName === t.key
-        const color = dark
-          ? (on ? '#FFFFFF' : 'rgba(255,255,255,.75)')
-          : (on ? '#0F1419' : '#6B7785')
-        const underline = dark ? '#FFFFFF' : '#3e3e3e'
-        return (
-          <Link key={t.key ?? 'all'} to={t.to}
-            style={{
-              flexShrink: 0, textDecoration: 'none', whiteSpace: 'nowrap',
-              padding: '10px 2px 9px', position: 'relative',
-              fontSize: 15, fontWeight: on ? 500 : 600,
-              color, transition: 'color .18s',
-            }}>
-            {t.name}
-            {on && (
-              <span style={{
-                position: 'absolute', left: 0, right: 0, bottom: 0,
-                height: 2.5, borderRadius: 2, background: underline,
-              }} />
-            )}
-          </Link>
-        )
-      })}
+{tabs.map(t => {
+  const on = t.key === null
+    ? location.pathname === '/'
+    : activeCatName === t.key
+
+  const isPourVous = t.key === null
+
+  const color = dark
+    ? (on ? '#FFFFFF' : 'rgba(255,255,255,.75)')
+    : (on ? (isPourVous ? ORANGE : '#0F1419') : '#6B7785')
+
+  const underline = dark
+    ? '#FFFFFF'
+    : (isPourVous && on ? ORANGE : '#3e3e3e')
+
+  return (
+    <Link key={t.key ?? 'all'} to={t.to}
+      style={{
+        flexShrink: 0, textDecoration: 'none', whiteSpace: 'nowrap',
+        padding: '10px 2px 9px', position: 'relative',
+        fontSize: 15, fontWeight: on ? 500 : 600,
+        color, transition: 'color .18s',
+      }}>
+      {t.name}
+      {on && (
+        <span style={{
+          position: 'absolute', left: 0, right: 0, bottom: 0,
+          height: 2.5, borderRadius: 2, background: underline,
+        }} />
+      )}
+    </Link>
+  )
+})}
     </div>
   )
 }

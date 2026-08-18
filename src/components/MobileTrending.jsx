@@ -4,10 +4,10 @@ import { useNavigate } from 'react-router-dom'
 import { ShoppingCart, Flame, ChevronRight } from 'lucide-react'
 
 const FONT   = '"DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
-const ORANGE = '#ff5e20'
+const ORANGE = '#ff6500'
 const PROMO_RED       = '#FF2E4D'
 const PILL_BG_ACTIVE = '#0F1419'
-const BLUE       = '#1F8EFF'
+const BLUE       = '#2E7CF6'
 const fmtNum = (n) => (Number(n) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 // price peut être un number OU [min, max] (fourchette de tiers)
@@ -78,7 +78,7 @@ export default function MobileTrending({ products = [] }) {
         <span style={{ fontSize: 20, fontWeight: 700, color: ORANGE, letterSpacing: '-.2px' }}>
           Best
         </span>
-        <span style={{ fontSize: 20, fontWeight: 700, color: "#383838", letterSpacing: '-.2px' }}>
+        <span style={{ fontSize: 20, fontWeight: 700, color: BLUE, letterSpacing: '-.2px' }}>
           Sellers
         </span>
         <ChevronRight size={13} color="#9AA3AE" strokeWidth={2} />

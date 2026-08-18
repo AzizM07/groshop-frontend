@@ -7,7 +7,7 @@ const FONT   = '"DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", system
 const ORANGE = '#ff6500'
 const PROMO_RED       = '#FF2E4D'
 const PILL_BG_ACTIVE = '#0F1419'
-const BLUE       = '#0008ff'
+const BLUE       = '#4400ff'
 const fmtNum = (n) => (Number(n) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 // price peut être un number OU [min, max] (fourchette de tiers)

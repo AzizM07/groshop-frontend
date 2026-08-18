@@ -29,7 +29,7 @@ const ORANGE = '#ff6500'
    Un simple 2 stops : 22% → 0% (blanc). L'interpolation linéaire du browser
    se charge du reste — pas besoin de multi-stops qui ré-orangeaient tout. */
 const CONTENT_GRADIENT = `linear-gradient(180deg, ${GRADIENT_MID} 0%, ${GRADIENT_END} 100%)`
-const GRADIENT_HEIGHT = 130  // px avant blanc pur — le 0% tombe pile au milieu du banner
+const GRADIENT_HEIGHT = 150  // px avant blanc pur — le 0% tombe pile au milieu du banner
 
 /* ══════════════ Grille MASONRY 2 colonnes ══════════════ */
 function MasonryProducts({ items = [], loading = false, adEvery = 6, gap = 8 }) {

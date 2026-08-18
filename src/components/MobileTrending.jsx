@@ -72,13 +72,13 @@ export default function MobileTrending({ products = [] }) {
           cursor: 'pointer',
         }}
       >
-        <span style={{ fontSize: 26, fontWeight: 800, color: '#0F1419', letterSpacing: '-.4px' }}>
+        <span style={{ fontSize: 20, fontWeight: 700, color: '#0F1419', letterSpacing: '-.4px' }}>
           Tendances
         </span>
-        <span style={{ fontSize: 26, fontWeight: 800, color: ORANGE, letterSpacing: '-.4px' }}>
+        <span style={{ fontSize: 20, fontWeight: 700, color: ORANGE, letterSpacing: '-.4px' }}>
           du moment
         </span>
-        <ChevronRight size={24} color="#0F1419" strokeWidth={2.5} />
+        <ChevronRight size={15} color="#0F1419" strokeWidth={0.5} />
       </div>
 
       {/* ══ Filtres catégories, style pastille (comme "All / Underwear / Shoes...") ══ */}

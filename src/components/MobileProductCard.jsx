@@ -2,19 +2,37 @@
 // Port MOBILE de DesktopProductCard : mêmes infos, même style B2B (Alibaba-like),
 // adapté au tactile (pas de :hover — feedback au :active). Pensé pour une grille
 // 2 colonnes. Reçoit exactement le même objet `product` que la version desktop.
+//
+// Badges (rangée colorée en haut, façon AliExpress) :
+//   - Certifié     (bleu)    ← verified / supplier_verified === 'approved'
+//   - Choice       (jaune)   ← isChoice / badge_choice
+//   - SuperDeals   (violet)  ← isFlash / badge_flash
+//   - Promo        (rouge)   ← was > price (sauf si SuperDeals déjà présent)
+//   - Livraison offerte (vert) ← isFreeShipping / is_free_shipping
+//   - Top ventes   (orange)  ← isBestSeller
+//
+// PAS de bouton "Commander" en mobile — toute la carte est cliquable → fiche produit.
+// Nom : max 2 lignes ; si le nom tient sur 1 ligne, le contenu qui suit remonte
+// (pas de réservation d'espace vide).
 
-import { useState } from 'react'
 import { Star } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { useCart } from '../context/CartContext'
 
-const ORANGE = '#ff5e20'
-const INK    = '#0F1419'
-const MUTE   = '#6B7785'
-const FAINT  = '#9AA3AE'
-const BLUE   = '#1A6DD2'
-const GREEN  = '#0F9D58'
-const FONT   = "'DM Sans', -apple-system, system-ui, sans-serif"
+const ORANGE      = '#ff5e20'
+const INK         = '#0F1419'
+const MUTE        = '#6B7785'
+const FAINT       = '#9AA3AE'
+const BLUE        = '#1A6DD2'
+const GREEN       = '#0F9D58'
+const FONT        = "'DM Sans', -apple-system, system-ui, sans-serif"
+
+// Palette badges (alignée sur AliExpressMobileCard dans ProductCard.jsx)
+const CERT_BLUE       = '#2E7CF6'
+const CHOICE_BG       = '#FFE264'
+const CHOICE_FG       = '#0F1419'
+const SUPERDEALS_BG   = '#C4B5FD'
+const SUPERDEALS_FG   = '#3F1D9B'
+const PROMO_RED       = '#FF2E4D'
 
 // DM Sans + états tactiles (:active), injecté une seule fois
 if (typeof document !== 'undefined' && !document.getElementById('mpc-styles')) {
@@ -23,7 +41,6 @@ if (typeof document !== 'undefined' && !document.getElementById('mpc-styles')) {
   s.textContent = `
     @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
     .mpc-card:active .mpc-img { transform: scale(1.03); }
-    .mpc-order:active:not(:disabled) { background: ${ORANGE} !important; color: #fff !important; border-color: ${ORANGE} !important; }
   `
   document.head.appendChild(s)
 }
@@ -45,15 +62,26 @@ function Stars({ value = 0, size = 13 }) {
   )
 }
 
-export default function MobileProductCard({ product, onOrder }) {
-  const [done, setDone] = useState(false)   // ✓ éphémère après ajout
+// Petit badge coloré rectangulaire
+function Badge({ bg, fg, children }) {
+  return (
+    <span style={{
+      display: 'inline-block',
+      background: bg, color: fg,
+      fontSize: 10, fontWeight: 700, lineHeight: 1,
+      padding: '3px 6px', borderRadius: 3,
+      whiteSpace: 'nowrap',
+    }}>{children}</span>
+  )
+}
+
+export default function MobileProductCard({ product }) {
   const navigate = useNavigate()
-  const { add, adding } = useCart()
 
   const {
     id             = null,
     name           = 'Produit',
-    price          = 0,        // number | [min, max]
+    price          = 0,
     was            = null,
     rating         = null,
     soldCount      = null,
@@ -61,6 +89,8 @@ export default function MobileProductCard({ product, onOrder }) {
     image          = null,
     isFreeShipping = false,
     isBestSeller   = false,
+    isFlash        = false,
+    isChoice       = false,
     moq            = null,
     moqUnit        = 'pcs',
     supplier       = null,
@@ -69,25 +99,9 @@ export default function MobileProductCard({ product, onOrder }) {
     years          = null,
   } = product || {}
 
-  const busy = adding === id
-
-  /* Ajout au panier — quantité = MOQ (vente en gros) */
-  async function handleClick(e) {
-    e.stopPropagation()
-    if (onOrder) return onOrder(product)
-    if (!id || busy) return
-
-    const res = await add(id, moq || 1)
-    if (res?.ok) {
-      setDone(true)
-      setTimeout(() => setDone(false), 1600)
-    } else if (res?.reason === 'error') {
-      alert(res.message || "Impossible d'ajouter au panier.")
-    }
-    // reason === 'auth' → redirection déjà déclenchée par le contexte
-  }
-
-  const btnLabel = busy ? 'Ajout…' : done ? '✓ Ajouté' : 'Commander'
+  // Détection promo — badge rouge (uniquement si SuperDeals absent, sinon doublon)
+  const hasPromo = !Array.isArray(price) && was && price && was > price
+  const showPromo = hasPromo && !isFlash
 
   return (
     <div
@@ -101,7 +115,7 @@ export default function MobileProductCard({ product, onOrder }) {
         minWidth: 0,
       }}
     >
-      {/* IMAGE (carrée, arrondie 4 coins — comme desktop) */}
+      {/* IMAGE */}
       <div style={{
         position: 'relative', width: '100%', aspectRatio: '1 / 1',
         background: '#F7F8FA', overflow: 'hidden', borderRadius: 8,
@@ -120,17 +134,29 @@ export default function MobileProductCard({ product, onOrder }) {
         )}
       </div>
 
-      {/* INFOS (compact) */}
+      {/* INFOS */}
       <div style={{ padding: '7px 1px 0', display: 'flex', flexDirection: 'column', gap: 3 }}>
 
-        {/* Nom — 2 lignes fixes */}
+        {/* Rangée de badges */}
+        {(verified || isChoice || isFlash || showPromo || isFreeShipping || isBestSeller) && (
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 2 }}>
+            {verified       && <Badge bg={CERT_BLUE}     fg="#fff">Certifié</Badge>}
+            {isChoice       && <Badge bg={CHOICE_BG}     fg={CHOICE_FG}>Choice</Badge>}
+            {isFlash        && <Badge bg={SUPERDEALS_BG} fg={SUPERDEALS_FG}>SuperDeals</Badge>}
+            {showPromo      && <Badge bg={PROMO_RED}     fg="#fff">Promo</Badge>}
+            {isFreeShipping && <Badge bg={GREEN}         fg="#fff">Livraison offerte</Badge>}
+            {isBestSeller   && <Badge bg={ORANGE}        fg="#fff">Top ventes</Badge>}
+          </div>
+        )}
+
+        {/* Nom — max 2 lignes, sans réserver d'espace vide si 1 seule ligne */}
         <div style={{
           fontSize: 12.5, color: INK, lineHeight: 1.28, fontWeight: 400,
           display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-          overflow: 'hidden', minHeight: 32,
+          overflow: 'hidden',
         }}>{name}</div>
 
-        {/* Prix — grand, noir, gras (comme Alibaba) */}
+        {/* Prix */}
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 16, fontWeight: 700, color: INK, lineHeight: 1.15 }}>
             {fmtPrice(price)} <span style={{ fontSize: '0.65em', fontWeight: 600 }}>TND</span>
@@ -168,7 +194,7 @@ export default function MobileProductCard({ product, onOrder }) {
           </div>
         )}
 
-        {/* Fournisseur + Verified · médailles · années */}
+        {/* Fournisseur + Verified icône + médailles + années */}
         {(supplier || verified || medals > 0 || years) && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, flexWrap: 'wrap', rowGap: 2 }}>
             {supplier && (
@@ -199,34 +225,6 @@ export default function MobileProductCard({ product, onOrder }) {
             {years && <span style={{ color: MUTE, flexShrink: 0 }}>{years} ans</span>}
           </div>
         )}
-
-        {/* Tags */}
-        {(isFreeShipping || isBestSeller) && (
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {isFreeShipping && <span style={{ fontSize: 10.5, color: GREEN, fontWeight: 600 }}>✓ Livraison gratuite</span>}
-            {isBestSeller && <span style={{ fontSize: 10.5, color: ORANGE, fontWeight: 600 }}>🔥 Top ventes</span>}
-          </div>
-        )}
-
-        {/* Bouton commander — contour orange au repos, plein au tap (:active), vert quand ajouté */}
-        <button
-          onClick={handleClick}
-          disabled={busy}
-          className="mpc-order"
-          style={{
-            marginTop: 3, width: '100%', padding: '7px',
-            background: done ? GREEN : '#fff',
-            color: done ? '#fff' : ORANGE,
-            border: `1.5px solid ${done ? GREEN : ORANGE}`,
-            borderRadius: 999,
-            fontFamily: FONT, fontSize: 12.5, fontWeight: 600,
-            cursor: busy ? 'default' : 'pointer',
-            opacity: busy ? 0.65 : 1,
-            transition: 'background .18s, color .18s, border-color .18s',
-          }}
-        >
-          {btnLabel}
-        </button>
       </div>
     </div>
   )

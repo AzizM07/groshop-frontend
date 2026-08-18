@@ -17,6 +17,9 @@
 //                    ventes + note, prix, badge "Prix à venir".
 //                    Rendu identique sur mobile et desktop (bypass MobileProductCard).
 //
+// Nom du produit : max 2 lignes (WebkitLineClamp: 2) MAIS sans réservation d'espace
+// vide — si le nom tient sur 1 ligne, le contenu qui suit remonte.
+//
 // Props additionnelles :
 //   • hideButton      → masque le bouton d'action, quelle que soit la variante.
 //   • hideReviewCount → masque le nombre d'avis à côté de la note, garde les étoiles.
@@ -44,7 +47,6 @@ const AMBER_INK   = '#B25E00'
 const SIZES = {
   default: {
     name:        'clamp(11.5px, 1vw, 13px)',
-    nameMinH:    '32px',
     nameLh:      1.28,
     nameWeight:  400,
     price:       'clamp(14px, 1.3vw, 18px)',
@@ -66,7 +68,6 @@ const SIZES = {
   },
   wholesale: {
     name:        '15px',
-    nameMinH:    '42px',
     nameLh:      1.4,
     nameWeight:  400,
     price:       '23px',
@@ -88,7 +89,6 @@ const SIZES = {
   },
   mini: {
     name:        'clamp(10.5px, 0.82vw, 12.5px)',
-    nameMinH:    'clamp(28px, 2.2vw, 32px)',
     nameLh:      1.28,
     nameWeight:  400,
     price:       'clamp(13px, 1.05vw, 16.5px)',
@@ -110,7 +110,6 @@ const SIZES = {
   },
   catalog: {
     name:        '15.5px',
-    nameMinH:    '40px',
     nameLh:      1.35,
     nameWeight:  500,
     price:       '20px',
@@ -133,7 +132,6 @@ const SIZES = {
   },
   trending: {
     name:        '15px',
-    nameMinH:    '40px',
     nameLh:      1.35,
     nameWeight:  500,
     price:       '19px',
@@ -179,18 +177,6 @@ function Stars({ value = 0, size = 15 }) {
   )
 }
 
-/* ══════════════════════════════════════════════════════════════════
-   VARIANTE 'aliexpress' — style mobile façon AliExpress
-   Utilisée par MobileCategoriesPage.
-   Champs produit lus (tous optionnels sauf name) :
-     - id, name, primary_image (ou image)
-     - price, upcoming_price
-     - certified (bool)           → bandeau bleu "Certifié Original"
-     - is_brand_plus (bool)       → badge "Marque+"
-     - is_promo (bool)            → badge "Promo"
-     - badges (string[])          → petites étiquettes grises
-     - sold_count (number), rating (number)
-   ══════════════════════════════════════════════════════════════════ */
 /* ══════════════════════════════════════════════════════════════════
    VARIANTE 'aliexpress' — style mobile façon AliExpress
    Mappée sur le shape réel de l'API GROSHOP :
@@ -279,7 +265,7 @@ function AliExpressMobileCard({ product, onClick }) {
           </div>
         )}
 
-        {/* nom */}
+        {/* nom — max 2 lignes, remonte le contenu si 1 seule ligne */}
         <div style={{
           fontSize: 12, color: INK, lineHeight: 1.25, fontWeight: 500,
           overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
@@ -334,6 +320,7 @@ function AliExpressMobileCard({ product, onClick }) {
     </button>
   )
 }
+
 /* ══════════════════════════════════════════════════════════════════
    VARIANTES DESKTOP (default/wholesale/mini/catalog/trending)
    ══════════════════════════════════════════════════════════════════ */
@@ -528,10 +515,11 @@ function DesktopProductCard({
       {/* ── INFOS ── */}
       <div style={{ padding: '9px 1px 0', display: 'flex', flexDirection: 'column', gap: big ? '5px' : '3px' }}>
 
+        {/* Nom — max 2 lignes, remonte le contenu si 1 seule ligne (pas de minHeight) */}
         <div style={{
           fontSize: S.name, color: INK, lineHeight: S.nameLh, fontWeight: S.nameWeight || 400,
           display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-          overflow: 'hidden', minHeight: S.nameMinH,
+          overflow: 'hidden',
         }}>{name}</div>
 
         <div style={{ display: 'flex', alignItems: 'baseline', gap: '5px', flexWrap: 'wrap' }}>

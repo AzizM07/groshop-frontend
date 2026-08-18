@@ -75,13 +75,13 @@ export default function MobileTrending({ products = [] }) {
           margin: '0 auto',
         }}
       >
-        <span style={{ fontSize: 20, fontWeight: 700, color: ORANGE, letterSpacing: '-.2px' }}>
+        <span style={{ fontSize: 20, fontWeight: 600, color: '#000000', letterSpacing: '-.5px' }}>
           Best
         </span>
-        <span style={{ fontSize: 20, fontWeight: 700, color: BLUE, letterSpacing: '-.2px' }}>
+        <span style={{ fontSize: 20, fontWeight: 600, color: '#000000', letterSpacing: '-.5px' }}>
           Sellers
         </span>
-        <ChevronRight size={13} color="#9AA3AE" strokeWidth={2} />
+        <ChevronRight size={13} color='#000000'strokeWidth={2} />
       </div>
 
       {/* ══ Filtres catégories, style pastille (comme "All / Underwear / Shoes...") ══ */}
@@ -100,10 +100,10 @@ export default function MobileTrending({ products = [] }) {
                 whiteSpace: 'nowrap',
                 cursor: 'pointer',
                 fontFamily: FONT,
-                fontSize: 12.5,
+                fontSize: 11,
                 fontWeight: 600,
                 color: on ? '#fff' : '#5B6470',
-                background: on ? 'BLUE' : '#F1F2F4',
+                background: on ? ORANGE : '#F1F2F4',
                 border: 'none',
                 borderRadius: 999,
                 padding: '9px 16px',

@@ -1,8 +1,8 @@
 // src/components/MobileHeader.jsx
 import { useState, useEffect } from 'react'
 import { Link, useNavigate, useLocation, matchPath, useSearchParams } from 'react-router-dom'
-import LOGO_SRC from '../assets/logo3.png'
-import LOGO_WHITE from '../assets/logo3.png'
+import LOGO_SRC from '../assets/logo4.png'
+import LOGO_WHITE from '../assets/logo4.png'
 import { products as productsApi } from '../lib/api'
 import { useSearchSuggestions, SearchDropdown } from './SearchSuggestions'
 import { useAuth } from '../context/AuthContext'

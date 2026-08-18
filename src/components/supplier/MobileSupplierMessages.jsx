@@ -7,6 +7,7 @@ import { useState, useMemo, useRef, useEffect } from 'react'
 import * as Icons from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useMessaging } from '../../hooks/useMessaging'
+import { AccessBanner } from './AccessControls'   // ⭐ NOUVEAU
 
 const ORANGE      = '#ff5e20'
 const ORANGE_TINT = 'rgba(255, 94, 32, .10)'
@@ -40,7 +41,6 @@ export default function MobileSupplierMessages() {
 
   const list = conversations || []
 
-  /* Bouton retour Android : ferme la conversation avant de quitter la page. */
   useEffect(() => {
     if (openId === null) return
     const onPop = () => setOpenId(null)
@@ -182,6 +182,17 @@ function ChatView({ detail, messages, loading, me, sending, sendError, onSend, o
           </div>
         </div>
       </div>
+
+      {/* ⭐ Bandeau d'accès B2B — compact pour ne pas manger l'écran mobile */}
+      {detail?.buyer?.id && (
+        <AccessBanner
+          key={`${detail.id}-${detail.buyer.id}`}
+          userId={detail.buyer.id}
+          productId={detail.product_id || detail.product?.id || null}
+          buyerName={name}
+          compact
+        />
+      )}
 
       {/* Bandeau produit */}
       {detail?.product_name && (

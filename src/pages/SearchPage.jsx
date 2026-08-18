@@ -1,6 +1,7 @@
 // pages/SearchPage.jsx — GROSHOP.tn
 // Résultats de recherche — /search?q=... ou /search?cat=<id>
 // Mobile : layout façon AliExpress (hero + chips rondes + masonry 2 colonnes)
+//          + SWIPE HORIZONTAL entre grandes catégories (style Instagram tabs)
 // Desktop : layout existant (grille + filtres + tri)
 
 import { useState, useEffect, useMemo, useRef } from 'react'
@@ -18,9 +19,7 @@ const LAYOUT = { maxWidth: '1500px', padding: '0 2%' }
 const ORANGE = '#FF7A00'
 const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
 
-/* ── Cache mémoire des résultats déjà chargés ──
-   Clé : "q::cat" → affichage instantané au retour sur un onglet déjà visité,
-   pendant qu'on revalide en arrière-plan (même principe que _cache dans DesktopHeader). */
+/* ── Cache mémoire des résultats déjà chargés ── */
 const _searchResultsCache = new Map()
 
 function Container({ children, style = {} }) {
@@ -31,7 +30,6 @@ function Container({ children, style = {} }) {
   )
 }
 
-/* ── Prix : fourchette si paliers ── */
 function computePrice(p) {
   const base  = parseFloat(p.base_price_tnd) || 0
   const tiers = p.price_tiers || []
@@ -42,7 +40,6 @@ function computePrice(p) {
   return min === max ? min : [min, max]
 }
 
-/* ── Django API → props ProductCard ── */
 function mapProduct(p) {
   return {
     id:             p.id,
@@ -80,7 +77,6 @@ function extractImages(p) {
   return list.length ? list : null
 }
 
-/* ── Cherche récursivement une catégorie par ID dans l'arbre ── */
 function findCategoryById(cats, id) {
   if (!id) return null
   const target = String(id)
@@ -110,10 +106,6 @@ if (typeof document !== 'undefined' && !document.getElementById('skeleton-anim')
   s.id = 'skeleton-anim'
   s.textContent = `
     @keyframes skeleton-pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
-    @keyframes gsSlideIn {
-      from { transform: translateX(var(--gs-slide-from, 28px)); opacity: 0; }
-      to   { transform: translateX(0); opacity: 1; }
-    }
   `
   document.head.appendChild(s)
 }
@@ -163,7 +155,7 @@ function MasonryProducts({ items = [], loading = false, adEvery = 8, gap = 8 }) 
   )
 }
 
-/* ══════════════ Chip pilule sous-catégorie (mobile, style neutre) ══════════════ */
+/* ══════════════ Chip pilule sous-catégorie ══════════════ */
 function SubIcon({ label, img, emoji, active, heart, onClick }) {
   return (
     <button onClick={onClick} style={{
@@ -192,20 +184,17 @@ function SubIcon({ label, img, emoji, active, heart, onClick }) {
           <span style={{ fontSize: 11 }}>{emoji || (label && label[0])}</span>
         )}
       </span>
-      <span style={{
-        fontSize: 13, color: '#0F1419',
-        fontWeight: 500,
-      }}>{label}</span>
+      <span style={{ fontSize: 13, color: '#0F1419', fontWeight: 500 }}>{label}</span>
     </button>
   )
 }
 
-/* ══════════════════════════ VUE MOBILE ══════════════════════════ */
-function MobileSearchView({ query, cat, catObj, results, loading, error, banner, goBannerLink, direction }) {
+/* ══════════════ Contenu d'une seule catégorie (une "page" du swiper) ══════════════ */
+function CategoryPane({ catObj, results, loading, error, banner, goBannerLink, query }) {
   const [activeSub, setActiveSub] = useState('all')
   const subs = catObj?.children || []
 
-  useEffect(() => { setActiveSub('all') }, [cat])
+  useEffect(() => { setActiveSub('all') }, [catObj?.id])
 
   const activeSubObj = activeSub !== 'all'
     ? subs.find(s => String(s.id) === String(activeSub))
@@ -221,8 +210,7 @@ function MobileSearchView({ query, cat, catObj, results, loading, error, banner,
     : (activeSubObj?.name || catObj?.name || 'Top ventes')
 
   return (
-    <div style={{ background: '#F5F5F5', minHeight: '100vh', fontFamily: FONT }}>
-
+    <div style={{ width: '100%', flexShrink: 0 }}>
       {banner?.image_url && (
         <div style={{ background: '#fff' }}>
           <SearchCategoryBannerMobile banner={banner} onClick={goBannerLink} />
@@ -258,20 +246,9 @@ function MobileSearchView({ query, cat, catObj, results, loading, error, banner,
         </div>
       )}
 
-      {/* ⭐ key change → relance l'animation de slide à chaque nouvelle catégorie/sous-catégorie
-           opacity → fade doux pendant la revalidation réseau, même si contenu déjà affiché via cache */}
-<div
-  key={`${query}::${cat}::${activeSub}`}
-  style={{
-    padding: '8px 8px 80px',
-    animation: 'gsSlideIn .28s ease',
-    '--gs-slide-from': `${direction * 28}px`,
-  }}
->
+      <div style={{ padding: '8px 8px 80px' }}>
         {error ? (
           <EmptyState icon="⚠️" title="Erreur" text={error} />
-        ) : !query && !cat ? (
-          <EmptyState icon="🔍" title="Que cherchez-vous ?" text="Saisissez un produit ou choisissez une catégorie." />
         ) : shown.length === 0 && !loading ? (
           <EmptyState
             icon="📦"
@@ -288,10 +265,250 @@ function MobileSearchView({ query, cat, catObj, results, loading, error, banner,
           <MasonryProducts items={shown} />
         )}
       </div>
+    </div>
+  )
+}
 
-      <style>{`
-        .gs-nosb::-webkit-scrollbar { display: none; }
-      `}</style>
+/* ══════════════════════════ VUE MOBILE avec SWIPER ══════════════════════════ */
+/* Le swipeur charge PARESSEUSEMENT les données de chaque catégorie :
+   - la catégorie courante (celle de l'URL) est toujours chargée
+   - les voisines (précédente/suivante) sont pré-chargées en arrière-plan
+     pour que le contenu soit prêt quand tu swipes
+   - toutes les données lues/écrites passent par _searchResultsCache */
+function MobileSearchView({ query, cat, allCats, categoriesTree, banner, goBannerLink }) {
+  const navigate = useNavigate()
+  const containerRef = useRef(null)
+
+  // ── Index de la catégorie courante dans la liste des grandes catégories ──
+  const currentIndex = useMemo(() => {
+    const idx = allCats.findIndex(c => String(c.id) === String(cat))
+    return idx >= 0 ? idx : 0
+  }, [allCats, cat])
+
+  // ── Données par catégorie (chargées à la demande) ──
+  const [pageData, setPageData] = useState({}) // { [catId]: { results, loading, error } }
+
+  const loadCategory = (catId) => {
+    if (!catId || query) return // le swipe est désactivé en mode recherche texte
+    const key = `::${catId}`
+    const cached = _searchResultsCache.get(key)
+
+    if (cached && pageData[catId]?.results?.length) return
+
+    if (cached) {
+      setPageData(prev => ({ ...prev, [catId]: { results: cached.results, loading: false, error: null } }))
+    } else {
+      setPageData(prev => ({ ...prev, [catId]: { results: [], loading: true, error: null } }))
+    }
+
+    productsApi.list({ category_id: catId, include_descendants: 1, page_size: 60 })
+      .then(d => {
+        const list = d?.results || d || []
+        const results = Array.isArray(list) ? list : []
+        const total = d?.total ?? d?.count ?? results.length
+        _searchResultsCache.set(key, { results, total })
+        setPageData(prev => ({ ...prev, [catId]: { results, loading: false, error: null } }))
+      })
+      .catch(() => {
+        setPageData(prev => ({ ...prev, [catId]: { results: [], loading: false, error: 'Erreur lors du chargement.' } }))
+      })
+  }
+
+  // Charge courante + voisines (préfetch)
+  useEffect(() => {
+    if (query || !allCats.length) return
+    const prev = allCats[currentIndex - 1]
+    const cur  = allCats[currentIndex]
+    const next = allCats[currentIndex + 1]
+    if (cur)  loadCategory(cur.id)
+    if (prev) loadCategory(prev.id)
+    if (next) loadCategory(next.id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentIndex, allCats.length, query])
+
+  // ── État du drag ──
+  const [dragging, setDragging] = useState(false)
+  const [dragX, setDragX] = useState(0)
+  const startXRef = useRef(0)
+  const startYRef = useRef(0)
+  const lockedAxisRef = useRef(null) // 'x' | 'y' | null
+  const widthRef = useRef(0)
+
+  useEffect(() => {
+    const measure = () => {
+      if (containerRef.current) widthRef.current = containerRef.current.offsetWidth
+    }
+    measure()
+    window.addEventListener('resize', measure)
+    return () => window.removeEventListener('resize', measure)
+  }, [])
+
+  const hasPrev = currentIndex > 0
+  const hasNext = currentIndex < allCats.length - 1
+  const swipeEnabled = !query && allCats.length > 1
+
+  const onTouchStart = (e) => {
+    if (!swipeEnabled) return
+    const t = e.touches[0]
+    startXRef.current = t.clientX
+    startYRef.current = t.clientY
+    lockedAxisRef.current = null
+    setDragging(true)
+    setDragX(0)
+  }
+
+  const onTouchMove = (e) => {
+    if (!swipeEnabled || !dragging) return
+    const t = e.touches[0]
+    const dx = t.clientX - startXRef.current
+    const dy = t.clientY - startYRef.current
+
+    // Verrouillage d'axe : si l'utilisateur bouge d'abord verticalement, on laisse le scroll natif
+    if (!lockedAxisRef.current) {
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return
+      lockedAxisRef.current = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y'
+    }
+    if (lockedAxisRef.current === 'y') return
+
+    // Résistance aux bords (comme iOS)
+    let clamped = dx
+    if ((!hasPrev && dx > 0) || (!hasNext && dx < 0)) clamped = dx / 3
+
+    setDragX(clamped)
+
+    // Empêche le scroll horizontal du body pendant le swipe
+    if (e.cancelable) e.preventDefault()
+  }
+
+  const onTouchEnd = () => {
+    if (!swipeEnabled || !dragging) {
+      setDragging(false)
+      setDragX(0)
+      return
+    }
+    const w = widthRef.current || window.innerWidth
+    const threshold = w * 0.18 // ~18% de largeur pour valider le swipe
+
+    setDragging(false)
+
+    if (dragX < -threshold && hasNext) {
+      // Anime vers la gauche puis change de catégorie
+      setDragX(-w)
+      setTimeout(() => {
+        navigate(`/search?cat=${allCats[currentIndex + 1].id}`)
+      }, 220)
+    } else if (dragX > threshold && hasPrev) {
+      setDragX(w)
+      setTimeout(() => {
+        navigate(`/search?cat=${allCats[currentIndex - 1].id}`)
+      }, 220)
+    } else {
+      // Snap back
+      setDragX(0)
+    }
+  }
+
+  // Reset du translate après navigation (une fois que l'URL a changé)
+  useEffect(() => {
+    setDragX(0)
+    lockedAxisRef.current = null
+  }, [cat])
+
+  // ── Rendu ──
+  // Si mode recherche texte : pas de swipe, pas de multi-pane
+  if (query) {
+    const curCat = findCategoryById(categoriesTree, cat)
+    const curData = _searchResultsCache.get(`${query}::${cat}`) || { results: [], total: 0 }
+    return (
+      <div style={{ background: '#F5F5F5', minHeight: '100vh', fontFamily: FONT }}>
+        <CategoryPane
+          catObj={curCat}
+          results={curData.results}
+          loading={false}
+          error={null}
+          banner={banner}
+          goBannerLink={goBannerLink}
+          query={query}
+        />
+        <style>{`.gs-nosb::-webkit-scrollbar { display: none; }`}</style>
+      </div>
+    )
+  }
+
+  const prevCat = allCats[currentIndex - 1]
+  const curCat  = allCats[currentIndex]
+  const nextCat = allCats[currentIndex + 1]
+
+  const paneData = (c) => {
+    if (!c) return { results: [], loading: false, error: null }
+    return pageData[c.id] || { results: [], loading: true, error: null }
+  }
+
+  // Le rail translate autour de la pane courante (index 1 dans [prev, cur, next])
+  const railTranslate = `translate3d(calc(-100% + ${dragX}px), 0, 0)`
+  const railTransition = dragging ? 'none' : 'transform .22s cubic-bezier(.22,.61,.36,1)'
+
+  return (
+    <div
+      ref={containerRef}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      onTouchCancel={onTouchEnd}
+      style={{
+        background: '#F5F5F5',
+        minHeight: '100vh',
+        fontFamily: FONT,
+        overflow: 'hidden',
+        touchAction: lockedAxisRef.current === 'x' ? 'pan-y' : 'auto',
+      }}
+    >
+      <div style={{
+        display: 'flex',
+        width: '100%',
+        transform: railTranslate,
+        transition: railTransition,
+        willChange: 'transform',
+      }}>
+        {/* Pane précédente (vide si on est déjà au début) */}
+        <div style={{ width: '100%', flexShrink: 0 }}>
+          {prevCat ? (
+            <CategoryPane
+              catObj={prevCat}
+              {...paneData(prevCat)}
+              banner={null}
+              goBannerLink={goBannerLink}
+              query=""
+            />
+          ) : null}
+        </div>
+
+        {/* Pane courante */}
+        <div style={{ width: '100%', flexShrink: 0 }}>
+          <CategoryPane
+            catObj={curCat}
+            {...paneData(curCat)}
+            banner={banner}
+            goBannerLink={goBannerLink}
+            query=""
+          />
+        </div>
+
+        {/* Pane suivante */}
+        <div style={{ width: '100%', flexShrink: 0 }}>
+          {nextCat ? (
+            <CategoryPane
+              catObj={nextCat}
+              {...paneData(nextCat)}
+              banner={null}
+              goBannerLink={goBannerLink}
+              query=""
+            />
+          ) : null}
+        </div>
+      </div>
+
+      <style>{`.gs-nosb::-webkit-scrollbar { display: none; }`}</style>
     </div>
   )
 }
@@ -300,7 +517,7 @@ function MobileSearchView({ query, cat, catObj, results, loading, error, banner,
 export default function SearchPage() {
   const [params]  = useSearchParams()
   const query     = (params.get('q')   || '').trim()
-  const cat       = (params.get('cat') || '').trim()   // ID de catégorie
+  const cat       = (params.get('cat') || '').trim()
   const navigate  = useNavigate()
   const isMobile  = useIsMobile()
 
@@ -309,48 +526,32 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState(null)
   const [sort, setSort]       = useState('relevance')
-  const [category, setCategory] = useState(null)  // filtre desktop (par nom)
+  const [category, setCategory] = useState(null)
   const [banner, setBanner]   = useState(null)
   const [catObj, setCatObj]   = useState(null)
-
-  // ── Direction du slide : ordre des catégories racines + comparaison ancien/nouveau ──
-  const [catOrder, setCatOrder] = useState([])
-  const prevCatRef = useRef(cat)
-  const [direction, setDirection] = useState(1)
+  const [allCats, setAllCats] = useState([])
+  const [categoriesTree, setCategoriesTree] = useState([])
 
   usePageTracking({ pageType: 'search' })
 
-  /* ── Ordre des catégories (pour déterminer le sens du slide) ── */
+  /* ── Arbre + liste plate des grandes catégories (pour le swiper) ── */
   useEffect(() => {
     productsApi.categories()
-      .then(tree => setCatOrder((tree || []).map(c => String(c.id))))
+      .then(tree => {
+        const t = tree || []
+        setCategoriesTree(t)
+        setAllCats(t) // Grandes catégories = niveau racine
+      })
       .catch(() => {})
   }, [])
-
-  useEffect(() => {
-    const prevIdx = catOrder.indexOf(prevCatRef.current)
-    const curIdx  = catOrder.indexOf(cat)
-    if (prevIdx !== -1 && curIdx !== -1 && prevIdx !== curIdx) {
-      setDirection(curIdx > prevIdx ? 1 : -1)
-    }
-    prevCatRef.current = cat
-  }, [cat, catOrder])
 
   /* ── Résolution de la catégorie via l'arbre ── */
   useEffect(() => {
     if (!cat) { setCatObj(null); return }
-    let alive = true
-    productsApi.categories()
-      .then(tree => { if (alive) setCatObj(findCategoryById(tree || [], cat)) })
-      .catch(() => { if (alive) setCatObj(null) })
-    return () => { alive = false }
-  }, [cat])
+    setCatObj(findCategoryById(categoriesTree, cat))
+  }, [cat, categoriesTree])
 
-  /* ── Chargement des résultats, avec cache stale-while-revalidate ──
-     q présent → products.search()
-     q absent + cat présent → products.list({ category_id, include_descendants: 1 })
-     Un retour sur un q/cat déjà visité affiche le cache instantanément
-     pendant qu'une requête rafraîchit les données en arrière-plan. */
+  /* ── Chargement des résultats (utilisé desktop + mobile en mode recherche texte) ── */
   useEffect(() => {
     if (!query && !cat) {
       setResults([]); setTotal(0); setLoading(false)
@@ -389,7 +590,7 @@ export default function SearchPage() {
     return () => { alive = false }
   }, [query, cat])
 
-  /* ── Bannière : par mot-clé OU par nom de catégorie résolu ── */
+  /* ── Bannière ── */
   useEffect(() => {
     if (typeof productsApi.categoryBanner !== 'function') { setBanner(null); return }
     const term = query || catObj?.name || ''
@@ -408,29 +609,21 @@ export default function SearchPage() {
     else navigate(l)
   }
 
-  /* ══════════════════════════════════════════════════════
-     MOBILE : nouvelle vue façon AliExpress
-     ══════════════════════════════════════════════════════ */
+  /* ══════════════ MOBILE ══════════════ */
   if (isMobile) {
     return (
       <MobileSearchView
         query={query}
         cat={cat}
-        catObj={catObj}
-        results={results}
-        loading={loading}
-        error={error}
+        allCats={allCats}
+        categoriesTree={categoriesTree}
         banner={banner}
         goBannerLink={goBannerLink}
-        direction={direction}
       />
     )
   }
 
-  /* ══════════════════════════════════════════════════════
-     DESKTOP : layout existant (inchangé)
-     ══════════════════════════════════════════════════════ */
-
+  /* ══════════════ DESKTOP (inchangé) ══════════════ */
   const categories = [...new Set(results.map(p => p.category_name).filter(Boolean))]
 
   const catTabs = [
@@ -457,9 +650,7 @@ export default function SearchPage() {
     <div style={{ fontFamily: FONT }}>
       <Container style={{ paddingTop: '1.5rem', paddingBottom: '3rem' }}>
 
-        {banner && (
-          <SearchCategoryBannerDesktop banner={banner} onClick={goBannerLink} />
-        )}
+        {banner && <SearchCategoryBannerDesktop banner={banner} onClick={goBannerLink} />}
 
         {!loading && (query || cat) && (
           <div style={{ marginBottom: 16 }}>

@@ -50,6 +50,7 @@ import OrderConfirmationPage from './pages/OrderConfirmationPage'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { getLanguage } from './lib/api'
 import MaBoutiquePage from './pages/MaBoutiquePage'
+import AccesAccordesPage from './pages/AccesAccordesPage'
 const NO_LAYOUT   = ['/login', '/signup', '/pending', '/supplier', '/dashboard', '/categories', '/checkout','/commande/confirmation']
 const FOOTER_ONLY = ['/devenir-fournisseur']
 
@@ -162,6 +163,8 @@ function AppContent() {
           <Route path="stats"        element={<SupplierStatsPage />} />
           <Route path="reviews"      element={<SupplierReviewsPage />} />
           <Route path="shop"         element={<SupplierShopPage />} />
+          <Route path="access"       element={<AccesAccordesPage />} />   {/* ⭐ NOUVEAU */}
+
           <Route path="settings"     element={<SupplierSettingsPage />} />
         </Route>
       </Routes>

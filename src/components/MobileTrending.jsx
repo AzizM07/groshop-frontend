@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { ShoppingCart, Flame, ChevronRight } from 'lucide-react'
 
 const FONT   = '"DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
-const ORANGE = '#ff5e20'
+const ORANGE = '#FF7A00'
 const PILL_BG_ACTIVE = '#0F1419'
 
 const fmtNum = (n) => (Number(n) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -60,22 +60,25 @@ export default function MobileTrending({ products = [] }) {
   return (
     <div style={{ fontFamily: FONT, padding: '4px 0' }}>
 
-      {/* ══ Titre centré avec flèche, style "Daily deals >" ══ */}
+      {/* ══ Titre centré avec flèche, taille/style "Daily deals >" ══ */}
       <div
         onClick={() => navigate('/tendances')} // adapte la route si besoin, ou retire l'onClick
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: 4,
-          padding: '0 12px 14px',
+          gap: 6,
+          padding: '4px 12px 16px',
           cursor: 'pointer',
         }}
       >
-        <span style={{ fontSize: 17, fontWeight: 800, color: '#0F1419', letterSpacing: '-.2px' }}>
-          Tendances du moment
+        <span style={{ fontSize: 26, fontWeight: 800, color: '#0F1419', letterSpacing: '-.4px' }}>
+          Tendances
         </span>
-        <ChevronRight size={18} color="#0F1419" strokeWidth={2.5} />
+        <span style={{ fontSize: 26, fontWeight: 800, color: ORANGE, letterSpacing: '-.4px' }}>
+          du moment
+        </span>
+        <ChevronRight size={24} color="#0F1419" strokeWidth={2.5} />
       </div>
 
       {/* ══ Filtres catégories, style pastille (comme "All / Underwear / Shoes...") ══ */}

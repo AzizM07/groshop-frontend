@@ -6,8 +6,8 @@ import { ShoppingCart, Flame, ChevronRight } from 'lucide-react'
 const FONT   = '"DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
 const ORANGE = '#ff6500'
 const PROMO_RED       = '#FF2E4D'
-const PILL_BG_ACTIVE = '#0F1419'
-const BLUE       = '#4400ff'
+const PILL_BG_ACTIVE = '#2d2d2d'
+const BLUE       = '#2d2d2d'
 const fmtNum = (n) => (Number(n) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 // price peut être un number OU [min, max] (fourchette de tiers)
@@ -103,7 +103,7 @@ export default function MobileTrending({ products = [] }) {
                 fontSize: 11,
                 fontWeight: 600,
                 color: on ? '#fff' : '#5B6470',
-                background: on ?BLUE: '#F1F2F4',
+                background: on ?ORANGE: '#F1F2F4',
                 border: 'none',
                 borderRadius: 999,
                 padding: '9px 16px',

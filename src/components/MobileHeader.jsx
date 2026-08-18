@@ -1,8 +1,8 @@
 // src/components/MobileHeader.jsx
 import { useState, useEffect } from 'react'
 import { Link, useNavigate, useLocation, matchPath, useSearchParams } from 'react-router-dom'
-import LOGO_SRC from '../assets/logo2.png'
-import LOGO_WHITE from '../assets/logo2.png'
+import LOGO_SRC from '../assets/logo3.png'
+import LOGO_WHITE from '../assets/logo3.png'
 import { products as productsApi } from '../lib/api'
 import { useSearchSuggestions, SearchDropdown } from './SearchSuggestions'
 import { useAuth } from '../context/AuthContext'
@@ -17,7 +17,14 @@ export const GRADIENT_MID = '#FF8A2B' // raccord header / contenu
 export const GRADIENT_END = '#FFFFFF'
 
 const ORANGE = '#FF7A00'
-const HEADER_GRADIENT = `linear-gradient(180deg, ${GRADIENT_TOP} 0%, ${GRADIENT_MID} 100%)`
+
+/* Arrêt intermédiaire du dégradé header, placé à 20% de la hauteur
+   (≈ le haut de la barre de recherche). Sur 0%→20% l'orange ne perd
+   que 40% d'intensité (100% → 60% vers GRADIENT_MID), puis le dégradé
+   continue normalement de 20% → 100% vers GRADIENT_MID.
+   Mix = 60% GRADIENT_TOP + 40% GRADIENT_MID. */
+const GRADIENT_STOP_20 = '#FF7818'
+const HEADER_GRADIENT = `linear-gradient(180deg, ${GRADIENT_TOP} 0%, ${GRADIENT_STOP_20} 10%, ${GRADIENT_MID} 100%)`
 
 const PRODUCT_ROUTES = ['/produit/:id']
 const HOME_ROUTES = ['/']
@@ -186,13 +193,13 @@ const HomeTabs = ({ dark }) => {
         const color = dark
           ? (on ? '#FFFFFF' : 'rgba(255,255,255,.75)')
           : (on ? '#0F1419' : '#6B7785')
-        const underline = dark ? '#FFFFFF' : ORANGE
+        const underline = dark ? '#FFFFFF' : '#3e3e3e'
         return (
           <Link key={t.key ?? 'all'} to={t.to}
             style={{
               flexShrink: 0, textDecoration: 'none', whiteSpace: 'nowrap',
               padding: '10px 2px 9px', position: 'relative',
-              fontSize: 13, fontWeight: on ? 700 : 500,
+              fontSize: 15, fontWeight: on ? 500 : 600,
               color, transition: 'color .18s',
             }}>
             {t.name}

@@ -17,7 +17,7 @@ const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-ser
      • Zone 3 (content dans MobileHome, 268→~398px) : 22% → 0% (blanc)
    La chute 100→60 est CONCENTRÉE dans les 46 premiers px (au-dessus
    de la searchbar), puis 60→0 s'étale sur les ~350px restants. */
-export const GRADIENT_TOP = '#ff6c0b'   // 100% orange — Y=0
+export const GRADIENT_TOP = '#ff6500'   // 100% orange — Y=0
 const   ORANGE_60         = '#fe8331'   // 60% mix     — Y=46 (haut searchbar)
 const   ORANGE_45         = '#fb9c66'   // 45% mix     — Y=134 (bas header / haut spacer)
 export const GRADIENT_MID = '#FFDEC9'   // 22% mix     — Y=268 (bas spacer / haut content)

@@ -23,7 +23,7 @@ const GRADIENT_MID = '#fb9c66'   // reprend la couleur du bas du SPACER header
 const GRADIENT_END = '#FFFFFF'   // blanc pur
 
 /* Orange "brand" (chips, icônes, badges) */
-const ORANGE = '#FF7A00'
+const ORANGE = '#ff6500'
 
 /* Prolongation du gradient sous le header+spacer.
    Un simple 2 stops : 22% → 0% (blanc). L'interpolation linéaire du browser

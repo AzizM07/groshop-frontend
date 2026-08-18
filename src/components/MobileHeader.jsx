@@ -22,7 +22,7 @@ const   ORANGE_60         = '#fe8331'   // 60% mix     — Y=46 (haut searchbar)
 const   ORANGE_45         = '#fb9c66'   // 45% mix     — Y=134 (bas header / haut spacer)
 export const GRADIENT_MID = '#FFDEC9'   // 22% mix     — Y=268 (bas spacer / haut content)
 export const GRADIENT_END = '#FFFFFF'   //  0%         — Y=398 (milieu banner)
-
+const ORANGE_DEEP = '#E85A00'
 const ORANGE = '#FF7A00'
 
 /* Header : 0 → 34% du header = 0 → Y=46, chute rapide 100→60.
@@ -139,17 +139,17 @@ export default function MobileHeader() {
           onKeyDown={e => handleKeyDown(e, onSelectItem)}
           placeholder="Rechercher un produit…"
           style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', fontSize: 14, background: 'transparent', color: '#0F1419' }} />
-        <button type="submit" aria-label="Rechercher"
-          style={{
-            flexShrink: 0, width: 50, height: 32,
-            borderRadius: 999, border: 'none',
-            background: '#0F1419',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-          }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round">
-            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
-        </button>
+<button type="submit" aria-label="Rechercher"
+  style={{
+    flexShrink: 0, width: 50, height: 32,
+    borderRadius: 999, border: 'none',
+    background: `linear-gradient(135deg, ${ORANGE} 0%, ${ORANGE_DEEP} 100%)`,
+    display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+  }}>
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round">
+    <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+  </svg>
+</button>
       </div>
 
       {openDrop && (

@@ -19,8 +19,8 @@ const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-ser
    de la searchbar), puis 60→0 s'étale sur les ~350px restants. */
 export const GRADIENT_TOP = '#ff6500'   // 100% orange — Y=0
 const   ORANGE_60         = '#fe8331'   // 60% mix     — Y=46 (haut searchbar)
-const   ORANGE_45         = '#fb9c66'   // 45% mix     — Y=134 (bas header / haut spacer)
-export const GRADIENT_MID = '#FFDEC9'   // 22% mix     — Y=268 (bas spacer / haut content)
+const   ORANGE_45         = '#fe9152d5'   // 45% mix     — Y=134 (bas header / haut spacer)
+export const GRADIENT_MID = '#ff9e62'   // 22% mix     — Y=268 (bas spacer / haut content)
 export const GRADIENT_END = '#FFFFFF'   //  0%         — Y=398 (milieu banner)
 const ORANGE_DEEP = '#ff6500'
 const ORANGE = '#FF7A00'

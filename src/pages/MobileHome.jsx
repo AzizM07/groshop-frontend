@@ -19,7 +19,7 @@ const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
    Ces valeurs DOIVENT être identiques à MobileHeader (GRADIENT_MID + GRADIENT_END).
    MobileHeader termine son spacer à GRADIENT_MID (22% mix orange) ; ici on reprend
    pile à cette valeur et on fond vers blanc pur → gradient global continu. */
-const GRADIENT_MID = '#fb9c66'   // reprend la couleur du bas du SPACER header
+const GRADIENT_MID = '#fe9152'   // reprend la couleur du bas du SPACER header
 const GRADIENT_END = '#FFFFFF'   // blanc pur
 
 /* Orange "brand" (chips, icônes, badges) */

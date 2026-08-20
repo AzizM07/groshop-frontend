@@ -2,17 +2,19 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import {
-  Star, Truck, MapPin, ChevronDown, ChevronRight,
-  Minus, Plus, ShoppingCart, MessageCircle, Store, BadgeCheck, Check,
-  ShieldCheck, RotateCcw, Heart, Share2, Lock, Info,
+  Star, Truck, MapPin, ChevronDown, ChevronRight, Minus, Plus, ShoppingCart, MessageCircle, Store, BadgeCheck, Check,
+  ShieldCheck, RotateCcw, Heart, Share2, Lock, Sparkles,
 } from 'lucide-react'
 import { useCart } from '../context/CartContext'
 import { products as productsApi, messaging } from '../lib/api'
 import { usePageTracking } from '../hooks/usePageTracking'
+import CustomizationPopup from './CustomizationPopup'
 
 const ORANGE      = '#ff6500'
 const ORANGE_TINT = 'rgba(255, 94, 32, .12)'
 const ORANGE_FILM = 'rgba(255, 94, 32, .08)'
+const PURPLE      = '#6D3EF5'
+const PURPLE_TINT = '#F3EEFF'
 
 const INK='#0F1419', SUB='#3D4853', MUTE='#6B7785', FAINT='#9AA3AE', LINE='#ECEEF1', BG='#F0F0F0', GREEN='#0E9F6E'
 const FONT='-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
@@ -41,7 +43,8 @@ export default function MobileProductPage() {
   const [added, setAdded] = useState(false)
   const [copied, setCopied] = useState(false)
   const [lightbox, setLightbox] = useState(null)
-  const [contacting, setContacting] = useState(false)  // ⭐
+  const [contacting, setContacting] = useState(false)
+  const [showCustomPopup, setShowCustomPopup] = useState(false)  // ⭐
 
   const { add, adding } = useCart()
 
@@ -57,25 +60,17 @@ export default function MobileProductPage() {
           productsApi.reviews(id).catch(() => []),
         ])
         if (cancelled) return
-        setProduct(p)
-        setWishlisted(!!p.is_favorited)
-        setSimilar(sim || [])
-        setReco(rec || [])
-        setReviews(rev || [])
+        setProduct(p); setWishlisted(!!p.is_favorited)
+        setSimilar(sim || []); setReco(rec || []); setReviews(rev || [])
         setQty(String(p.moq || 1))
         setImgIdx(0); setImgOverride(null)
         if (p.choice_groups?.length) {
           const init = {}
           p.choice_groups.forEach(g => { if (g.variants?.length) init[g.id] = g.variants[0] })
           setSelected(init)
-        } else {
-          setSelected({})
-        }
-      } catch {
-        if (!cancelled) setError("Impossible de charger ce produit.")
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
+        } else { setSelected({}) }
+      } catch { if (!cancelled) setError("Impossible de charger ce produit.") }
+      finally { if (!cancelled) setLoading(false) }
     }
     load()
     return () => { cancelled = true }
@@ -85,17 +80,12 @@ export default function MobileProductPage() {
 
   const toggleWishlist = async () => {
     if (!product) return
-    const next = !wishlisted
-    setWishlisted(next)
-    try {
-      if (next) await productsApi.addFavorite(product.id)
-      else await productsApi.removeFavorite(product.id)
-    } catch { setWishlisted(!next) }
+    const next = !wishlisted; setWishlisted(next)
+    try { if (next) await productsApi.addFavorite(product.id); else await productsApi.removeFavorite(product.id) }
+    catch { setWishlisted(!next) }
   }
-
   const share = () => { navigator.clipboard?.writeText(window.location.href); setCopied(true); setTimeout(() => setCopied(false), 1800) }
 
-  // ⭐ Contact fournisseur (bouton principal quand prix masqué, sinon action secondaire)
   const contactSupplier = async () => {
     if (!product?.supplier_slug || contacting) return
     setContacting(true)
@@ -110,20 +100,18 @@ export default function MobileProductPage() {
     }
   }
 
-  if (loading) {
-    return <div style={{ minHeight: '70dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: BG }}>
-      <div style={{ width: 30, height: 30, border: `4px solid ${ORANGE}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'gs-spin .8s linear infinite' }} />
-    </div>
-  }
-  if (error || !product) {
-    return <div style={{ minHeight: '70dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, background: BG, fontFamily: FONT }}>
-      <span style={{ color: MUTE, fontSize: 14 }}>{error || 'Produit introuvable.'}</span>
-      <button onClick={() => navigate('/')} style={{ background: 'none', border: 'none', color: ORANGE, fontWeight: 700, cursor: 'pointer' }}>Retour à l'accueil</button>
-    </div>
-  }
+  if (loading) return <div style={{ minHeight: '70dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: BG }}><div style={{ width: 30, height: 30, border: `4px solid ${ORANGE}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'gs-spin .8s linear infinite' }} /></div>
+  if (error || !product) return <div style={{ minHeight: '70dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, background: BG, fontFamily: FONT }}><span style={{ color: MUTE, fontSize: 14 }}>{error || 'Produit introuvable.'}</span><button onClick={() => navigate('/')} style={{ background: 'none', border: 'none', color: ORANGE, fontWeight: 700, cursor: 'pointer' }}>Retour à l'accueil</button></div>
 
   const p = product
-  const priceLocked = p.price_locked === true   // ⭐
+  const priceLocked = p.price_locked === true
+
+  // ⭐ Personnalisation
+  const canCustomize  = p.allow_customization === true && !priceLocked
+  const customMode    = p.customization_mode || 'fixed'
+  const isQuote       = canCustomize && customMode === 'quote'
+  const mustCustomize = canCustomize && (isQuote || (customMode === 'fixed' && p.customization_required))
+  const customExtra   = toNum(p.customization_extra_price_tnd)
 
   const images = p.images?.length ? p.images : (p.primary_image ? [{ url: p.primary_image }] : [])
   const mainImage = imgOverride || images[imgIdx]?.url
@@ -154,12 +142,14 @@ export default function MobileProductPage() {
   const dist = [5, 4, 3, 2, 1].map(star => ({ star, n: reviews.filter(r => Math.round(toNum(r.rating)) === star).length }))
 
   const doOrder = async () => {
-    if (!qtyValid || priceLocked) return
+    if (!qtyValid || priceLocked || mustCustomize) return
     const firstVariantId = Object.values(selected)[0]?.id ?? null
     const res = await add(p.id, parsedQty, firstVariantId)
     if (res?.ok) { setAdded(true); setTimeout(() => setAdded(false), 2000) }
     else if (res?.reason === 'error') alert(res.message || "Impossible d'ajouter au panier.")
   }
+  const openCustomPopup = () => setShowCustomPopup(true)
+  const firstVariantId = Object.values(selected)[0]?.id ?? null
 
   return (
     <div style={{ background: BG, minHeight: '100dvh', fontFamily: FONT, paddingBottom: 'calc(78px + env(safe-area-inset-bottom))' }}>
@@ -173,7 +163,6 @@ export default function MobileProductPage() {
           <span style={{ color: INK, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</span>
         </div>
 
-        {/* ═══ Grosse carte : image + titre + prix + tiers + variantes ═══ */}
         <div style={{ background: '#fff', borderRadius: 18, overflow: 'hidden' }}>
 
           <div style={{ position: 'relative' }}>
@@ -183,14 +172,18 @@ export default function MobileProductPage() {
                 : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 50 }}>📦</div>}
             </div>
 
-            {!priceLocked && oldPrice > unitPrice && (
+            {!priceLocked && !isQuote && oldPrice > unitPrice && (
               <span style={{ position: 'absolute', top: 12, left: 12, background: ORANGE, color: '#fff', fontSize: 12, fontWeight: 800, padding: '4px 9px', borderRadius: 7 }}>
                 -{Math.round((1 - unitPrice / oldPrice) * 100)}%
               </span>
             )}
             {priceLocked && (
-              <span style={{ position: 'absolute', top: 12, left: 12, display: 'inline-flex', alignItems: 'center', gap: 5, background: '#FEF3C7', color: '#92600A', fontSize: 11.5, fontWeight: 800, padding: '5px 10px', borderRadius: 8 }}>
-                <Lock size={11} /> Prix réservé
+              <span style={{ position: 'absolute', top: 12, left: 12, display: 'inline-flex', alignItems: 'center', gap: 5, background: '#FEF3C7', color: '#92600A', fontSize: 11.5, fontWeight: 800, padding: '5px 10px', borderRadius: 8 }}><Lock size={11} /> Prix réservé</span>
+            )}
+            {/* ⭐ Badge perso sur l'image */}
+            {canCustomize && (
+              <span style={{ position: 'absolute', top: priceLocked || (oldPrice > unitPrice && !isQuote) ? 44 : 12, left: 12, display: 'inline-flex', alignItems: 'center', gap: 5, background: PURPLE_TINT, color: PURPLE, fontSize: 11.5, fontWeight: 800, padding: '5px 10px', borderRadius: 8 }}>
+                <Sparkles size={11} /> {isQuote ? 'Sur devis' : 'Personnalisable'}
               </span>
             )}
 
@@ -202,8 +195,7 @@ export default function MobileProductPage() {
             {images.length > 1 && (
               <div style={{ position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(255,255,255,.55)', backdropFilter: 'blur(4px)', borderRadius: 20, padding: '5px 9px' }}>
                 {images.map((_, i) => (
-                  <span key={i} onClick={() => { setImgIdx(i); setImgOverride(null) }}
-                    style={{ width: i === imgIdx && !imgOverride ? 18 : 6, height: 6, borderRadius: 3, background: i === imgIdx && !imgOverride ? ORANGE : '#C7CBD1', transition: 'width .2s', cursor: 'pointer' }} />
+                  <span key={i} onClick={() => { setImgIdx(i); setImgOverride(null) }} style={{ width: i === imgIdx && !imgOverride ? 18 : 6, height: 6, borderRadius: 3, background: i === imgIdx && !imgOverride ? ORANGE : '#C7CBD1', transition: 'width .2s', cursor: 'pointer' }} />
                 ))}
               </div>
             )}
@@ -212,8 +204,7 @@ export default function MobileProductPage() {
           {images.length > 1 && (
             <div style={{ display: 'flex', gap: 8, padding: '12px 16px 0', overflowX: 'auto', scrollbarWidth: 'none' }}>
               {images.map((im, i) => (
-                <button key={i} onClick={() => { setImgIdx(i); setImgOverride(null) }}
-                  style={{ flex: '0 0 56px', width: 56, height: 56, borderRadius: 8, overflow: 'hidden', cursor: 'pointer', background: '#F7F8FA', padding: 0, border: `2px solid ${i === imgIdx && !imgOverride ? ORANGE : 'transparent'}` }}>
+                <button key={i} onClick={() => { setImgIdx(i); setImgOverride(null) }} style={{ flex: '0 0 56px', width: 56, height: 56, borderRadius: 8, overflow: 'hidden', cursor: 'pointer', background: '#F7F8FA', padding: 0, border: `2px solid ${i === imgIdx && !imgOverride ? ORANGE : 'transparent'}` }}>
                   <img src={im.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
                 </button>
               ))}
@@ -229,42 +220,49 @@ export default function MobileProductPage() {
                 {stockQty > 0 ? 'En stock' : 'Rupture de stock'}
               </span>
               <span style={{ color: '#DDD' }}>|</span>
-              <span style={{ display: 'inline-flex', gap: 1 }}>
-                {[1, 2, 3, 4, 5].map(s => <Star key={s} size={14} fill={s <= Math.round(rating) ? '#FFB800' : '#E5E7EB'} stroke="none" />)}
-              </span>
+              <span style={{ display: 'inline-flex', gap: 1 }}>{[1,2,3,4,5].map(s => <Star key={s} size={14} fill={s <= Math.round(rating) ? '#FFB800' : '#E5E7EB'} stroke="none" />)}</span>
               <span style={{ fontSize: 12, color: FAINT, textDecoration: 'underline' }}>{reviewCount} avis</span>
               {soldCount > 0 && <><span style={{ color: '#DDD' }}>|</span><span style={{ fontSize: 12, color: FAINT }}>{soldCount} vendus</span></>}
             </div>
 
             {!priceLocked && (oldPrice > unitPrice || p.badge_flash || p.badge_choice || p.brand) && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 14 }}>
-                {oldPrice > unitPrice && <Badge bg={ORANGE} color="#fff">Promo</Badge>}
+                {oldPrice > unitPrice && !isQuote && <Badge bg={ORANGE} color="#fff">Promo</Badge>}
                 {p.badge_flash && <Badge bg={ORANGE_TINT} color={ORANGE}>Soldes</Badge>}
                 {p.badge_choice && <Badge bg="#FFD000" color="#2E2E2E">Choice</Badge>}
                 {p.brand && <Badge bg="#EEF0FA" color="#1B1B4B">Marque {p.brand}</Badge>}
               </div>
             )}
 
-            {p.reference && (
-              <div style={{ marginTop: 12, fontSize: 13, color: MUTE }}>Référence # : <strong style={{ color: INK }}>{p.reference}</strong></div>
-            )}
+            {p.reference && <div style={{ marginTop: 12, fontSize: 13, color: MUTE }}>Référence # : <strong style={{ color: INK }}>{p.reference}</strong></div>}
 
             <div style={{ height: 1, background: LINE, margin: '18px 0' }} />
 
-            {/* ⭐ Prix hero — remplacé par bloc "Prix sur devis" si verrouillé */}
             {priceLocked ? (
               <div style={{ padding: '14px 16px', borderRadius: 14, background: '#FEF9E7', border: '1px solid #FDE68A' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                  <div style={{ width: 38, height: 38, borderRadius: 10, background: '#FEF3C7', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Lock size={19} color="#92600A" />
-                  </div>
+                  <div style={{ width: 38, height: 38, borderRadius: 10, background: '#FEF3C7', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Lock size={19} color="#92600A" /></div>
                   <div>
                     <div style={{ fontSize: 17, fontWeight: 900, color: INK, letterSpacing: '-0.3px' }}>Prix sur devis</div>
                     <div style={{ fontSize: 11, color: MUTE, marginTop: 2 }}>Réservé aux boutiques</div>
                   </div>
                 </div>
                 <p style={{ margin: 0, fontSize: 12.5, color: SUB, lineHeight: 1.5 }}>
-                  Contactez le fournisseur pour un devis, ou <Link to="/dashboard/ma-boutique" style={{ color: ORANGE, fontWeight: 700, textDecoration: 'none' }}>vérifiez votre boutique</Link> pour voir tous les prix.
+                  Contactez le fournisseur, ou <Link to="/dashboard/ma-boutique" style={{ color: ORANGE, fontWeight: 700, textDecoration: 'none' }}>vérifiez votre boutique</Link>.
+                </p>
+              </div>
+            ) : isQuote ? (
+              /* ⭐ Mode quote : bloc "Sur devis" */
+              <div style={{ padding: '14px 16px', borderRadius: 14, background: PURPLE_TINT, border: `1px solid ${PURPLE}20` }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                  <div style={{ width: 38, height: 38, borderRadius: 10, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Sparkles size={19} color={PURPLE} /></div>
+                  <div>
+                    <div style={{ fontSize: 17, fontWeight: 900, color: INK, letterSpacing: '-0.3px' }}>Produit sur devis</div>
+                    <div style={{ fontSize: 11, color: MUTE, marginTop: 2 }}>Prix fixé après votre demande</div>
+                  </div>
+                </div>
+                <p style={{ margin: 0, fontSize: 12.5, color: SUB, lineHeight: 1.5 }}>
+                  Remplissez le formulaire, le fournisseur vous enverra un devis dans la messagerie.
                 </p>
               </div>
             ) : (
@@ -280,11 +278,17 @@ export default function MobileProductPage() {
                     <span style={{ fontSize: 11, fontWeight: 800, color: '#fff', background: ORANGE, padding: '3px 8px', borderRadius: 10 }}>Économisez {savePct}%</span>
                   </div>
                 )}
+
+                {/* ⭐ Note perso obligatoire */}
+                {mustCustomize && (
+                  <div style={{ marginTop: 10, padding: '8px 12px', background: PURPLE_TINT, borderRadius: 10, fontSize: 12.5, color: PURPLE, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Sparkles size={13} /> Personnalisation obligatoire{customExtra > 0 ? ` (+${fmtNum(customExtra)} TND/${unit})` : ''}
+                  </div>
+                )}
               </>
             )}
 
-            {/* ⭐ Tiers masqués si prix verrouillé */}
-            {!priceLocked && tiers.length > 0 && (
+            {!priceLocked && !isQuote && tiers.length > 0 && (
               <div style={{ marginTop: 20 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                   <span style={{ width: 4, height: 14, background: ORANGE, borderRadius: 2 }} />
@@ -297,8 +301,7 @@ export default function MobileProductPage() {
                     const label = t.max_qty ? `${t.min_qty}-${t.max_qty} ${unit}` : `≥${t.min_qty} ${unit}`
                     const ts = basePrice > 0 && tp < basePrice ? Math.round((1 - tp / basePrice) * 100) : 0
                     return (
-                      <button key={t.id || i} onClick={() => setQty(String(t.min_qty))}
-                        style={{ position: 'relative', textAlign: 'left', cursor: 'pointer', background: active ? ORANGE_TINT : '#fff', borderRadius: 14, padding: '10px 12px', border: `${active ? 2 : 1}px solid ${active ? ORANGE : '#EEE'}` }}>
+                      <button key={t.id || i} onClick={() => setQty(String(t.min_qty))} style={{ position: 'relative', textAlign: 'left', cursor: 'pointer', background: active ? ORANGE_TINT : '#fff', borderRadius: 14, padding: '10px 12px', border: `${active ? 2 : 1}px solid ${active ? ORANGE : '#EEE'}` }}>
                         <div style={{ display: 'flex', alignItems: 'baseline', gap: 2 }}>
                           <span style={{ fontSize: 16, fontWeight: 900, color: INK }}>{fmtNum(tp)}</span>
                           <span style={{ fontSize: 10, fontWeight: 700, color: INK }}>TND</span>
@@ -332,8 +335,7 @@ export default function MobileProductPage() {
               </div>
             ))}
 
-            {/* ⭐ MOQ + qté + total : masqués si prix verrouillé */}
-            {!priceLocked && (
+            {!priceLocked && !isQuote && !mustCustomize && (
               <>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 20, padding: '12px 14px', borderRadius: 14, border: `1px solid #EEE` }}>
                   <div style={{ flex: 1 }}>
@@ -358,6 +360,13 @@ export default function MobileProductPage() {
                     <span style={{ fontSize: 14, fontWeight: 700, color: INK }}>TND</span>
                   </div>
                 </div>
+
+                {/* ⭐ Bouton "Personnaliser" secondaire si perso optionnelle */}
+                {canCustomize && (
+                  <button onClick={openCustomPopup} style={{ marginTop: 12, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px', borderRadius: 12, border: `1.5px solid ${PURPLE}`, background: '#fff', color: PURPLE, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
+                    <Sparkles size={16} /> Personnaliser{customExtra > 0 ? ` (+${fmtNum(customExtra)} TND/${unit})` : ''}
+                  </button>
+                )}
               </>
             )}
           </div>
@@ -376,7 +385,7 @@ export default function MobileProductPage() {
           <div style={{ fontSize: 16, fontWeight: 800, color: INK, marginBottom: 12 }}>Livraison</div>
           <Row icon={Truck}><strong>Livré par GROSHOP</strong></Row>
           <Row icon={MapPin}>Chez vous dès <strong style={{ textTransform: 'capitalize' }}>{estStr}</strong></Row>
-          {!priceLocked && <Row icon={shippingPrice > 0 ? Truck : ShieldCheck}>{shippingPrice > 0 ? `Frais de livraison : ${fmtDT(shippingPrice)}` : 'Livraison offerte'}</Row>}
+          {!priceLocked && !isQuote && <Row icon={shippingPrice > 0 ? Truck : ShieldCheck}>{shippingPrice > 0 ? `Frais de livraison : ${fmtDT(shippingPrice)}` : 'Livraison offerte'}</Row>}
           <Row icon={RotateCcw} last>Retours acceptés sous 7 jours</Row>
         </div>
 
@@ -407,8 +416,7 @@ export default function MobileProductPage() {
           </Accordion>
         )}
 
-        <Accordion
-          title="Avis"
+        <Accordion title="Avis"
           trailing={rating > 0 ? (
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
               <span style={{ display: 'inline-flex', gap: 1 }}>{[1,2,3,4,5].map(s => <Star key={s} size={13} fill={s <= Math.round(rating) ? '#FFB800' : '#E5E7EB'} stroke="none" />)}</span>
@@ -417,8 +425,7 @@ export default function MobileProductPage() {
           ) : null}
           defaultOpen
         >
-          {reviews.length === 0
-            ? <p style={{ margin: 0, fontSize: 13, color: FAINT }}>Aucun avis pour le moment.</p>
+          {reviews.length === 0 ? <p style={{ margin: 0, fontSize: 13, color: FAINT }}>Aucun avis pour le moment.</p>
             : <div>
                 <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 18 }}>
                   <div style={{ textAlign: 'center', flexShrink: 0 }}>
@@ -454,8 +461,7 @@ export default function MobileProductPage() {
                       {r.photos?.length > 0 && (
                         <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
                           {r.photos.map((photo, i) => (
-                            <button key={photo.id || i} onClick={() => setLightbox({ photos: r.photos, index: i })}
-                              style={{ width: 64, height: 64, borderRadius: 8, overflow: 'hidden', padding: 0, border: `1px solid ${LINE}`, cursor: 'pointer', background: '#F7F8FA' }}>
+                            <button key={photo.id || i} onClick={() => setLightbox({ photos: r.photos, index: i })} style={{ width: 64, height: 64, borderRadius: 8, overflow: 'hidden', padding: 0, border: `1px solid ${LINE}`, cursor: 'pointer', background: '#F7F8FA' }}>
                               <img src={photo.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/>
                             </button>
                           ))}
@@ -471,7 +477,6 @@ export default function MobileProductPage() {
           <p style={{ margin: 0, fontSize: 13, color: FAINT }}>Une question sur ce produit ? Contactez le fournisseur depuis sa boutique.</p>
         </Accordion>
 
-        {/* ── Carte fournisseur ── */}
         {p.supplier_name && (
           <div style={{ background: '#fff', borderRadius: 18, padding: 16, marginTop: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -497,19 +502,23 @@ export default function MobileProductPage() {
         {reco.length > 0 && <ScrollRow title="Nos clients ont apprécié" items={reco} navigate={navigate} />}
       </div>
 
-      {/* ⭐ Barre d'action fixe — CTA change selon prix verrouillé */}
+      {/* ⭐ Barre d'action fixe — 4 états : locked / quote / mustCustomize / normal */}
       <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 1100, background: '#fff', borderTop: `1px solid ${LINE}`, boxShadow: '0 -2px 12px rgba(0,0,0,.06)', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px calc(10px + env(safe-area-inset-bottom))' }}>
         {priceLocked ? (
-          <button onClick={contactSupplier} disabled={contacting}
-            style={{ flex: 1, height: 48, borderRadius: 12, border: 'none', color: '#fff', fontSize: 15, fontWeight: 800, cursor: contacting ? 'wait' : 'pointer', opacity: contacting ? .7 : 1, background: ORANGE, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+          <button onClick={contactSupplier} disabled={contacting} style={{ flex: 1, height: 48, borderRadius: 12, border: 'none', color: '#fff', fontSize: 15, fontWeight: 800, cursor: contacting ? 'wait' : 'pointer', opacity: contacting ? .7 : 1, background: ORANGE, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
             <MessageCircle size={18} /> {contacting ? 'Ouverture…' : 'Contacter le fournisseur'}
           </button>
+        ) : mustCustomize ? (
+          <>
+            <button onClick={contactSupplier} disabled={contacting} aria-label="Contacter" style={{ flexShrink: 0, width: 50, height: 48, borderRadius: 12, border: `1.5px solid ${ORANGE}`, background: '#fff', color: ORANGE, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: contacting ? 'wait' : 'pointer', opacity: contacting ? .7 : 1 }}><MessageCircle size={20} /></button>
+            <button onClick={openCustomPopup} style={{ flex: 1, height: 48, borderRadius: 12, border: 'none', color: '#fff', fontSize: 15, fontWeight: 800, cursor: 'pointer', background: `linear-gradient(135deg, ${PURPLE}, #8B5CF6)`, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+              <Sparkles size={18} /> {isQuote ? 'Demander un devis' : 'Personnaliser'}
+            </button>
+          </>
         ) : (
           <>
-            <button onClick={contactSupplier} disabled={contacting} aria-label="Contacter le fournisseur"
-              style={{ flexShrink: 0, width: 50, height: 48, borderRadius: 12, border: `1.5px solid ${ORANGE}`, background: '#fff', color: ORANGE, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: contacting ? 'wait' : 'pointer', opacity: contacting ? .7 : 1 }}><MessageCircle size={20} /></button>
-            <button onClick={doOrder} disabled={!qtyValid || adding === p.id}
-              style={{ flex: 1, height: 48, borderRadius: 12, border: 'none', color: '#fff', fontSize: 15, fontWeight: 800, cursor: qtyValid ? 'pointer' : 'default', opacity: (!qtyValid || adding === p.id) ? .6 : 1, background: added ? GREEN : ORANGE, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+            <button onClick={contactSupplier} disabled={contacting} aria-label="Contacter" style={{ flexShrink: 0, width: 50, height: 48, borderRadius: 12, border: `1.5px solid ${ORANGE}`, background: '#fff', color: ORANGE, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: contacting ? 'wait' : 'pointer', opacity: contacting ? .7 : 1 }}><MessageCircle size={20} /></button>
+            <button onClick={doOrder} disabled={!qtyValid || adding === p.id} style={{ flex: 1, height: 48, borderRadius: 12, border: 'none', color: '#fff', fontSize: 15, fontWeight: 800, cursor: qtyValid ? 'pointer' : 'default', opacity: (!qtyValid || adding === p.id) ? .6 : 1, background: added ? GREEN : ORANGE, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
               <ShoppingCart size={18} /> {adding === p.id ? 'Ajout…' : added ? '✓ Ajouté' : 'Ajouter au panier'}
             </button>
           </>
@@ -521,14 +530,23 @@ export default function MobileProductPage() {
           <img src={lightbox.photos[lightbox.index]?.url} alt="" onClick={e => e.stopPropagation()} style={{ maxWidth: '92vw', maxHeight: '84vh', objectFit: 'contain', borderRadius: 8 }} />
           {lightbox.photos.length > 1 && (
             <>
-              <button onClick={e => { e.stopPropagation(); setLightbox(l => ({ ...l, index: (l.index - 1 + l.photos.length) % l.photos.length })) }}
-                style={{ position: 'fixed', left: 14, top: '50%', transform: 'translateY(-50%)', width: 44, height: 44, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,.15)', color: '#fff', cursor: 'pointer', fontSize: 22 }}>‹</button>
-              <button onClick={e => { e.stopPropagation(); setLightbox(l => ({ ...l, index: (l.index + 1) % l.photos.length })) }}
-                style={{ position: 'fixed', right: 14, top: '50%', transform: 'translateY(-50%)', width: 44, height: 44, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,.15)', color: '#fff', cursor: 'pointer', fontSize: 22 }}>›</button>
+              <button onClick={e => { e.stopPropagation(); setLightbox(l => ({ ...l, index: (l.index - 1 + l.photos.length) % l.photos.length })) }} style={{ position: 'fixed', left: 14, top: '50%', transform: 'translateY(-50%)', width: 44, height: 44, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,.15)', color: '#fff', cursor: 'pointer', fontSize: 22 }}>‹</button>
+              <button onClick={e => { e.stopPropagation(); setLightbox(l => ({ ...l, index: (l.index + 1) % l.photos.length })) }} style={{ position: 'fixed', right: 14, top: '50%', transform: 'translateY(-50%)', width: 44, height: 44, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,.15)', color: '#fff', cursor: 'pointer', fontSize: 22 }}>›</button>
             </>
           )}
           <button onClick={() => setLightbox(null)} style={{ position: 'fixed', top: 14, right: 14, width: 42, height: 42, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,.15)', color: '#fff', cursor: 'pointer', fontSize: 20 }}>✕</button>
         </div>
+      )}
+
+      {/* ⭐ Popup de personnalisation */}
+      {showCustomPopup && (
+        <CustomizationPopup
+          product={p}
+          variantId={firstVariantId}
+          unitBasePrice={unitPrice}
+          onClose={() => setShowCustomPopup(false)}
+          onAdded={() => { setAdded(true); setTimeout(() => setAdded(false), 2000) }}
+        />
       )}
     </div>
   )
@@ -537,18 +555,8 @@ export default function MobileProductPage() {
 const qBtn = (enabled) => ({ width: 38, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', color: enabled ? INK : '#CCC', cursor: enabled ? 'pointer' : 'default' })
 const circBtn = { width: 34, height: 34, borderRadius: '50%', background: '#fff', border: `1px solid ${LINE}`, boxShadow: '0 2px 8px rgba(0,0,0,.10)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }
 
-function Badge({ bg, color, children }) {
-  return <span style={{ background: bg, color, fontSize: 12, fontWeight: 700, padding: '4px 10px', borderRadius: 6 }}>{children}</span>
-}
-
-function Row({ icon: Icon, children, last }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, fontSize: 13.5, color: SUB, marginBottom: last ? 0 : 10 }}>
-      <Icon size={17} color={MUTE} style={{ flexShrink: 0, marginTop: 1 }} />
-      <span>{children}</span>
-    </div>
-  )
-}
+function Badge({ bg, color, children }) { return <span style={{ background: bg, color, fontSize: 12, fontWeight: 700, padding: '4px 10px', borderRadius: 6 }}>{children}</span> }
+function Row({ icon: Icon, children, last }) { return <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, fontSize: 13.5, color: SUB, marginBottom: last ? 0 : 10 }}><Icon size={17} color={MUTE} style={{ flexShrink: 0, marginTop: 1 }} /><span>{children}</span></div> }
 
 function Accordion({ title, trailing, defaultOpen = false, children }) {
   const [open, setOpen] = useState(defaultOpen)
@@ -589,8 +597,7 @@ function ScrollRow({ title, items, navigate, sponsored }) {
                 </div>
               )}
               <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 4 }}>
-                {locked
-                  ? <span style={{ fontSize: 12, fontWeight: 700, color: '#92600A', display: 'inline-flex', alignItems: 'center', gap: 3 }}><Lock size={10} /> Prix sur devis</span>
+                {locked ? <span style={{ fontSize: 12, fontWeight: 700, color: '#92600A', display: 'inline-flex', alignItems: 'center', gap: 3 }}><Lock size={10} /> Prix sur devis</span>
                   : <>
                       <span style={{ fontSize: 15, fontWeight: 900, color: ORANGE }}>{fmtNum(price)} <span style={{ fontSize: 10, fontWeight: 700 }}>TND</span></span>
                       {disc > 0 && <span style={{ fontSize: 9, fontWeight: 800, color: '#fff', background: ORANGE, padding: '1px 5px', borderRadius: 4 }}>-{disc}%</span>}

@@ -1,13 +1,11 @@
-// AddProductPage.jsx — GROSHOP.tn  (bi-mode : ajout + édition)
-// /supplier/products/new        → mode ajout
-// /supplier/products/:id/edit   → mode édition (charge + pré-remplit + update)
+// AddProductPage.jsx — GROSHOP.tn  (bi-mode : ajout + édition + personnalisation)
 
 import { useState, useEffect } from 'react'
 import { useNavigate, Link, useParams } from 'react-router-dom'
 import { products as productsApi, uploadFile } from '../lib/api'
 import {
   Upload, X, Plus, Trash2, Star, Package, Tag, Truck, Image as ImageIcon,
-  Layers, FileText, Loader2, CheckCircle2, AlertTriangle,
+  Layers, FileText, Loader2, CheckCircle2, AlertTriangle, Sparkles,
 } from 'lucide-react'
 
 const ORANGE = '#FF5E00'
@@ -17,6 +15,14 @@ const fmt = (n) => (Number(n) || 0).toLocaleString('fr-FR', { minimumFractionDig
 
 const SHIP_MODES = [
   ['free', 'Gratuite'], ['flat', 'Fixe'], ['tiered', 'Par tranche'], ['per_block', 'Par palier'],
+]
+
+const CUSTOM_FIELD_TYPES = [
+  ['text',   'Texte court'],
+  ['number', 'Nombre'],
+  ['image',  'Image'],
+  ['file',   'Fichier'],
+  ['color',  'Couleur'],
 ]
 
 function tierRange(rows, i) {
@@ -48,60 +54,44 @@ function priceTierIssues(rows) {
   return { errs, ok }
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// Remplit tous les états du formulaire à partir d'un produit renvoyé
-// par l'API. ⚠️ Seul endroit à adapter si tes noms de champs diffèrent.
-// ═══════════════════════════════════════════════════════════════════
 function hydrateForm(p, setters) {
-  const { setForm, setImages, setTiers, setShipTiers, setChoiceGroups, setVariantCombos } = setters
+  const { setForm, setImages, setTiers, setShipTiers, setChoiceGroups, setVariantCombos, setCustomization } = setters
 
   setForm({
-    name: p.name || '',
-    category: String(p.category ?? p.category_id ?? ''),
-    description: p.description || '',
-    brand: p.brand || '',
-    reference: p.reference || '',
-    unit: p.unit || '',
-    in_stock: p.in_stock ?? true,
+    name: p.name || '', category: String(p.category ?? p.category_id ?? ''),
+    description: p.description || '', brand: p.brand || '', reference: p.reference || '',
+    unit: p.unit || '', in_stock: p.in_stock ?? true,
     shipping_mode: p.shipping_mode || 'flat',
     shipping_price_tnd: p.shipping_price_tnd != null ? String(p.shipping_price_tnd) : '',
     shipping_block_size: p.shipping_block_size ?? 10,
     shipping_block_price: p.shipping_block_price != null ? String(p.shipping_block_price) : '',
     delivery_days: p.delivery_days ?? 3,
-    video_url: p.video_url || '',
-    video_poster_url: p.video_poster_url || '',
-    specs_raw: p.specs_raw || '',
-    price_visibility: p.price_visibility || 'public',
+    video_url: p.video_url || '', video_poster_url: p.video_poster_url || '',
+    specs_raw: p.specs_raw || '', price_visibility: p.price_visibility || 'public',
   })
 
   const imgs = (p.images || []).map((im) => ({
-    tempId: crypto.randomUUID(),
-    url: im.url || im.image || '',
-    is_primary: !!im.is_primary,
-    uploading: false,
+    tempId: crypto.randomUUID(), url: im.url || im.image || '',
+    is_primary: !!im.is_primary, uploading: false,
   })).filter((im) => im.url)
   if (imgs.length && !imgs.some((i) => i.is_primary)) imgs[0].is_primary = true
   setImages(imgs)
 
   const tiers = (p.price_tiers || []).map((t) => ({
-    min_qty: String(t.min_qty ?? ''),
-    price_tnd: String(t.price_tnd ?? ''),
+    min_qty: String(t.min_qty ?? ''), price_tnd: String(t.price_tnd ?? ''),
     old_price_tnd: t.old_price_tnd == null ? '' : String(t.old_price_tnd),
   }))
   setTiers(tiers.length ? tiers : [{ min_qty: '', price_tnd: '', old_price_tnd: '' }])
 
   const ship = (p.shipping_tiers || []).map((t) => ({
-    min_qty: String(t.min_qty ?? ''),
-    price_tnd: String(t.price_tnd ?? ''),
+    min_qty: String(t.min_qty ?? ''), price_tnd: String(t.price_tnd ?? ''),
   }))
   setShipTiers(ship.length ? ship : [{ min_qty: '', price_tnd: '' }])
 
   const groups = (p.choice_groups || []).map((g) => ({
     name: g.name || '',
     variants: (g.variants || []).map((v) => ({
-      name: v.name || '',
-      image_url: v.image_url || v.image || '',
-      uploading: false,
+      name: v.name || '', image_url: v.image_url || v.image || '', uploading: false,
     })),
   }))
   setChoiceGroups(groups)
@@ -113,13 +103,26 @@ function hydrateForm(p, setters) {
       if (gi >= 0) sel[gi] = s.variant
     })
     const ct = (c.price_tiers || []).map((t) => ({
-      min_qty: String(t.min_qty ?? ''),
-      price_tnd: String(t.price_tnd ?? ''),
+      min_qty: String(t.min_qty ?? ''), price_tnd: String(t.price_tnd ?? ''),
       old_price_tnd: t.old_price_tnd == null ? '' : String(t.old_price_tnd),
     }))
     return { id: crypto.randomUUID(), sel, tiers: ct.length ? ct : [{ min_qty: '', price_tnd: '', old_price_tnd: '' }] }
   })
   setVariantCombos(combos)
+
+  // ── Personnalisation ──
+  setCustomization({
+    allow: !!p.allow_customization,
+    mode: p.customization_mode || 'fixed',
+    required: !!p.customization_required,
+    extra_price: p.customization_extra_price_tnd != null ? String(p.customization_extra_price_tnd) : '',
+    instructions: p.customization_instructions || '',
+    fields: (p.customization_fields || []).map((f) => ({
+      tempId: crypto.randomUUID(),
+      label: f.label || '', field_type: f.field_type || 'text',
+      required: f.required ?? true, max_chars: f.constraints?.max_chars || '',
+    })),
+  })
 }
 
 export default function AddProductPage() {
@@ -127,31 +130,30 @@ export default function AddProductPage() {
   const { id } = useParams()
   const isEdit = Boolean(id)
 
-  const [pageLoading, setPageLoading] = useState(isEdit)   // chargement initial (édition)
+  const [pageLoading, setPageLoading] = useState(isEdit)
   const [loadError, setLoadError]     = useState(null)
 
   const [form, setForm] = useState({
     name: '', category: '', description: '', brand: '', reference: '', unit: '',
-    in_stock: true,
-    shipping_mode: 'flat',
-    shipping_price_tnd: '',
-    shipping_block_size: 10,
-    shipping_block_price: '',
-    delivery_days: 3,
-    video_url: '', video_poster_url: '', specs_raw: '',
-    price_visibility: 'public',
+    in_stock: true, shipping_mode: 'flat', shipping_price_tnd: '',
+    shipping_block_size: 10, shipping_block_price: '', delivery_days: 3,
+    video_url: '', video_poster_url: '', specs_raw: '', price_visibility: 'public',
   })
   const [images, setImages]     = useState([])
   const [tiers, setTiers]       = useState([{ min_qty: '', price_tnd: '', old_price_tnd: '' }])
   const [shipTiers, setShipTiers] = useState([{ min_qty: '', price_tnd: '' }])
   const [choiceGroups, setChoiceGroups] = useState([])
   const [variantCombos, setVariantCombos] = useState([])
+  const [customization, setCustomization] = useState({
+    allow: false, mode: 'fixed', required: false, extra_price: '', instructions: '', fields: [],
+  })
   const [categories, setCategories] = useState([])
   const [errors, setErrors]     = useState({})
   const [submitting, setSubmitting] = useState(false)
   const [videoUploading, setVideoUploading] = useState(false)
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
+  const setCust = (k, v) => setCustomization((c) => ({ ...c, [k]: v }))
 
   useEffect(() => {
     productsApi.categories()
@@ -159,22 +161,21 @@ export default function AddProductPage() {
       .catch(() => setCategories([]))
   }, [])
 
-  /* ── Chargement du produit en mode édition ── */
   useEffect(() => {
     if (!isEdit) return
     let alive = true
     setPageLoading(true); setLoadError(null)
-    productsApi.detail(id)                                  // ⚠️ adapte le nom si besoin
+    productsApi.detail(id)
       .then((p) => {
         if (!alive) return
-        hydrateForm(p, { setForm, setImages, setTiers, setShipTiers, setChoiceGroups, setVariantCombos })
+        hydrateForm(p, { setForm, setImages, setTiers, setShipTiers, setChoiceGroups, setVariantCombos, setCustomization })
       })
       .catch((e) => { if (alive) setLoadError(e.message || 'Produit introuvable') })
       .finally(() => { if (alive) setPageLoading(false) })
     return () => { alive = false }
   }, [id, isEdit])
 
-  /* ── Upload images produit ── */
+  /* ── Upload images ── */
   async function handleFiles(fileList) {
     const files = Array.from(fileList)
     for (const file of files) {
@@ -222,33 +223,48 @@ export default function AddProductPage() {
       setChoiceGroups((g) => g.map((x, i) =>
         i === gi ? { ...x, variants: x.variants.map((v, j) => (j === vi ? { ...v, image_url: url, uploading: false } : v)) } : x))
     } catch (e) {
-      setVariant(gi, vi, 'uploading', false)
-      alert(e.message)
+      setVariant(gi, vi, 'uploading', false); alert(e.message)
     }
   }
 
-  /* ── Tranches de prix produit ── */
+  /* ── Tranches prix / livraison / combos ── */
   const addTier = () => setTiers((t) => [...t, { min_qty: '', price_tnd: '', old_price_tnd: '' }])
   const setTier = (i, k, val) => setTiers((t) => t.map((x, idx) => (idx === i ? { ...x, [k]: val } : x)))
   const removeTier = (i) => setTiers((t) => (t.length <= 1 ? t : t.filter((_, idx) => idx !== i)))
-
-  /* ── Tranches de livraison ── */
   const addShipTier = () => setShipTiers((t) => [...t, { min_qty: '', price_tnd: '' }])
   const setShipTier = (i, k, val) => setShipTiers((t) => t.map((x, idx) => (idx === i ? { ...x, [k]: val } : x)))
   const removeShipTier = (i) => setShipTiers((t) => (t.length <= 1 ? t : t.filter((_, idx) => idx !== i)))
 
-  /* ── Groupes exploitables pour les combinaisons ── */
   const namedGroups = choiceGroups
     .map((g, gi) => ({ gi, name: g.name.trim(), variants: g.variants.map((v) => v.name.trim()).filter(Boolean) }))
     .filter((g) => g.name && g.variants.length)
 
-  /* ── Prix par combinaison (override) ── */
   const addCombo = () => setVariantCombos((c) => [...c, { id: crypto.randomUUID(), sel: {}, tiers: [{ min_qty: '', price_tnd: '', old_price_tnd: '' }] }])
   const removeCombo = (cid) => setVariantCombos((c) => c.filter((x) => x.id !== cid))
   const setComboSel = (cid, gi, val) => setVariantCombos((c) => c.map((x) => (x.id === cid ? { ...x, sel: { ...x.sel, [gi]: val } } : x)))
   const addComboTier = (cid) => setVariantCombos((c) => c.map((x) => (x.id === cid ? { ...x, tiers: [...x.tiers, { min_qty: '', price_tnd: '', old_price_tnd: '' }] } : x)))
   const setComboTier = (cid, i, k, val) => setVariantCombos((c) => c.map((x) => (x.id === cid ? { ...x, tiers: x.tiers.map((t, idx) => (idx === i ? { ...t, [k]: val } : t)) } : x)))
   const removeComboTier = (cid, i) => setVariantCombos((c) => c.map((x) => (x.id === cid ? { ...x, tiers: x.tiers.length <= 1 ? x.tiers : x.tiers.filter((_, idx) => idx !== i) } : x)))
+
+  /* ── Personnalisation ── */
+  const addCustomField = () => setCustomization((c) => ({
+    ...c,
+    fields: [...c.fields, { tempId: crypto.randomUUID(), label: '', field_type: 'text', required: true, max_chars: '' }],
+  }))
+  const setCustomField = (tempId, k, val) => setCustomization((c) => ({
+    ...c, fields: c.fields.map((f) => (f.tempId === tempId ? { ...f, [k]: val } : f)),
+  }))
+  const removeCustomField = (tempId) => setCustomization((c) => ({
+    ...c, fields: c.fields.filter((f) => f.tempId !== tempId),
+  }))
+  const moveCustomField = (tempId, dir) => setCustomization((c) => {
+    const idx = c.fields.findIndex((f) => f.tempId === tempId)
+    const swap = idx + dir
+    if (idx < 0 || swap < 0 || swap >= c.fields.length) return c
+    const arr = [...c.fields]
+    ;[arr[idx], arr[swap]] = [arr[swap], arr[idx]]
+    return { ...c, fields: arr }
+  })
 
   const { errs: tierErrs, ok: tierOk } = priceTierIssues(tiers)
 
@@ -258,15 +274,10 @@ export default function AddProductPage() {
     try {
       const { url, poster } = await uploadFile('/products/upload-video/', file)
       setForm((f) => ({ ...f, video_url: url, video_poster_url: poster || '' }))
-    } catch (e) {
-      alert(e.message)
-    } finally {
-      setVideoUploading(false)
-    }
+    } catch (e) { alert(e.message) } finally { setVideoUploading(false) }
   }
   const removeVideo = () => setForm((f) => ({ ...f, video_url: '', video_poster_url: '' }))
 
-  /* ── Soumission (create ou update selon le mode) ── */
   async function submit(status) {
     const errs = {}
     if (!form.name.trim()) errs.name = 'Nom requis'
@@ -275,7 +286,7 @@ export default function AddProductPage() {
 
     const completeTiers = tiers.filter((t) => t.min_qty && t.price_tnd)
     if (!completeTiers.length) errs.price_tiers = 'Ajoute au moins une tranche de prix'
-    else if (!tierOk)          errs.price_tiers = 'Corrige les tranches en rouge (quantité croissante, prix décroissant)'
+    else if (!tierOk)          errs.price_tiers = 'Corrige les tranches en rouge'
 
     if (form.shipping_mode === 'tiered' && !shipTiers.filter((t) => t.min_qty && t.price_tnd).length)
       errs.shipping = 'Ajoute au moins une tranche de livraison'
@@ -288,13 +299,24 @@ export default function AddProductPage() {
       const picked = namedGroups.filter((g) => c.sel[g.gi])
       const hasTiers = c.tiers.some((t) => t.min_qty && t.price_tnd)
       if (picked.length === 0 && !hasTiers) continue
-      if (picked.length !== namedGroups.length) { errs.combos = 'Choisis une option par groupe pour chaque prix spécifique'; break }
+      if (picked.length !== namedGroups.length) { errs.combos = 'Choisis une option par groupe'; break }
       const { ok } = priceTierIssues(c.tiers)
       if (!ok || !hasTiers) { errs.combos = 'Corrige les tranches des prix par variante'; break }
       comboKeys.push(namedGroups.map((g) => c.sel[g.gi]).join('|'))
     }
     if (!errs.combos && new Set(comboKeys).size !== comboKeys.length)
       errs.combos = 'Deux prix spécifiques visent la même combinaison'
+
+    // ── Validation perso ──
+    const customFields = customization.fields.filter((f) => f.label.trim())
+    if (customization.allow && !customFields.length) {
+      errs.customization = 'Ajoute au moins un champ que l\'acheteur devra remplir'
+    }
+    if (customization.allow && customization.mode === 'fixed' && customization.extra_price !== '') {
+      if (isNaN(Number(customization.extra_price)) || Number(customization.extra_price) < 0) {
+        errs.customization = 'Surcoût perso invalide'
+      }
+    }
 
     setErrors(errs)
     if (Object.keys(errs).length) { window.scrollTo({ top: 0, behavior: 'smooth' }); return }
@@ -304,18 +326,15 @@ export default function AddProductPage() {
       name: form.name, category: form.category, description: form.description,
       brand: form.brand, reference: form.reference, unit: form.unit,
       specs_raw: form.specs_raw, video_url: form.video_url, video_poster_url: form.video_poster_url,
-      in_stock: form.in_stock,
-      delivery_days: Number(form.delivery_days) || 3,
+      in_stock: form.in_stock, delivery_days: Number(form.delivery_days) || 3,
       shipping_mode: form.shipping_mode,
       shipping_price_tnd:  form.shipping_mode === 'flat' ? Number(form.shipping_price_tnd || 0) : 0,
       shipping_block_size: Number(form.shipping_block_size) || 10,
       shipping_block_price: form.shipping_mode === 'per_block' ? Number(form.shipping_block_price || 0) : 0,
-      price_visibility: form.price_visibility,
-      status,
+      price_visibility: form.price_visibility, status,
       images: images.filter((im) => im.url).map((im, i) => ({ url: im.url, is_primary: im.is_primary, sort_order: i })),
       price_tiers: completeTiers.map((t) => ({
-        min_qty: Number(t.min_qty),
-        price_tnd: Number(t.price_tnd),
+        min_qty: Number(t.min_qty), price_tnd: Number(t.price_tnd),
         old_price_tnd: t.old_price_tnd === '' ? null : Number(t.old_price_tnd),
       })),
       shipping_tiers: form.shipping_mode === 'tiered'
@@ -332,28 +351,39 @@ export default function AddProductPage() {
         .map((c) => ({
           selections: namedGroups.map((g) => ({ group: g.name, variant: c.sel[g.gi] })).filter((s) => s.variant),
           price_tiers: c.tiers.filter((t) => t.min_qty && t.price_tnd).map((t) => ({
-            min_qty: Number(t.min_qty),
-            price_tnd: Number(t.price_tnd),
+            min_qty: Number(t.min_qty), price_tnd: Number(t.price_tnd),
             old_price_tnd: t.old_price_tnd === '' ? null : Number(t.old_price_tnd),
           })),
         }))
         .filter((c) => c.selections.length === namedGroups.length && c.selections.length > 0 && c.price_tiers.length > 0),
+
+      // ── Personnalisation ──
+      allow_customization: customization.allow,
+      customization_mode: customization.allow ? customization.mode : 'fixed',
+      customization_required: customization.allow && customization.mode === 'fixed' ? customization.required : false,
+      customization_extra_price_tnd: customization.allow && customization.mode === 'fixed'
+        ? Number(customization.extra_price || 0) : 0,
+      customization_instructions: customization.allow ? customization.instructions : '',
+      customization_fields: customization.allow
+        ? customFields.map((f, i) => ({
+            label: f.label.trim(), field_type: f.field_type,
+            required: !!f.required, sort_order: i,
+            constraints: f.max_chars ? { max_chars: Number(f.max_chars) } : {},
+          }))
+        : [],
     }
 
     try {
       const res = isEdit
-        ? await productsApi.update(id, payload)   // ← cette méthode n'existe pas encore, on l'ajoute à l'étape 2
+        ? await productsApi.update(id, payload)
         : await productsApi.create(payload)
       if (res === null) { alert('Session expirée. Reconnecte-toi puis réessaie.'); return }
       navigate('/supplier/products')
     } catch (e) {
       alert('Erreur : ' + e.message)
-    } finally {
-      setSubmitting(false)
-    }
+    } finally { setSubmitting(false) }
   }
 
-  /* ── Écrans de chargement / erreur (édition) ── */
   if (isEdit && pageLoading) {
     return (
       <div style={{ ...S.page, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -396,7 +426,6 @@ export default function AddProductPage() {
       </div>
 
       <div style={S.layout} className="ap-layout">
-        {/* ═══════════ COLONNE PRINCIPALE ═══════════ */}
         <div style={S.main}>
 
           {/* GÉNÉRAL */}
@@ -445,7 +474,7 @@ export default function AddProductPage() {
             </Field>
           </section>
 
-          {/* PRIX PAR TRANCHE */}
+          {/* PRIX PAR TRANCHE — INCHANGÉ, garde ton bloc existant */}
           <section style={S.card}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
               <span style={{ color: ORANGE, display: 'flex' }}><Tag size={18} /></span>
@@ -485,62 +514,40 @@ export default function AddProductPage() {
             {errors.price_tiers && <div style={{ ...S.errText, marginTop: 8 }}>{errors.price_tiers}</div>}
             <p style={{ ...S.helper, marginTop: 12 }}>Le prix doit diminuer quand la quantité augmente. La borne haute de chaque tranche se calcule toute seule.</p>
 
-            {/* ── Visibilité du prix ── */}
             <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px dashed #E3E6EB' }}>
               <div style={{
                 display: 'flex', alignItems: 'flex-start', gap: 14,
                 background: priceHidden ? '#FEF3C7' : '#FAFBFC',
                 border: `1px solid ${priceHidden ? '#FDE68A' : '#ECEEF2'}`,
                 borderRadius: 12, padding: 14,
-                transition: 'background 0.2s, border-color 0.2s',
               }}>
-                {/* Toggle switch */}
-                <label style={{
-                  position: 'relative', display: 'inline-block',
-                  width: 42, height: 24, flexShrink: 0, cursor: 'pointer', marginTop: 2,
-                }}>
-                  <input
-                    type="checkbox"
-                    checked={priceHidden}
+                <label style={{ position: 'relative', display: 'inline-block', width: 42, height: 24, flexShrink: 0, cursor: 'pointer', marginTop: 2 }}>
+                  <input type="checkbox" checked={priceHidden}
                     onChange={(e) => set('price_visibility', e.target.checked ? 'verified_only' : 'public')}
-                    style={{ opacity: 0, width: 0, height: 0 }}
-                  />
-                  <span style={{
-                    position: 'absolute', inset: 0, borderRadius: 24,
-                    background: priceHidden ? ORANGE : '#D1D5DB',
-                    transition: 'background 0.2s',
-                  }} />
-                  <span style={{
-                    position: 'absolute', top: 2,
-                    left: priceHidden ? 20 : 2,
-                    width: 20, height: 20, borderRadius: '50%', background: '#fff',
-                    transition: 'left 0.2s', boxShadow: '0 2px 4px rgba(0,0,0,.2)',
-                  }} />
+                    style={{ opacity: 0, width: 0, height: 0 }} />
+                  <span style={{ position: 'absolute', inset: 0, borderRadius: 24, background: priceHidden ? ORANGE : '#D1D5DB' }} />
+                  <span style={{ position: 'absolute', top: 2, left: priceHidden ? 20 : 2, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 2px 4px rgba(0,0,0,.2)' }} />
                 </label>
-
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: '#141414', marginBottom: 4 }}>
-                    Masquer le prix aux non-boutiques
-                  </div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#141414', marginBottom: 4 }}>Masquer le prix aux non-boutiques</div>
                   <div style={{ fontSize: 12.5, color: '#6B7785', lineHeight: 1.5 }}>
                     Seules les boutiques vérifiées et les clients que vous aurez explicitement débloqués verront le prix.
-                    Les autres verront « Prix sur devis » et pourront vous contacter.
                   </div>
                 </div>
               </div>
             </div>
           </section>
 
-          {/* PRIX PAR VARIANTE (OVERRIDE) */}
+          {/* PRIX PAR VARIANTE — INCHANGÉ */}
           <section style={S.card}>
             <SectionTitle icon={<Tag size={18} />} title="Prix par variante (optionnel)" />
             {namedGroups.length === 0 ? (
-              <p style={S.helper}>Ajoute d'abord tes choix &amp; variantes (Couleur, Taille…) pour pouvoir fixer un prix spécifique à une combinaison. Par défaut, toutes les variantes utilisent le barème du produit.</p>
+              <p style={S.helper}>Ajoute d'abord tes choix &amp; variantes (Couleur, Taille…) pour pouvoir fixer un prix spécifique à une combinaison.</p>
             ) : (
               <>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#F5F5F0', borderRadius: 8, padding: '10px 12px', marginBottom: 16 }}>
                   <CheckCircle2 size={15} color="#6B7785" style={{ flexShrink: 0 }} />
-                  <span style={{ fontSize: 12.5, color: '#6B7785' }}>Par défaut, toutes les combinaisons utilisent le barème du produit. Ajoutes-en une seulement si son prix diffère.</span>
+                  <span style={{ fontSize: 12.5, color: '#6B7785' }}>Par défaut, toutes les combinaisons utilisent le barème du produit.</span>
                 </div>
 
                 {variantCombos.map((c) => {
@@ -593,6 +600,144 @@ export default function AddProductPage() {
             )}
           </section>
 
+          {/* ═══════════════ PERSONNALISATION ═══════════════ */}
+          <section style={S.card}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginBottom: customization.allow ? 20 : 0 }}>
+              <label style={{ position: 'relative', display: 'inline-block', width: 42, height: 24, flexShrink: 0, cursor: 'pointer', marginTop: 4 }}>
+                <input type="checkbox" checked={customization.allow}
+                  onChange={(e) => setCust('allow', e.target.checked)}
+                  style={{ opacity: 0, width: 0, height: 0 }} />
+                <span style={{ position: 'absolute', inset: 0, borderRadius: 24, background: customization.allow ? ORANGE : '#D1D5DB', transition: 'background 0.2s' }} />
+                <span style={{ position: 'absolute', top: 2, left: customization.allow ? 20 : 2, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 2px 4px rgba(0,0,0,.2)' }} />
+              </label>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ color: ORANGE, display: 'flex' }}><Sparkles size={18} /></span>
+                  <h2 style={{ fontSize: 17, fontWeight: 700, color: '#141414', margin: 0, fontFamily: FONT }}>Autoriser la personnalisation</h2>
+                </div>
+                <div style={{ fontSize: 12.5, color: '#6B7785', lineHeight: 1.5, marginTop: 4 }}>
+                  L'acheteur pourra remplir des champs (nom, photo, fichier…) avant de commander.
+                </div>
+              </div>
+            </div>
+
+            {customization.allow && (
+              <div style={{ borderTop: '1px dashed #E3E6EB', paddingTop: 20 }}>
+
+                <Field label="Instructions pour l'acheteur" hint="Ce qu'il doit envoyer, formats acceptés, contraintes…">
+                  <textarea style={{ ...S.input, height: 80, resize: 'vertical', paddingTop: 10 }} className="ap-in"
+                    value={customization.instructions}
+                    onChange={(e) => setCust('instructions', e.target.value)}
+                    placeholder="Ex : Envoyez votre logo en HD (300dpi), format PNG ou AI, fond transparent." />
+                </Field>
+
+                {/* Comment fixer le prix ? */}
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 700, color: '#3D4853', marginBottom: 10 }}>Comment fixer le prix ?</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 10 }}>
+                    <ModeRadio
+                      active={customization.mode === 'fixed'}
+                      onClick={() => setCust('mode', 'fixed')}
+                      title="Prix fixe"
+                      desc="Je sais combien facturer en plus. L'acheteur commande directement."
+                    />
+                    <ModeRadio
+                      active={customization.mode === 'quote'}
+                      onClick={() => setCust('mode', 'quote')}
+                      title="Sur devis"
+                      desc="Je veux voir la demande avant de fixer le prix. L'acheteur attend ma réponse."
+                    />
+                  </div>
+                </div>
+
+                {/* Mode fixed : obligatoire + surcoût */}
+                {customization.mode === 'fixed' && (
+                  <>
+                    <div style={{ marginBottom: 16 }}>
+                      <div style={{ fontSize: 12.5, fontWeight: 700, color: '#3D4853', marginBottom: 10 }}>La personnalisation est…</div>
+                      <div style={S.segRow}>
+                        <button type="button"
+                          style={{ ...S.modeBtn, ...(!customization.required ? S.modeBtnOn : null) }}
+                          onClick={() => setCust('required', false)}>
+                          Optionnelle
+                        </button>
+                        <button type="button"
+                          style={{ ...S.modeBtn, ...(customization.required ? S.modeBtnOn : null) }}
+                          onClick={() => setCust('required', true)}>
+                          Obligatoire
+                        </button>
+                      </div>
+                      <p style={S.helper}>
+                        {customization.required
+                          ? '« Obligatoire » : l\'acheteur DOIT personnaliser pour commander (ex. bracelet avec prénom).'
+                          : '« Optionnelle » : l\'acheteur peut choisir de personnaliser ou non (ex. mug photo).'}
+                      </p>
+                    </div>
+
+                    <Field label="Surcoût par unité (TND)" hint="Laisser à 0 si le prix perso est déjà inclus.">
+                      <input type="number" step="0.001" min="0" style={{ ...S.input, maxWidth: 200 }} className="ap-in"
+                        value={customization.extra_price}
+                        onChange={(e) => setCust('extra_price', e.target.value)}
+                        placeholder="0.000" />
+                    </Field>
+                  </>
+                )}
+
+                {customization.mode === 'quote' && (
+                  <div style={{ display: 'flex', gap: 10, background: '#FEF9E7', border: '1px solid #FDE68A', borderRadius: 10, padding: 12, marginBottom: 20, fontSize: 12.5, color: '#78530A' }}>
+                    <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 1 }} />
+                    <span>Chaque demande arrivera dans ta messagerie. Tu répondras avec un prix et une validité. L'acheteur pourra accepter pour ajouter au panier.</span>
+                  </div>
+                )}
+
+                {/* Champs à remplir */}
+                <div style={{ borderTop: '1px dashed #E3E6EB', paddingTop: 18 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: '#141414' }}>Champs à remplir par l'acheteur</span>
+                    <span style={{ fontSize: 11.5, color: '#9aa3ae' }}>({customization.fields.length}/12)</span>
+                  </div>
+
+                  {customization.fields.length === 0 && (
+                    <p style={{ ...S.helper, marginTop: 0, marginBottom: 12 }}>Aucun champ. Ajoutes-en au moins un.</p>
+                  )}
+
+                  {customization.fields.map((f, i) => (
+                    <div key={f.tempId} style={S.customFieldRow}>
+                      <div style={S.customFieldNum}>{i + 1}</div>
+                      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 8 }}>
+                        <input style={{ ...S.input, height: 40 }} className="ap-in" placeholder="Ex : Prénom à graver, Photo à imprimer…"
+                          value={f.label} onChange={(e) => setCustomField(f.tempId, 'label', e.target.value)} />
+                        <div style={S.selectWrap}>
+                          <select style={{ ...S.select, height: 40 }} className="ap-in"
+                            value={f.field_type} onChange={(e) => setCustomField(f.tempId, 'field_type', e.target.value)}>
+                            {CUSTOM_FIELD_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                          </select>
+                        </div>
+                      </div>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#3D4853', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                        <input type="checkbox" checked={f.required}
+                          onChange={(e) => setCustomField(f.tempId, 'required', e.target.checked)}
+                          style={{ accentColor: ORANGE }} />
+                        Requis
+                      </label>
+                      <button type="button" style={S.iconDanger} onClick={() => removeCustomField(f.tempId)}>
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  ))}
+
+                  <button type="button" style={S.addBtn}
+                    onClick={addCustomField}
+                    disabled={customization.fields.length >= 12}>
+                    <Plus size={15} /> Ajouter un champ
+                  </button>
+
+                  {errors.customization && <div style={{ ...S.errText, marginTop: 8 }}>{errors.customization}</div>}
+                </div>
+              </div>
+            )}
+          </section>
+
           {/* DISPONIBILITÉ */}
           <section style={S.card}>
             <SectionTitle icon={<Layers size={18} />} title="Disponibilité" />
@@ -603,7 +748,7 @@ export default function AddProductPage() {
             <p style={S.helper}>« Hors stock » affiche un badge sur la fiche produit et bloque l'ajout au panier.</p>
           </section>
 
-          {/* LIVRAISON */}
+          {/* LIVRAISON — INCHANGÉ */}
           <section style={S.card}>
             <SectionTitle icon={<Truck size={18} />} title="Livraison" />
             <div style={S.segRow}>
@@ -617,7 +762,6 @@ export default function AddProductPage() {
                 <input type="number" step="0.001" style={S.input} className="ap-in" value={form.shipping_price_tnd} onChange={(e) => set('shipping_price_tnd', e.target.value)} placeholder="0.000" />
               </Field>
             )}
-
             {form.shipping_mode === 'per_block' && (
               <div style={S.row2}>
                 <Field label="Tous les (articles)" hint="Palier de quantité">
@@ -628,7 +772,6 @@ export default function AddProductPage() {
                 </Field>
               </div>
             )}
-
             {form.shipping_mode === 'tiered' && (
               <div style={{ marginBottom: 8 }}>
                 <div style={{ ...S.shipRow, marginBottom: 6 }}>
@@ -657,7 +800,6 @@ export default function AddProductPage() {
             </Field>
           </section>
 
-          {/* SPECS */}
           <section style={S.card}>
             <SectionTitle icon={<FileText size={18} />} title="Caractéristiques" />
             <Field label="Spécifications" hint="Une par ligne au format « Clé: Valeur »">
@@ -668,10 +810,8 @@ export default function AddProductPage() {
           </section>
         </div>
 
-        {/* ═══════════ SIDEBAR ═══════════ */}
+        {/* SIDEBAR — inchangée */}
         <div style={S.side}>
-
-          {/* IMAGES */}
           <section style={S.card}>
             <SectionTitle icon={<ImageIcon size={18} />} title="Images" />
             <label style={S.dropzone} className="ap-drop">
@@ -688,11 +828,8 @@ export default function AddProductPage() {
               <div style={S.imgGrid}>
                 {images.map((im) => (
                   <div key={im.tempId} style={{ ...S.imgThumb, ...(im.is_primary ? S.imgThumbPrimary : null) }}>
-                    {im.uploading ? (
-                      <div style={S.imgLoading}><Loader2 size={20} className="ap-spin" /></div>
-                    ) : (
-                      <img src={im.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
-                    )}
+                    {im.uploading ? <div style={S.imgLoading}><Loader2 size={20} className="ap-spin" /></div>
+                      : <img src={im.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />}
                     {!im.uploading && (
                       <>
                         <button type="button" style={S.imgRemove} onClick={() => removeImage(im.tempId)}><X size={13} /></button>
@@ -719,21 +856,16 @@ export default function AddProductPage() {
                 <label style={S.dropzone} className="ap-drop">
                   <input type="file" accept="video/mp4,video/webm,video/quicktime,video/x-matroska" style={{ display: 'none' }}
                     onChange={(e) => { if (e.target.files[0]) handleVideo(e.target.files[0]); e.target.value = '' }} />
-                  {videoUploading
-                    ? <Loader2 size={24} className="ap-spin" color="#9aa3ae" />
+                  {videoUploading ? <Loader2 size={24} className="ap-spin" color="#9aa3ae" />
                     : <><Upload size={24} color="#c2c8d0" /><span style={{ fontSize: 13, color: '#6B7785', marginTop: 8, textAlign: 'center' }}>Uploader une vidéo<br /><span style={{ fontSize: 11, color: '#a5adb8' }}>MP4, WEBM, MOV · max 100 Mo</span></span></>}
                 </label>
               )}
-              {videoUploading && <div style={{ ...S.helper, marginTop: 6 }}>Compression en cours, ça peut prendre quelques secondes…</div>}
             </div>
           </section>
 
-          {/* CHOIX & VARIANTES */}
           <section style={S.card}>
             <SectionTitle icon={<Layers size={18} />} title="Choix & variantes" />
-            <p style={{ fontSize: 12, color: '#9aa3ae', margin: '-8px 0 16px', lineHeight: 1.5 }}>
-              Jusqu'à 5 groupes (ex : Couleur, Taille). Variantes illimitées par groupe.
-            </p>
+            <p style={{ fontSize: 12, color: '#9aa3ae', margin: '-8px 0 16px', lineHeight: 1.5 }}>Jusqu'à 5 groupes.</p>
 
             {choiceGroups.map((g, gi) => (
               <div key={gi} style={{ border: '1px solid #ECEEF2', borderRadius: 12, padding: 14, marginBottom: 12 }}>
@@ -742,27 +874,21 @@ export default function AddProductPage() {
                     value={g.name} onChange={(e) => setGroupName(gi, e.target.value)} />
                   <button type="button" style={S.iconDanger} onClick={() => removeGroup(gi)}><Trash2 size={16} /></button>
                 </div>
-
                 {g.variants.map((v, vi) => (
                   <div key={vi} style={S.variantRow}>
                     <label style={S.variantImg} className="ap-drop">
                       <input type="file" accept="image/*" style={{ display: 'none' }}
                         onChange={(e) => { if (e.target.files[0]) handleVariantFile(gi, vi, e.target.files[0]); e.target.value = '' }} />
-                      {v.uploading
-                        ? <Loader2 size={16} className="ap-spin" color="#9aa3ae" />
-                        : v.image_url
-                          ? <img src={v.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 }} />
-                          : <Plus size={16} color="#c2c8d0" />}
+                      {v.uploading ? <Loader2 size={16} className="ap-spin" color="#9aa3ae" />
+                        : v.image_url ? <img src={v.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 }} />
+                        : <Plus size={16} color="#c2c8d0" />}
                     </label>
                     <input style={{ ...S.input, flex: 1 }} className="ap-in" placeholder="Ex : Rose, XL…"
                       value={v.name} onChange={(e) => setVariant(gi, vi, 'name', e.target.value)} />
                     <button type="button" style={S.iconDanger} onClick={() => removeVariant(gi, vi)}><Trash2 size={16} /></button>
                   </div>
                 ))}
-
-                <button style={S.addBtn} onClick={() => addVariant(gi)} type="button">
-                  <Plus size={15} /> Ajouter une variante
-                </button>
+                <button style={S.addBtn} onClick={() => addVariant(gi)} type="button"><Plus size={15} /> Ajouter une variante</button>
               </div>
             ))}
 
@@ -773,13 +899,10 @@ export default function AddProductPage() {
             </button>
           </section>
 
-          {/* PUBLICATION */}
           <section style={S.card}>
             <SectionTitle icon={<CheckCircle2 size={18} />} title="Publication" />
             <p style={{ fontSize: 13, color: '#6B7785', lineHeight: 1.6, margin: '0 0 16px' }}>
-              {isEdit
-                ? <>Enregistre tes modifications. « <b>Soumettre</b> » renvoie le produit en validation ; « <b>brouillon</b> » le retire de la vente en attendant.</>
-                : <>Enregistre en <b>brouillon</b> pour continuer plus tard, ou <b>soumets pour validation</b> : un admin vérifie puis approuve ton produit.</>}
+              {isEdit ? <>Enregistre tes modifications.</> : <>Enregistre en <b>brouillon</b> ou <b>soumets pour validation</b>.</>}
             </p>
             <button type="button" style={S.btnPrimary} className="ap-btn-primary" disabled={submitting} onClick={() => submit('pending_review')}>
               {submitting ? <Loader2 size={16} className="ap-spin" /> : <CheckCircle2 size={16} />}
@@ -805,7 +928,7 @@ export default function AddProductPage() {
   )
 }
 
-/* ─────────── Sous-composants ─────────── */
+/* Sous-composants */
 function SectionTitle({ icon, title }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
@@ -822,53 +945,64 @@ function Field({ label, required, hint, error, children, style }) {
         {label}{required && <span style={{ color: ORANGE, marginLeft: 3 }}>*</span>}
       </label>
       {children}
-      {error
-        ? <div style={{ fontSize: 11.5, color: '#E11900', marginTop: 5 }}>{error}</div>
+      {error ? <div style={{ fontSize: 11.5, color: '#E11900', marginTop: 5 }}>{error}</div>
         : hint ? <div style={{ fontSize: 11.5, color: '#9aa3ae', marginTop: 5 }}>{hint}</div> : null}
     </div>
   )
 }
 
-/* ─────────── Styles ─────────── */
+function ModeRadio({ active, onClick, title, desc }) {
+  return (
+    <button type="button" onClick={onClick} style={{
+      textAlign: 'left', padding: 14, borderRadius: 12, cursor: 'pointer',
+      background: active ? '#FFF3EE' : '#fff',
+      border: `1.5px solid ${active ? ORANGE : '#E3E6EB'}`,
+      fontFamily: FONT,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+        <div style={{
+          width: 18, height: 18, borderRadius: '50%',
+          border: `2px solid ${active ? ORANGE : '#C8CCD3'}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+        }}>
+          {active && <div style={{ width: 8, height: 8, borderRadius: '50%', background: ORANGE }} />}
+        </div>
+        <span style={{ fontSize: 14, fontWeight: 700, color: active ? ORANGE : '#141414' }}>{title}</span>
+      </div>
+      <div style={{ fontSize: 12, color: '#6B7785', lineHeight: 1.45 }}>{desc}</div>
+    </button>
+  )
+}
+
 const S = {
   page: { minHeight: '100vh', background: '#F4F6FA', fontFamily: FONT, color: '#141414', padding: '28px clamp(16px, 3vw, 40px) 60px' },
-
   topbar: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff', border: '1px solid #ECEEF2', borderRadius: 16, padding: '18px 24px', marginBottom: 22, flexWrap: 'wrap', gap: 12 },
   topTitle: { fontFamily: "'Fraunces',serif", fontSize: 22, fontWeight: 600, margin: '0 0 4px', letterSpacing: -0.3 },
   breadcrumb: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#6B7785' },
   crumbLink: { color: '#6B7785', textDecoration: 'none' },
   draftBadge: { background: '#F3F0FF', color: '#7A5AF8', fontSize: 12, fontWeight: 600, padding: '6px 14px', borderRadius: 20 },
-
   layout: { display: 'grid', gridTemplateColumns: '1fr 360px', gap: 22, alignItems: 'start' },
   main: { display: 'flex', flexDirection: 'column', gap: 22, minWidth: 0 },
   side: { display: 'flex', flexDirection: 'column', gap: 22, position: 'sticky', top: 20 },
-
   card: { background: '#fff', border: '1px solid #ECEEF2', borderRadius: 18, padding: 24 },
   row2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 },
-
-  input: { width: '100%', height: 44, padding: '0 14px', border: '1.5px solid #E3E6EB', borderRadius: 10, fontSize: 14, color: '#141414', background: '#fff', fontFamily: FONT, outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.15s, box-shadow 0.15s' },
+  input: { width: '100%', height: 44, padding: '0 14px', border: '1.5px solid #E3E6EB', borderRadius: 10, fontSize: 14, color: '#141414', background: '#fff', fontFamily: FONT, outline: 'none', boxSizing: 'border-box' },
   selectWrap: { position: 'relative' },
   select: { width: '100%', height: 44, padding: '0 14px', border: '1.5px solid #E3E6EB', borderRadius: 10, fontSize: 14, color: '#141414', background: '#fff', fontFamily: FONT, outline: 'none', boxSizing: 'border-box', cursor: 'pointer', appearance: 'none', WebkitAppearance: 'none' },
-
   colHead: { fontSize: 11, color: '#9aa3ae', fontWeight: 600 },
   priceRow: { display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) 56px 40px', gap: 8, marginBottom: 8, alignItems: 'center' },
   shipRow: { display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr) 56px 40px', gap: 8, marginBottom: 8, alignItems: 'center' },
   rangePill: { fontSize: 11, fontWeight: 600, color: ORANGE, background: '#FFF3EE', borderRadius: 6, padding: '6px 3px', textAlign: 'center' },
   tierErr: { fontSize: 11.5, color: '#E11900', margin: '-2px 0 8px', display: 'flex', alignItems: 'center', gap: 5 },
-
   segRow: { display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' },
   modeBtn: { flex: 1, minWidth: 72, textAlign: 'center', padding: '10px 8px', borderRadius: 10, border: '1.5px solid #E3E6EB', background: '#fff', color: '#3D4853', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: FONT },
   modeBtnOn: { borderColor: ORANGE, background: '#FFF3EE', color: ORANGE },
   modeBtnDanger: { borderColor: '#E11900', background: '#FDF1F1', color: '#E11900' },
-
-  subLabel: { fontSize: 12.5, fontWeight: 600, color: '#3D4853', marginBottom: 10 },
   addBtn: { display: 'inline-flex', alignItems: 'center', gap: 6, background: '#FFF3EE', color: ORANGE, border: '1px dashed #FFC2A8', borderRadius: 10, padding: '9px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: FONT, marginTop: 4 },
   iconDanger: { width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FDF1F1', color: '#E11900', border: 'none', borderRadius: 9, cursor: 'pointer', flexShrink: 0 },
-
   errText: { fontSize: 11.5, color: '#E11900', marginTop: 6 },
   helper: { fontSize: 11.5, color: '#9aa3ae', margin: '10px 0 0', lineHeight: 1.5 },
-
-  dropzone: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 150, border: '2px dashed #E0E4EA', borderRadius: 14, cursor: 'pointer', background: '#FAFBFC', transition: 'border-color 0.15s, background 0.15s' },
+  dropzone: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 150, border: '2px dashed #E0E4EA', borderRadius: 14, cursor: 'pointer', background: '#FAFBFC' },
   imgGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginTop: 14 },
   imgThumb: { position: 'relative', aspectRatio: '1 / 1', borderRadius: 12, overflow: 'hidden', background: '#f2f3f5', border: '2px solid transparent' },
   imgThumbPrimary: { border: `2px solid ${ORANGE}` },
@@ -876,10 +1010,10 @@ const S = {
   imgRemove: { position: 'absolute', top: 5, right: 5, width: 22, height: 22, borderRadius: '50%', background: 'rgba(20,20,20,0.6)', color: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
   imgStar: { position: 'absolute', bottom: 5, left: 5, width: 24, height: 24, borderRadius: '50%', background: 'rgba(20,20,20,0.55)', color: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
   imgStarOn: { background: ORANGE },
-
   variantRow: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 },
   variantImg: { width: 44, height: 44, borderRadius: 10, border: '1.5px dashed #E0E4EA', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, background: '#FAFBFC', overflow: 'hidden' },
-
-  btnPrimary: { width: '100%', height: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: ORANGE, color: '#fff', border: 'none', borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: FONT, marginBottom: 10, transition: 'background 0.15s' },
-  btnGhost: { width: '100%', height: 44, background: '#F4F5F7', color: '#3D4853', border: 'none', borderRadius: 12, fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: FONT, transition: 'background 0.15s' },
+  customFieldRow: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, padding: 10, background: '#FAFBFC', borderRadius: 10, border: '1px solid #ECEEF2' },
+  customFieldNum: { width: 26, height: 26, borderRadius: '50%', background: '#FFF3EE', color: ORANGE, fontSize: 12, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  btnPrimary: { width: '100%', height: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: ORANGE, color: '#fff', border: 'none', borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: FONT, marginBottom: 10 },
+  btnGhost: { width: '100%', height: 44, background: '#F4F5F7', color: '#3D4853', border: 'none', borderRadius: 12, fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: FONT },
 }

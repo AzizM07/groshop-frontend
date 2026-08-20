@@ -17,21 +17,29 @@ const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-ser
      • Zone 3 (content dans MobileHome, 268→~398px) : 22% → 0% (blanc)
    La chute 100→60 est CONCENTRÉE dans les 46 premiers px (au-dessus
    de la searchbar), puis 60→0 s'étale sur les ~350px restants. */
-export const GRADIENT_TOP = '#ff6500'   // 100% orange — Y=0
-const   ORANGE_60         = '#fe8331'   // 60% mix     — Y=46 (haut searchbar)
-const   ORANGE_45         = '#fe9152d5'   // 45% mix     — Y=134 (bas header / haut spacer)
-export const GRADIENT_MID = '#ff9e62'   // 22% mix     — Y=268 (bas spacer / haut content)
-export const GRADIENT_END = '#FFFFFF'   //  0%         — Y=398 (milieu banner)
-const ORANGE_DEEP = '#ff6500'
-const ORANGE = '#FF7A00'
+/* ══════════════ GRADIENT GLOBAL RÉPARTI SUR 3 ZONES ══════════════
+   Palette plus vive et lumineuse : on part d'un orange chaud et saturé
+   en haut, avec un point de "brillance" avant de redescendre vers le blanc. */
+const ORANGE       = '#FF7A00'   // orange vif de base
+const ORANGE_DEEP  = '#FF4D00'   // orange-rouge intense (bouton recherche, actif)
+const ORANGE_BRIGHT= '#FFA733'   // touche lumineuse en haut du header
+export const GRADIENT_TOP = '#FF8C00'   // 100% — Y=0, vrai orange lumineux
+const   ORANGE_60          = '#FE9A45'  // 60%  — Y=46
+const   ORANGE_45          = '#FEA35C' // 45%  — Y=134
+export const GRADIENT_MID  = '#FFB578'  // 22%  — Y=268
+export const GRADIENT_END  = '#FFFFFF'  //  0%  — Y=398
 
-/* Header : 0 → 34% du header = 0 → Y=46, chute rapide 100→60.
-            34% → 100%          = Y=46 → Y=134, chute douce 60→45. */
-const HEADER_GRADIENT = `linear-gradient(180deg, ${GRADIENT_TOP} 0%, ${ORANGE_60} 34%, ${ORANGE_45} 100%)`
+/* Glow lumineux à réutiliser sur boutons/badges */
+const ORANGE_GLOW = `0 0 16px 3px ${ORANGE}88, 0 3px 8px ${ORANGE_DEEP}55`
 
-/* Spacer : continue la pente douce, 45% → 22%. Pas de palier plat. */
+/* Header : dégradé plus riche, avec une touche de brillance en haut à gauche
+   (simule un reflet lumineux) en plus du fondu vertical classique. */
+const HEADER_GRADIENT =
+  `radial-gradient(120% 100% at 15% 0%, ${ORANGE_BRIGHT} 0%, transparent 55%),
+   linear-gradient(180deg, ${GRADIENT_TOP} 0%, ${ORANGE_60} 34%, ${ORANGE_45} 100%)`
+
+/* Spacer : continue la pente douce, 45% → 22%. */
 const SPACER_GRADIENT = `linear-gradient(180deg, ${ORANGE_45} 0%, ${GRADIENT_MID} 100%)`
-
 const PRODUCT_ROUTES = ['/produit/:id']
 const HOME_ROUTES = ['/']
 const SEARCH_ROUTES = ['/search']

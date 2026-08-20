@@ -2,8 +2,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import {
-  Heart, Share2, Star, ChevronDown, ChevronRight, ChevronLeft, Minus, Plus,
-  Truck, MapPin, Store, ShoppingCart, BadgeCheck, ShieldCheck, RotateCcw, Check, Info, MessageCircle, Lock,
+  Heart, Share2, Star, ChevronDown, ChevronRight, Minus, Plus,
+  Truck, MapPin, Store, ShoppingCart, BadgeCheck, ShieldCheck, RotateCcw, Check, Info, MessageCircle, Lock, Sparkles,
 } from 'lucide-react'
 import { useCart } from '../context/CartContext'
 import { products as productsApi, messaging } from '../lib/api'
@@ -11,6 +11,7 @@ import { usePageTracking, trackProductEvent } from '../hooks/usePageTracking'
 import { useIsMobile } from '../hooks/useIsMobile'
 import MobileProductPage from '../components/MobileProductPage'
 import ProductCard from '../components/ProductCard'
+import CustomizationPopup from '../components/CustomizationPopup'
 
 const ORANGE='#FF5E20', ORANGE2='#FF7A45', NAVY='#1B1B4B', INK='#0F1419', SUB='#3D4853', MUTE='#6B7785', FAINT='#9AA3AE', LINE='#ECEEF1', BG='#F4F5F7', GREEN='#0E9F6E', RED='#DC2626'
 const FONT='"DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
@@ -30,9 +31,7 @@ const toCardProduct = (p = {}) => {
   const old = toNum(p.old_price_tnd)
   const gallery = Array.isArray(p.images) ? p.images.map(im => im?.url || im).filter(Boolean) : []
   return {
-    id: p.id,
-    name: productName(p),
-    price,
+    id: p.id, name: productName(p), price,
     was: old > price ? old : null,
     rating: toNum(p.rating_avg) || null,
     reviewCount: toInt(p.rating_count) || null,
@@ -49,12 +48,7 @@ const toCardProduct = (p = {}) => {
   }
 }
 
-const grid7 = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
-  gap: 'clamp(8px, 0.9vw, 16px)',
-  alignItems: 'start',
-}
+const grid7 = { display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: 'clamp(8px, 0.9vw, 16px)', alignItems: 'start' }
 
 function Stars({ value = 0, size = 15 }) {
   return <span style={{ display: 'inline-flex', gap: 1 }}>{[1, 2, 3, 4, 5].map(s => <Star key={s} size={size} fill={s <= Math.round(value) ? '#FFB800' : '#E3E6EA'} stroke="none" />)}</span>
@@ -62,11 +56,7 @@ function Stars({ value = 0, size = 15 }) {
 
 function Accordion({ title, trailing, defaultOpen = false, anchorRef, onOpen, children }) {
   const [open, setOpen] = useState(defaultOpen)
-  const toggle = () => setOpen(o => {
-    const next = !o
-    if (next && onOpen) onOpen()
-    return next
-  })
+  const toggle = () => setOpen(o => { const next = !o; if (next && onOpen) onOpen(); return next })
   return (
     <div ref={anchorRef} style={{ background: '#fff', borderRadius: 12, marginBottom: 12, overflow: 'hidden', border: `1px solid ${LINE}`, scrollMarginTop: STICKY_TOP }}>
       <button onClick={toggle} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '20px 24px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
@@ -99,7 +89,8 @@ function DesktopProductPage() {
   const [wishlisted, setWishlisted] = useState(false)
   const [added, setAdded] = useState(false)
   const [copied, setCopied] = useState(false)
-  const [contacting, setContacting] = useState(false)  // ⭐ ouverture de conversation
+  const [contacting, setContacting] = useState(false)
+  const [showCustomPopup, setShowCustomPopup] = useState(false)  // ⭐
 
   const descRef = useRef(null)
   const avisRef = useRef(null)
@@ -123,9 +114,7 @@ function DesktopProductPage() {
           const init = {}
           p.choice_groups.forEach(g => { if (g.variants?.length) init[g.id] = g.variants[0] })
           setSelected(init)
-        } else {
-          setSelected({})
-        }
+        } else { setSelected({}) }
       } catch { if (!cancelled) setError("Impossible de charger ce produit.") }
       finally { if (!cancelled) setLoading(false) }
     }
@@ -143,9 +132,6 @@ function DesktopProductPage() {
   }
   const share = () => { navigator.clipboard?.writeText(window.location.href); setCopied(true); setTimeout(() => setCopied(false), 1800) }
 
-  // ⭐ Contact fournisseur — démarre/récupère la conversation puis redirige.
-  //   Utilisé pour les produits à prix masqué, ET pour le bouton "Contacter"
-  //   de la carte fournisseur.
   const contactSupplier = async () => {
     const p = product
     if (!p?.supplier_slug || contacting) return
@@ -166,7 +152,14 @@ function DesktopProductPage() {
   if (error || !product) return <div style={{ minHeight: '70vh', display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center', justifyContent: 'center', background: BG, fontFamily: FONT }}><span style={{ color: MUTE }}>{error || 'Produit introuvable.'}</span><button onClick={() => navigate('/')} style={{ background: 'none', border: 'none', color: ORANGE, fontWeight: 700, cursor: 'pointer' }}>Retour à l'accueil</button></div>
 
   const p = product
-  const priceLocked = p.price_locked === true   // ⭐ backend gate B2B
+  const priceLocked = p.price_locked === true
+
+  // ⭐ Personnalisation
+  const canCustomize   = p.allow_customization === true && !priceLocked
+  const customMode     = p.customization_mode || 'fixed'
+  const isQuote        = canCustomize && customMode === 'quote'
+  const mustCustomize  = canCustomize && (isQuote || (customMode === 'fixed' && p.customization_required))
+  const customExtra    = toNum(p.customization_extra_price_tnd)
 
   const displayName = productName(p)
   const images = p.images?.length ? p.images : (p.primary_image ? [{ url: p.primary_image }] : [])
@@ -177,9 +170,7 @@ function DesktopProductPage() {
 
   const selectedVariantIds = (p.choice_groups || []).map(g => selected[g.id]?.id).filter(Boolean)
   const comboKey = [...selectedVariantIds].sort().join('|')
-  const activeCombo = comboKey
-    ? (p.variant_combos || []).find(c => [...(c.variant_ids || [])].sort().join('|') === comboKey)
-    : null
+  const activeCombo = comboKey ? (p.variant_combos || []).find(c => [...(c.variant_ids || [])].sort().join('|') === comboKey) : null
   const effectiveTiers = activeCombo?.price_tiers?.length ? activeCombo.price_tiers : tiers
 
   const moq = (effectiveTiers[0] ? toInt(effectiveTiers[0].min_qty) : 0) || toInt(p.moq) || 1
@@ -209,7 +200,7 @@ function DesktopProductPage() {
   const supplierBanner = p.supplier_banner || p.banner_url || p.supplier?.banner_url
 
   const doOrder = async () => {
-    if (!qtyValid || !inStock || priceLocked) return
+    if (!qtyValid || !inStock || priceLocked || mustCustomize) return
     const firstVariantId = Object.values(selected)[0]?.id ?? null
     const res = await add(p.id, parsedQty, firstVariantId)
     if (res?.ok) {
@@ -220,30 +211,30 @@ function DesktopProductPage() {
     else if (res?.reason === 'error') alert(res.message || "Impossible d'ajouter au panier.")
   }
 
+  const openCustomPopup = () => {
+    trackProductEvent(p.id, 'open_customize')
+    setShowCustomPopup(true)
+  }
+  const firstVariantId = Object.values(selected)[0]?.id ?? null
+
   return (
     <div style={{ background: BG, fontFamily: FONT, color: INK, paddingBottom: 40 }}>
       <div style={{ maxWidth: 1600, margin: '0 auto', padding: '20px clamp(4px, 1vw, 16px)' }}>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: MUTE, marginBottom: 16, flexWrap: 'wrap' }}>
           <Link to="/" style={{ color: MUTE, textDecoration: 'none' }}>Accueil</Link>
-          {p.category_name && p.category_slug && (
-            <>
-              <ChevronRight size={14} />
-              <Link to={`/search?cat=${p.category_slug}`} style={{ color: MUTE, textDecoration: 'none' }}>{p.category_name}</Link>
-            </>
-          )}
+          {p.category_name && p.category_slug && (<><ChevronRight size={14} /><Link to={`/search?cat=${p.category_slug}`} style={{ color: MUTE, textDecoration: 'none' }}>{p.category_name}</Link></>)}
           <ChevronRight size={14} />
           <span style={{ color: INK, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 320 }}>{displayName}</span>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) clamp(300px, 26vw, 380px)', gap: 'clamp(14px, 1.6vw, 26px)', alignItems: 'start' }}>
 
-          {/* ── COLONNE GAUCHE ── */}
+          {/* COLONNE GAUCHE */}
           <div style={{ minWidth: 0 }}>
             <div style={{ background: '#fff', borderRadius: 16, border: `1px solid ${LINE}`, padding: 'clamp(14px, 1.6vw, 24px)' }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.05fr) minmax(0, 1fr)', gap: 'clamp(18px, 2.2vw, 32px)', alignItems: 'start' }}>
 
-                {/* Galerie */}
                 <div style={{ minWidth: 0 }}>
                   <div style={{ position: 'relative', width: '100%', aspectRatio: '1', borderRadius: 10, overflow: 'hidden', background: '#F7F8FA' }}>
                     {mainImage
@@ -268,7 +259,6 @@ function DesktopProductPage() {
                   )}
                 </div>
 
-                {/* Infos produit */}
                 <div style={{ minWidth: 0 }}>
                   <h1 style={{ margin: 0, fontSize: 'clamp(19px, 1.5vw, 26px)', fontWeight: 800, lineHeight: 1.22, letterSpacing: '-0.3px' }}>{displayName}</h1>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
@@ -276,18 +266,21 @@ function DesktopProductPage() {
                     <button onClick={() => avisRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })} style={{ background: 'none', border: 'none', color: NAVY, fontSize: 13, textDecoration: 'underline', cursor: 'pointer', padding: 0 }}>{reviewCount} avis</button>
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 16 }}>
-                    {/* ⭐ Badges de promo/tarif masqués si prix verrouillé */}
                     {!priceLocked && oldPrice > unitPrice && <Badge bg={ORANGE} color="#fff">Promo</Badge>}
                     {!priceLocked && p.badge_flash && <Badge bg="#FFEDE4" color={ORANGE}>Soldes</Badge>}
                     {p.badge_choice && <Badge bg="#FFD000" color="#2E2E2E">Choice</Badge>}
                     {p.brand && <Badge bg="#EEF0FA" color={NAVY}>Marque {p.brand}</Badge>}
-                    {inStock
-                      ? <Badge bg="#E9F9F0" color={GREEN}>En stock</Badge>
-                      : <Badge bg="#FEECEC" color={RED}>Hors stock</Badge>}
+                    {inStock ? <Badge bg="#E9F9F0" color={GREEN}>En stock</Badge> : <Badge bg="#FEECEC" color={RED}>Hors stock</Badge>}
                     {priceLocked && <Badge bg="#FEF3C7" color="#92600A"><Lock size={11} style={{ verticalAlign: 'middle', marginRight: 4 }} />Prix réservé aux boutiques</Badge>}
+                    {/* ⭐ Badge personnalisable */}
+                    {canCustomize && (
+                      <Badge bg="#F3EEFF" color="#6D3EF5">
+                        <Sparkles size={11} style={{ verticalAlign: 'middle', marginRight: 4 }} />
+                        {isQuote ? 'Sur devis' : 'Personnalisable'}
+                      </Badge>
+                    )}
                   </div>
 
-                  {/* ⭐ Tiers masqués si prix verrouillé */}
                   {!priceLocked && effectiveTiers.length > 1 && (
                     <div style={{ display: 'flex', gap: 'clamp(16px, 2vw, 28px)', flexWrap: 'wrap', marginTop: 22 }}>
                       {effectiveTiers.map((t, i) => {
@@ -322,11 +315,7 @@ function DesktopProductPage() {
                           const on = selected[g.id]?.id === v.id
                           return (
                             <button key={v.id} title={v.name}
-                              onClick={() => {
-                                setSelected(s => ({ ...s, [g.id]: v }))
-                                if (v.image_url) setImgOverride(v.image_url)
-                                trackProductEvent(p.id, 'select_variant')
-                              }}
+                              onClick={() => { setSelected(s => ({ ...s, [g.id]: v })); if (v.image_url) setImgOverride(v.image_url); trackProductEvent(p.id, 'select_variant') }}
                               style={{ minWidth: 'clamp(54px, 4.6vw, 66px)', height: 'clamp(54px, 4.6vw, 66px)', padding: v.image_url ? 0 : '0 12px', borderRadius: 10, overflow: 'hidden', cursor: 'pointer', background: '#F7F8FA', border: `2px solid ${on ? ORANGE : '#E2E5E9'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: SUB }}>
                               {v.image_url ? <img src={v.image_url} alt={v.name} style={{ width: '100%', height: '100%', objectFit: 'cover'}} loading="lazy"/> : v.name}
                             </button>
@@ -339,19 +328,15 @@ function DesktopProductPage() {
               </div>
             </div>
 
-            {/* Carte société */}
+            {/* Carte société — inchangée */}
             {p.supplier_name && (() => {
               const hasBanner = !!supplierBanner
               return (
                 <div style={{ marginTop: 12, background: '#fff', border: `1px solid ${LINE}`, borderRadius: 16, overflow: 'hidden' }}>
-                  <div style={{
-                    padding: '20px 16px',
-                    background: hasBanner ? `url(${supplierBanner}) center/cover ` : '#fff',
-                  }}>
+                  <div style={{ padding: '20px 16px', background: hasBanner ? `url(${supplierBanner}) center/cover ` : '#fff' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
                       <div style={{ width: 56, height: 56, borderRadius: 14, background: '#fff', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', boxShadow: '0 2px 10px rgba(0,0,0,.18)' }}>
-                        {supplierLogo
-                          ? <img src={supplierLogo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+                        {supplierLogo ? <img src={supplierLogo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
                           : <span style={{ fontSize: 26, fontWeight: 900, color: ORANGE }}>{(p.supplier_name || '?')[0]}</span>}
                       </div>
                       <div style={{ flex: 1, minWidth: 140 }}>
@@ -367,7 +352,6 @@ function DesktopProductPage() {
                       <button onClick={contactSupplier} disabled={contacting} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 16px', borderRadius: 12, border: 'none', background: ORANGE, color: '#fff', fontSize: 13.5, fontWeight: 700, cursor: contacting ? 'wait' : 'pointer', opacity: contacting ? .7 : 1, whiteSpace: 'nowrap' }}><MessageCircle size={16} /> Contacter</button>
                     </div>
                   </div>
-
                   <div style={{ display: 'flex', margin: 16, borderRadius: 12, background: '#FAFBFC', border: `1px solid ${LINE}` }}>
                     <Stat label="Note boutique" value={p.supplier_rating ? `${toNum(p.supplier_rating).toFixed(1)}/5` : '—'} extra={p.supplier_rating_count ? `(${p.supplier_rating_count})` : ''} />
                     <StatSep />
@@ -379,7 +363,6 @@ function DesktopProductPage() {
               )
             })()}
 
-            {/* Accordéons */}
             <div style={{ marginTop: 24 }}>
               <Accordion title="Nos offres de garanties">
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, fontSize: 14, color: SUB }}>
@@ -453,38 +436,47 @@ function DesktopProductPage() {
             </div>
           </div>
 
-          {/* ── COLONNE DROITE : buybox sticky ── */}
+          {/* COLONNE DROITE : buybox sticky */}
           <div style={{ position: 'sticky', top: STICKY_TOP, display: 'flex', flexDirection: 'column', gap: 12 }}>
 
             {priceLocked ? (
-              /* ⭐ BUYBOX prix masqué — remplace prix + qté + total + CTA panier */
+              /* Buybox prix masqué — inchangée */
               <div style={{ background: '#fff', borderRadius: 14, border: `1px solid ${LINE}`, padding: 22 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-                  <div style={{ width: 44, height: 44, borderRadius: 12, background: '#FEF3C7', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Lock size={22} color="#92600A" />
-                  </div>
+                  <div style={{ width: 44, height: 44, borderRadius: 12, background: '#FEF3C7', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Lock size={22} color="#92600A" /></div>
                   <div>
                     <div style={{ fontSize: 17, fontWeight: 900, color: INK, letterSpacing: '-0.3px' }}>Prix sur devis</div>
                     <div style={{ fontSize: 12, color: MUTE, marginTop: 2 }}>Réservé aux boutiques</div>
                   </div>
                 </div>
-
                 <p style={{ margin: '0 0 16px', fontSize: 13, color: SUB, lineHeight: 1.55 }}>
-                  Ce fournisseur réserve ses tarifs aux boutiques vérifiées. Contactez-le pour obtenir un devis, ou <Link to="/dashboard/ma-boutique" style={{ color: ORANGE, fontWeight: 700, textDecoration: 'none' }}>vérifiez votre boutique</Link> pour voir tous les prix.
+                  Ce fournisseur réserve ses tarifs aux boutiques vérifiées. Contactez-le pour obtenir un devis, ou <Link to="/dashboard/ma-boutique" style={{ color: ORANGE, fontWeight: 700, textDecoration: 'none' }}>vérifiez votre boutique</Link>.
                 </p>
-
                 <button onClick={contactSupplier} disabled={contacting}
                   style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', padding: '15px', borderRadius: 12, border: 'none', color: '#fff', fontSize: 16, fontWeight: 800, cursor: contacting ? 'wait' : 'pointer', opacity: contacting ? .7 : 1, background: `linear-gradient(135deg, ${ORANGE2}, ${ORANGE})`, whiteSpace: 'nowrap' }}>
                   <MessageCircle size={18} /> {contacting ? 'Ouverture…' : 'Contacter le fournisseur'}
                 </button>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, padding: '10px 12px', background: '#F7F8FA', borderRadius: 10, fontSize: 12, color: MUTE }}>
-                  <Info size={14} color={MUTE} style={{ flexShrink: 0 }} />
-                  <span>Le fournisseur peut vous débloquer les prix depuis la conversation.</span>
+              </div>
+            ) : isQuote ? (
+              /* ⭐ Mode 'quote' : buybox "Sur devis" */
+              <div style={{ background: '#fff', borderRadius: 14, border: `1px solid ${LINE}`, padding: 22 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                  <div style={{ width: 44, height: 44, borderRadius: 12, background: '#F3EEFF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Sparkles size={22} color="#6D3EF5" /></div>
+                  <div>
+                    <div style={{ fontSize: 17, fontWeight: 900, color: INK, letterSpacing: '-0.3px' }}>Produit sur devis</div>
+                    <div style={{ fontSize: 12, color: MUTE, marginTop: 2 }}>Prix fixé après votre demande</div>
+                  </div>
                 </div>
+                <p style={{ margin: '0 0 16px', fontSize: 13, color: SUB, lineHeight: 1.55 }}>
+                  Ce produit est entièrement personnalisable. Remplissez le formulaire, le fournisseur vous enverra un devis dans la messagerie.
+                </p>
+                <button onClick={openCustomPopup}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', padding: '15px', borderRadius: 12, border: 'none', color: '#fff', fontSize: 16, fontWeight: 800, cursor: 'pointer', background: `linear-gradient(135deg, ${ORANGE2}, ${ORANGE})`, whiteSpace: 'nowrap' }}>
+                  <Sparkles size={18} /> Demander un devis
+                </button>
               </div>
             ) : (
-              /* Buybox standard */
+              /* Buybox standard (avec extras perso si applicables) */
               <div style={{ background: '#fff', borderRadius: 14, border: `1px solid ${LINE}`, padding: 18 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11.5, color: FAINT, marginBottom: 8 }}>Prix le + bas sur 30j <Info size={12} /></div>
                 {oldPrice > unitPrice && (
@@ -499,6 +491,13 @@ function DesktopProductPage() {
                   <span style={{ fontSize: 15, fontWeight: 800, color: ORANGE, marginTop: 3, marginLeft: 3 }}>TND</span>
                 </div>
                 <div style={{ fontSize: 12, color: MUTE, marginTop: 4 }}>/ {unit} · TVA incluse</div>
+
+                {/* ⭐ Note perso obligatoire */}
+                {mustCustomize && !isQuote && (
+                  <div style={{ marginTop: 10, padding: '8px 10px', background: '#F3EEFF', borderRadius: 8, fontSize: 12, color: '#6D3EF5', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Sparkles size={13} /> Personnalisation obligatoire{customExtra > 0 ? ` (+${fmt(customExtra)} TND/${unit})` : ''}
+                  </div>
+                )}
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 16, flexWrap: 'wrap' }}>
                   <div style={{ flex: 1, minWidth: 90, fontSize: 12.5, color: MUTE }}>MOQ <strong style={{ color: INK }}>{moq} {unit}</strong></div>
@@ -515,10 +514,27 @@ function DesktopProductPage() {
                   <span style={{ fontSize: 'clamp(17px, 1.4vw, 20px)', fontWeight: 900 }}>{fmt(total)} TND</span>
                 </div>
 
-                <button onClick={doOrder} disabled={!qtyValid || !inStock || adding === p.id}
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', padding: '15px', borderRadius: 12, border: 'none', color: '#fff', fontSize: 16, fontWeight: 800, cursor: (qtyValid && inStock) ? 'pointer' : 'default', opacity: (!qtyValid || !inStock || adding === p.id) ? .6 : 1, background: added ? GREEN : (!inStock ? '#B9BEC7' : `linear-gradient(135deg, ${ORANGE2}, ${ORANGE})`), whiteSpace: 'nowrap' }}>
-                  <ShoppingCart size={18} /> {!inStock ? 'Indisponible' : adding === p.id ? 'Ajout…' : added ? 'Ajouté ✓' : 'Ajouter au panier'}
-                </button>
+                {/* ⭐ CTA : selon mode perso */}
+                {mustCustomize ? (
+                  <button onClick={openCustomPopup} disabled={!qtyValid || !inStock}
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', padding: '15px', borderRadius: 12, border: 'none', color: '#fff', fontSize: 16, fontWeight: 800, cursor: (qtyValid && inStock) ? 'pointer' : 'default', opacity: (!qtyValid || !inStock) ? .6 : 1, background: `linear-gradient(135deg, ${ORANGE2}, ${ORANGE})`, whiteSpace: 'nowrap' }}>
+                    <Sparkles size={18} /> Personnaliser
+                  </button>
+                ) : (
+                  <>
+                    <button onClick={doOrder} disabled={!qtyValid || !inStock || adding === p.id}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', padding: '15px', borderRadius: 12, border: 'none', color: '#fff', fontSize: 16, fontWeight: 800, cursor: (qtyValid && inStock) ? 'pointer' : 'default', opacity: (!qtyValid || !inStock || adding === p.id) ? .6 : 1, background: added ? GREEN : (!inStock ? '#B9BEC7' : `linear-gradient(135deg, ${ORANGE2}, ${ORANGE})`), whiteSpace: 'nowrap' }}>
+                      <ShoppingCart size={18} /> {!inStock ? 'Indisponible' : adding === p.id ? 'Ajout…' : added ? 'Ajouté ✓' : 'Ajouter au panier'}
+                    </button>
+                    {/* ⭐ Bouton secondaire "Personnaliser" si optionnelle */}
+                    {canCustomize && !mustCustomize && (
+                      <button onClick={openCustomPopup}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', padding: '12px', marginTop: 8, borderRadius: 12, border: `1.5px solid ${ORANGE}`, background: '#fff', color: ORANGE, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
+                        <Sparkles size={16} /> Personnaliser{customExtra > 0 ? ` (+${fmt(customExtra)} TND/${unit})` : ''}
+                      </button>
+                    )}
+                  </>
+                )}
               </div>
             )}
 
@@ -527,7 +543,7 @@ function DesktopProductPage() {
               <Row icon={Truck}><strong>Livré par GROSHOP</strong></Row>
               <div style={{ height: 1, background: LINE, margin: '12px 0' }} />
               <Row icon={MapPin}>Chez vous dès <strong style={{ textTransform: 'capitalize' }}>{estStr}</strong></Row>
-              {!priceLocked && <Row icon={shippingPrice > 0 ? Truck : ShieldCheck}>{shippingPrice > 0 ? `Frais de livraison : ${fmt(shippingPrice)} TND` : 'Livraison offerte'}</Row>}
+              {!priceLocked && !isQuote && <Row icon={shippingPrice > 0 ? Truck : ShieldCheck}>{shippingPrice > 0 ? `Frais de livraison : ${fmt(shippingPrice)} TND` : 'Livraison offerte'}</Row>}
               <Row icon={RotateCcw}>Retours acceptés sous 7 jours</Row>
             </div>
           </div>
@@ -536,9 +552,7 @@ function DesktopProductPage() {
         {similar.length > 0 && (
           <div style={{ marginTop: 36 }}>
             <h2 style={{ margin: '0 0 16px', fontSize: 'clamp(18px, 1.4vw, 22px)', fontWeight: 800 }}>Produits similaires</h2>
-            <div style={grid7}>
-              {similar.map(sp => <ProductCard key={sp.id} product={toCardProduct(sp)} variant="mini" />)}
-            </div>
+            <div style={grid7}>{similar.map(sp => <ProductCard key={sp.id} product={toCardProduct(sp)} variant="mini" />)}</div>
             <div style={{ fontSize: 11.5, color: FAINT, marginTop: 8 }}>Sponsorisé</div>
           </div>
         )}
@@ -546,9 +560,7 @@ function DesktopProductPage() {
         {reco.length > 0 && (
           <div style={{ marginTop: 20 }}>
             <h2 style={{ margin: '0 0 16px', fontSize: 'clamp(18px, 1.4vw, 22px)', fontWeight: 800 }}>Nos clients ont apprécié</h2>
-            <div style={grid7}>
-              {reco.map(rp => <ProductCard key={rp.id} product={toCardProduct(rp)} variant="mini" />)}
-            </div>
+            <div style={grid7}>{reco.map(rp => <ProductCard key={rp.id} product={toCardProduct(rp)} variant="mini" />)}</div>
           </div>
         )}
 
@@ -557,14 +569,27 @@ function DesktopProductPage() {
             <img src={lightbox.photos[lightbox.index]?.url} alt="" onClick={e => e.stopPropagation()} style={{ maxWidth: '92vw', maxHeight: '86vh', objectFit: 'contain', borderRadius: 8 }} />
             {lightbox.photos.length > 1 && (
               <>
-                <button onClick={e => { e.stopPropagation(); setLightbox(l => ({ ...l, index: (l.index - 1 + l.photos.length) % l.photos.length })) }}
-                  style={{ position: 'fixed', left: 16, top: '50%', transform: 'translateY(-50%)', width: 48, height: 48, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,.15)', color: '#fff', cursor: 'pointer', fontSize: 24 }}>‹</button>
-                <button onClick={e => { e.stopPropagation(); setLightbox(l => ({ ...l, index: (l.index + 1) % l.photos.length })) }}
-                  style={{ position: 'fixed', right: 16, top: '50%', transform: 'translateY(-50%)', width: 48, height: 48, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,.15)', color: '#fff', cursor: 'pointer', fontSize: 24 }}>›</button>
+                <button onClick={e => { e.stopPropagation(); setLightbox(l => ({ ...l, index: (l.index - 1 + l.photos.length) % l.photos.length })) }} style={{ position: 'fixed', left: 16, top: '50%', transform: 'translateY(-50%)', width: 48, height: 48, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,.15)', color: '#fff', cursor: 'pointer', fontSize: 24 }}>‹</button>
+                <button onClick={e => { e.stopPropagation(); setLightbox(l => ({ ...l, index: (l.index + 1) % l.photos.length })) }} style={{ position: 'fixed', right: 16, top: '50%', transform: 'translateY(-50%)', width: 48, height: 48, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,.15)', color: '#fff', cursor: 'pointer', fontSize: 24 }}>›</button>
               </>
             )}
             <button onClick={() => setLightbox(null)} style={{ position: 'fixed', top: 16, right: 16, width: 44, height: 44, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,.15)', color: '#fff', cursor: 'pointer', fontSize: 22 }}>✕</button>
           </div>
+        )}
+
+        {/* ⭐ Popup de personnalisation */}
+        {showCustomPopup && (
+          <CustomizationPopup
+            product={p}
+            variantId={firstVariantId}
+            unitBasePrice={unitPrice}
+            onClose={() => setShowCustomPopup(false)}
+            onAdded={() => {
+              setAdded(true)
+              trackProductEvent(p.id, 'add_to_cart_customized')
+              setTimeout(() => setAdded(false), 2000)
+            }}
+          />
         )}
       </div>
     </div>

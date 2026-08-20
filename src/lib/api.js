@@ -316,16 +316,19 @@ export const cart = {
   async merge() {
   return request('/cart/merge/', { method: 'POST' })
 },
-  async add(productId, quantity = 1, variantId = null) {
-    return request('/cart/', {
-      method: 'POST',
-      body: JSON.stringify({
-        product_id: productId,
-        quantity,
-        variant_id: variantId,
-      }),
-    })
-  },
+async add(productId, quantity = 1, variantId = null, opts = {}) {
+  return request('/cart/', {
+    method: 'POST',
+    body: JSON.stringify({
+      product_id:              productId,
+      quantity,
+      variant_id:              variantId,
+      is_customized:           opts.isCustomized || false,
+      customization_values:    opts.customizationValues || [],
+      customization_request_id: opts.customizationRequestId || null,
+    }),
+  })
+},
 
   async updateQty(itemId, quantity) {
     return request(`/cart/${itemId}/`, {
@@ -562,4 +565,37 @@ export const access = {
   async revokeProduct(unlockId) {
     return request(`/products/access/revoke-product/${unlockId}/`, { method: 'POST' })
   },
+}
+
+// ─────────────────────────────────────────────
+// Customization (personnalisation produit + devis)
+// ─────────────────────────────────────────────
+export const customization = {
+  // Upload d'un fichier depuis la popup (photo, PDF, design…)
+  uploadFile: (file) => uploadFile('/products/upload-customization-file/', file),
+
+  // Buyer soumet la popup 'Personnaliser' (mode 'quote')
+  createRequest: (data) => request('/orders/customization-requests/', {
+    method: 'POST',
+    body: JSON.stringify(data),  // { product_id, variant_id?, quantity, values: [{field_id, label, field_type, value}] }
+  }),
+
+  // Liste des demandes de l'utilisateur (buyer OU supplier selon le rôle)
+  myRequests: () => request('/orders/customization-requests/'),
+
+  // Fournisseur envoie un devis
+  sendQuote: (id, data) => request(`/orders/customization-requests/${id}/quote/`, {
+    method: 'POST',
+    body: JSON.stringify(data),  // { quoted_price_tnd, validity_days, supplier_note? }
+  }),
+
+  // Buyer accepte → CartItem créé
+  accept: (id) => request(`/orders/customization-requests/${id}/accept/`, {
+    method: 'POST',
+  }),
+
+  // Buyer OU supplier refuse
+  reject: (id) => request(`/orders/customization-requests/${id}/reject/`, {
+    method: 'POST',
+  }),
 }
